@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dropradar
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - api-deployment.yaml
+  - api-service.yaml
+  - bot-deployment.yaml
+  - bot-service.yaml
+  - scraper-cronjob.yaml
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/name: dropradar
+  app.kubernetes.io/managed-by: kustomize

@@ -1,0 +1,87 @@
+package main
+
+import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/yourusername/dropradar/internal/config"
+	"github.com/yourusername/dropradar/internal/database"
+	"github.com/yourusername/dropradar/internal/scraper"
+)
+
+func main() {
+	// Setup logging
+	zerolog.TimeFieldFormat = time.RFC3339
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle shutdown signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		log.Info().Msg("Shutdown signal received")
+		cancel()
+	}()
+
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to load configuration")
+	}
+
+	// Set log level
+	level, err := zerolog.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		level = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(level)
+
+	log.Info().Msg("Starting Dropradar Scraper")
+
+	// Initialize database
+	db, err := database.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to connect to database")
+	}
+	defer db.Close()
+
+	// Initialize scraper
+	s := scraper.New(cfg, db)
+
+	// Scraper loop
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	log.Info().Msg("Starting scraper loop (interval: 60s)")
+
+	// Run immediately once
+	runScraper(ctx, s)
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("Scraper shutting down")
+			return
+		case <-ticker.C:
+			runScraper(ctx, s)
+		}
+	}
+}
+
+func runScraper(ctx context.Context, s *scraper.Scraper) {
+	log.Info().Msg("Starting scrape cycle")
+	if err := s.Run(ctx); err != nil {
+		log.Error().Err(err).Msg("Scraper cycle failed")
+	} else {
+		log.Info().Msg("Scraper cycle completed")
+	}
+}

@@ -1,0 +1,59 @@
+# Binaries
+bin/
+backend/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Root-level build artifacts (if accidentally built at root)
+/api
+/bot
+/scraper
+backend/api
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Kubernetes secrets
+infra/k8s/secret.yaml
+
+# Agent planning files
+.agent/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/

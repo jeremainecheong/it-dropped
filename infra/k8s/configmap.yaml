@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: dropradar
+data:
+  REGIONS: "us,uk,eu,jp,au"
+  LOG_LEVEL: "info"
+  API_PORT: "8080"
+  BOT_PORT: "8081"
+  GIN_MODE: "release"
