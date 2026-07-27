@@ -226,35 +226,49 @@ function ShopPageContent() {
             <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
             {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
-                <div className="flex items-center justify-between px-4 lg:px-8 h-12">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 hover:bg-muted">
+            <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-foreground">
+                <div className="flex items-stretch justify-between h-12 divide-x divide-border">
+                    <div className="flex items-stretch divide-x divide-border">
+                        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden flex items-center px-3 hover:bg-foreground hover:text-background transition-colors">
                             <Menu className="w-4 h-4" />
                         </button>
-                        <Link href="/" className="text-base font-medium tracking-wide uppercase">it dropped!</Link>
+                        <Link href="/" className="flex items-center gap-2 px-4 lg:px-5">
+                            <span className="font-mono text-[9px] text-signal">◉</span>
+                            <span className="text-base font-bold tracking-tight uppercase">it&nbsp;dropped</span>
+                        </Link>
                     </div>
 
-                    <nav className="hidden md:flex items-center gap-6">
-                        <Link href="/dashboard" className="text-sm uppercase tracking-wide link-underline">Dashboard</Link>
-                        <Link href="/shop" className="text-sm uppercase tracking-wide bg-foreground text-background px-3 py-1">Shop</Link>
-                        <Link href="/community" className="text-sm uppercase tracking-wide link-underline">Community</Link>
+                    <nav className="hidden md:flex items-stretch divide-x divide-border">
+                        {[
+                            { href: "/dashboard", label: "Dashboard", i: "03", active: false },
+                            { href: "/shop", label: "Shop", i: "01", active: true },
+                            { href: "/community", label: "Community", i: "02", active: false },
+                        ].map((l) => (
+                            <Link
+                                key={l.href}
+                                href={l.href}
+                                className={`group flex items-center gap-2 px-5 transition-colors ${l.active ? "bg-foreground text-background" : "hover:bg-foreground hover:text-background"}`}
+                            >
+                                <span className={`font-mono text-[9px] tracking-widest ${l.active ? "text-background/60" : "text-signal group-hover:text-background/60"}`}>{l.i}</span>
+                                <span className="text-xs uppercase tracking-[0.15em]">{l.label}</span>
+                            </Link>
+                        ))}
                     </nav>
 
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => setSearchOpen(true)} className="p-2 hover:bg-muted"><Search className="w-4 h-4" /></button>
-                        <ThemeToggle />
-                        {user && <NotificationBell />}
+                    <div className="ml-auto flex items-stretch divide-x divide-border">
+                        <button onClick={() => setSearchOpen(true)} className="flex items-center px-3 hover:bg-foreground hover:text-background transition-colors"><Search className="w-4 h-4" /></button>
+                        <div className="flex items-center px-3"><ThemeToggle /></div>
+                        {user && <div className="flex items-center px-3">{<NotificationBell />}</div>}
                         {user ? (
                             <>
-                                <Link href="/wishlist" className="p-2 hover:bg-muted"><Heart className="w-4 h-4" /></Link>
-                                <Link href="/profile" className="flex items-center gap-2 px-3 py-1.5 bg-foreground text-background text-xs tracking-wide">
-                                    <User className="w-3 h-3" />
-                                    {user.name?.split(" ")[0] || "Profile"}
+                                <Link href="/wishlist" className="hidden sm:flex items-center px-3 hover:bg-foreground hover:text-background transition-colors"><Heart className="w-4 h-4" /></Link>
+                                <Link href="/profile" className="flex items-center gap-2 px-4 bg-foreground text-background hover:bg-signal transition-colors">
+                                    <User className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-xs uppercase tracking-[0.15em]">{user.name?.split(" ")[0] || "Profile"}</span>
                                 </Link>
                             </>
                         ) : (
-                            <Link href="/login" className="text-xs uppercase tracking-wide link-underline">Account</Link>
+                            <Link href="/login" className="flex items-center px-5 bg-foreground text-background hover:bg-signal transition-colors text-xs uppercase tracking-[0.15em]">Account</Link>
                         )}
                     </div>
                 </div>
@@ -348,17 +362,19 @@ function ShopPageContent() {
 
                 {/* Main Content - scrolls independently */}
                 <main className="flex-1 h-[calc(100vh-48px)] overflow-y-auto">
-                    <div className="px-4 lg:px-8 py-4 border-b border-border flex items-center justify-between">
+                    <div className="px-4 lg:px-8 py-5 border-b border-foreground flex items-end justify-between sticky top-0 bg-background/95 backdrop-blur-sm z-20">
                         <div>
-                            <h1 className="text-sm uppercase tracking-widest">{viewMode === "latest" ? "Latest Drops" : "All Products"}</h1>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">{totalProducts.toLocaleString()} Products</p>
+                            <p className="mono-label text-signal mb-1">● {viewMode === "latest" ? "Live Index" : "Full Archive"}</p>
+                            <h1 className="display text-3xl md:text-4xl">{viewMode === "latest" ? "Latest Drops" : "All Products"}</h1>
                         </div>
-                        {hasActiveFilters && (
-                            <div className="flex items-center gap-2">
-                                <Filter className="w-3 h-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">Filtered</span>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                            {hasActiveFilters && (
+                                <span className="flex items-center gap-1.5 text-signal">
+                                    <Filter className="w-3 h-3" /> Filtered
+                                </span>
+                            )}
+                            <span>{totalProducts.toLocaleString()} Items</span>
+                        </div>
                     </div>
 
                     <div className="px-4 lg:px-8 py-6">
@@ -398,26 +414,27 @@ function ShopPageContent() {
                                 ))}
                             </div>
                         ) : (
-                            // Grid View
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            // Grid View — hairline gallery
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 border-t border-l border-border">
                                 {products.map((product, index) => {
                                     const inWishlist = isInWishlist(product.id)
                                     return (
-                                        <div key={product.id} className={`group transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`} style={{ transitionDelay: `${Math.min(index * 15, 150)}ms` }}>
-                                            <div className="relative aspect-[3/4] bg-muted mb-2 overflow-hidden">
-                                                <button onClick={() => handleWishlist(product)} className={`absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center transition-all ${inWishlist ? "bg-foreground text-background" : "bg-background opacity-0 group-hover:opacity-100"}`}>
+                                        <div key={product.id} className={`group relative border-r border-b border-border bg-background transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`} style={{ transitionDelay: `${Math.min(index * 15, 150)}ms` }}>
+                                            <div className="relative aspect-[3/4] bg-muted overflow-hidden">
+                                                <span className="absolute top-0 left-0 z-10 font-mono text-[9px] uppercase tracking-widest bg-foreground text-background px-1.5 py-1">{String(index + 1).padStart(3, "0")}</span>
+                                                <span className="absolute top-0 right-0 z-10 font-mono text-[9px] uppercase tracking-widest bg-signal text-signal-foreground px-1.5 py-1">{product.region}</span>
+                                                <button onClick={() => handleWishlist(product)} className={`absolute bottom-2 right-2 z-10 w-7 h-7 flex items-center justify-center transition-all ${inWishlist ? "bg-signal text-signal-foreground" : "bg-background opacity-0 group-hover:opacity-100"}`}>
                                                     <Heart className={`w-3 h-3 ${inWishlist ? "fill-current" : ""}`} />
                                                 </button>
-                                                <span className="absolute top-2 left-2 px-1.5 py-0.5 bg-background text-[9px] uppercase tracking-wider">{product.region}</span>
-                                                {!product.is_available && <div className="absolute inset-0 bg-background/70 flex items-center justify-center"><span className="text-[10px] uppercase">Sold Out</span></div>}
+                                                {!product.is_available && <div className="absolute inset-0 bg-background/70 flex items-center justify-center"><span className="font-mono text-[10px] uppercase tracking-widest">Sold Out</span></div>}
                                                 <Link href={`/product/${product.id}`} className="block w-full h-full">
                                                     <ImageWithLoading src={product.image_url} alt={product.title} className="w-full h-full object-cover product-image-zoom" />
                                                 </Link>
-                                                <Link href={`/product/${product.id}`} className="absolute bottom-0 left-0 right-0 py-2.5 bg-foreground text-background text-center text-[10px] uppercase tracking-wider opacity-0 group-hover:opacity-100 translate-y-full group-hover:translate-y-0 transition-all duration-200">View Details</Link>
+                                                <Link href={`/product/${product.id}`} className="absolute bottom-0 left-0 right-0 py-2.5 bg-foreground text-background text-center font-mono text-[9px] uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 translate-y-full group-hover:translate-y-0 transition-all duration-200">View Details →</Link>
                                             </div>
-                                            <Link href={`/product/${product.id}`}>
-                                                <h3 className="text-[11px] uppercase tracking-wide leading-snug mb-0.5 line-clamp-2">{product.title}</h3>
-                                                <p className="text-[11px] text-muted-foreground">{formatPrice(product.price, product.currency)}</p>
+                                            <Link href={`/product/${product.id}`} className="flex items-start justify-between gap-2 px-2.5 py-2.5">
+                                                <h3 className="text-[11px] uppercase tracking-wide leading-snug line-clamp-2">{product.title}</h3>
+                                                <p className="font-mono text-[11px] shrink-0">{formatPrice(product.price, product.currency)}</p>
                                             </Link>
                                         </div>
                                     )
@@ -432,9 +449,9 @@ function ShopPageContent() {
                                 ) : (
                                     <button
                                         onClick={() => loadMore()}
-                                        className="px-6 py-2 border border-border text-xs uppercase tracking-widest hover:bg-muted transition-colors"
+                                        className="px-8 py-3 border border-foreground font-mono text-[10px] uppercase tracking-[0.25em] hover:bg-foreground hover:text-background transition-colors"
                                     >
-                                        Load More
+                                        Load More +
                                     </button>
                                 )}
                             </div>

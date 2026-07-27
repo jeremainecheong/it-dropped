@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, ArrowUpRight, Users, Eye, TrendingUp, MessageCircle, Heart, Globe, Menu, X } from "lucide-react"
+import { ArrowUpRight, Menu, X } from "lucide-react"
+import { Marquee } from "@/components/ui/marquee"
 
 // Mock data for social proof
 const MOCK_ACTIVITY = [
@@ -20,11 +21,32 @@ const MOCK_DROPS = [
   { title: "Stock Logo Hoodie", price: "$165", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/118572_CHAR_1.jpg", region: "EU", watchers: 912 },
 ]
 
-const STATS = [
-  { label: "Active Users", value: "12.4K", icon: Users },
-  { label: "Drops Tracked", value: "847K", icon: Eye },
-  { label: "Saves Today", value: "2.3K", icon: Heart },
-  { label: "Regions", value: "6", icon: Globe },
+const TICKER = [
+  "IT DROPPED",
+  "SS26 ARCHIVE",
+  "LIVE DROP TRACKING",
+  "6 REGIONS WORLDWIDE",
+  "NEVER MISS A RELEASE",
+  "RESTOCK ALERTS",
+  "PRICE INTELLIGENCE",
+]
+
+const MANIFESTO = [
+  {
+    index: "01",
+    title: "Six regions",
+    body: "US, UK, EU, Japan, Australia & Singapore — monitored in parallel. Compare the same piece across every storefront, instantly.",
+  },
+  {
+    index: "02",
+    title: "Price intelligence",
+    body: "Full price history, trend lines and cross-region arbitrage. Know the floor before you check out. Never overpay again.",
+  },
+  {
+    index: "03",
+    title: "A shared eye",
+    body: "See what the community is watching in real time. Saves, alerts and the collective radar — the whole floor, one feed.",
+  },
 ]
 
 export default function LandingPage() {
@@ -34,7 +56,6 @@ export default function LandingPage() {
 
   useEffect(() => {
     setIsMounted(true)
-    // Rotate activity feed
     const interval = setInterval(() => {
       setCurrentActivity((prev) => (prev + 1) % MOCK_ACTIVITY.length)
     }, 3000)
@@ -42,266 +63,333 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-foreground selection:text-background">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="flex items-center justify-between px-6 lg:px-12 h-14">
-          <Link href="/" className="text-lg font-medium tracking-tight uppercase">
-            it dropped<span className="text-muted-foreground">!</span>
-          </Link>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* ============ HEADER ============ */}
+      <div className="fixed top-0 left-0 right-0 z-50">
+        {/* Ticker */}
+        <div className="bg-signal text-signal-foreground border-b border-foreground/10">
+          <Marquee
+            duration={38}
+            className="py-1.5 font-mono text-[10px] uppercase tracking-[0.2em]"
+            items={TICKER.map((t) => (
+              <span key={t}>{t}</span>
+            ))}
+            separator={<span aria-hidden className="px-4 opacity-60">/</span>}
+          />
+        </div>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/shop" className="text-sm tracking-wide hover:text-muted-foreground transition-colors">Shop</Link>
-            <Link href="/community" className="text-sm tracking-wide hover:text-muted-foreground transition-colors">Community</Link>
-            <Link href="/dashboard" className="text-sm tracking-wide hover:text-muted-foreground transition-colors">Dashboard</Link>
-            <Link href="/login" className="px-4 py-2 bg-foreground text-background text-sm tracking-wide hover:bg-foreground/90 transition-colors">
-              Sign In
+        <header className="bg-background/95 backdrop-blur-sm border-b border-foreground">
+          <div className="flex items-stretch justify-between h-14 divide-x divide-border">
+            <Link href="/" className="flex items-center gap-2 px-4 lg:px-6 shrink-0">
+              <span className="font-mono text-[9px] text-signal">◉</span>
+              <span className="text-base font-bold tracking-tight uppercase">it&nbsp;dropped</span>
             </Link>
-          </nav>
 
-          {/* Mobile Menu Button */}
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2">
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden absolute top-14 left-0 right-0 bg-background border-b border-border p-6">
-            <nav className="flex flex-col gap-4">
-              <Link href="/shop" className="text-lg tracking-wide">Shop</Link>
-              <Link href="/community" className="text-lg tracking-wide">Community</Link>
-              <Link href="/dashboard" className="text-lg tracking-wide">Dashboard</Link>
-              <Link href="/login" className="px-4 py-3 bg-foreground text-background text-center text-lg tracking-wide">Sign In</Link>
+            <nav className="hidden md:flex items-stretch divide-x divide-border">
+              {[
+                { href: "/shop", label: "Shop", i: "01" },
+                { href: "/community", label: "Community", i: "02" },
+                { href: "/dashboard", label: "Dashboard", i: "03" },
+              ].map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="group flex items-center gap-2 px-5 hover:bg-foreground hover:text-background transition-colors"
+                >
+                  <span className="font-mono text-[9px] tracking-widest text-signal group-hover:text-background/60">{l.i}</span>
+                  <span className="text-xs uppercase tracking-[0.15em]">{l.label}</span>
+                </Link>
+              ))}
+              <Link
+                href="/login"
+                className="flex items-center px-6 bg-foreground text-background hover:bg-signal transition-colors text-xs uppercase tracking-[0.15em]"
+              >
+                Sign&nbsp;In
+              </Link>
             </nav>
-          </div>
-        )}
-      </header>
 
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center pt-14">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/20" />
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden flex items-center px-4">
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-foreground bg-background">
+              <nav className="flex flex-col divide-y divide-border">
+                {[
+                  { href: "/shop", label: "Shop", i: "01" },
+                  { href: "/community", label: "Community", i: "02" },
+                  { href: "/dashboard", label: "Dashboard", i: "03" },
+                ].map((l) => (
+                  <Link key={l.href} href={l.href} className="flex items-center gap-3 px-6 py-4">
+                    <span className="font-mono text-[10px] text-signal">{l.i}</span>
+                    <span className="text-lg uppercase tracking-wide">{l.label}</span>
+                  </Link>
+                ))}
+                <Link href="/login" className="px-6 py-4 bg-foreground text-background text-lg uppercase tracking-wide">Sign In →</Link>
+              </nav>
+            </div>
+          )}
+        </header>
+      </div>
+
+      {/* ============ HERO ============ */}
+      <section className="relative pt-[6.5rem] border-b border-foreground">
+        {/* meta bar */}
+        <div className="flex items-center justify-between px-4 lg:px-6 py-2 border-b border-border font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span>Issue Nº 001 — SS26</span>
+          <span className="hidden sm:inline">Stüssy Drop Radar</span>
+          <span className="flex items-center gap-2">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-signal" />
+            </span>
+            Live
+          </span>
         </div>
 
-        <div className="relative w-full px-6 lg:px-12 py-20">
-          <div className="grid lg:grid-cols-2 gap-16 items-center max-w-7xl mx-auto">
-            {/* Left - Text Content */}
-            <div className={`space-y-8 transition-all duration-1000 ${isMounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-              {/* Live Activity Badge */}
-              <div className="inline-flex items-center gap-3 px-4 py-2 bg-muted/50 border border-border">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                </span>
-                <span className="text-xs tracking-wide text-muted-foreground">
-                  {MOCK_ACTIVITY[currentActivity]?.user} just {MOCK_ACTIVITY[currentActivity]?.action} an item
-                </span>
-              </div>
-
-              <h1 className="text-5xl lg:text-7xl font-light leading-[0.95] tracking-tight">
-                Track Stüssy
-                <br />
-                drops with the
-                <br />
-                <span className="font-normal italic">community</span>
-              </h1>
-
-              <p className="text-lg text-muted-foreground max-w-md leading-relaxed">
-                Join thousands of collectors tracking drops, comparing prices, and never missing a release across 6 regions worldwide.
+        <div className="grid lg:grid-cols-12">
+          {/* Left — oversized editorial type */}
+          <div className="lg:col-span-8 border-b lg:border-b-0 lg:border-r border-foreground px-4 lg:px-6 py-10 lg:py-16 flex flex-col justify-between">
+            <div className={isMounted ? "animate-rise" : "opacity-0"}>
+              <p className="mono-label text-muted-foreground mb-8">
+                {MOCK_ACTIVITY[currentActivity]?.user}&nbsp;just&nbsp;{MOCK_ACTIVITY[currentActivity]?.action}&nbsp;&mdash;&nbsp;{MOCK_ACTIVITY[currentActivity]?.region}
               </p>
 
-              <div className="flex flex-wrap items-center gap-4">
-                <Link href="/signup" className="group flex items-center gap-3 px-6 py-4 bg-foreground text-background text-sm tracking-wide font-medium hover:bg-foreground/90 transition-colors">
-                  Start Tracking Free
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <h1 className="display text-[clamp(3.25rem,15vw,13rem)]">
+                It
+                <br />
+                <span className="inline-flex items-baseline gap-[0.15em]">
+                  Drop<span className="text-signal">ped</span>
+                </span>
+              </h1>
+
+              <p className="serif-accent text-[clamp(1.75rem,4.5vw,3.25rem)] leading-[1] mt-4 text-muted-foreground">
+                the whole floor, one feed.
+              </p>
+            </div>
+
+            <div className={`mt-12 lg:mt-16 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-8 ${isMounted ? "animate-rise" : "opacity-0"}`}>
+              <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+                A live index of every Stüssy release across six regions. Track drops,
+                clock restocks, compare prices and move before it&apos;s gone.
+              </p>
+              <div className="flex flex-wrap items-center gap-px bg-foreground">
+                <Link
+                  href="/signup"
+                  className="group flex items-center gap-3 px-6 py-4 bg-foreground text-background text-xs uppercase tracking-[0.15em] hover:bg-signal transition-colors"
+                >
+                  Start Tracking
+                  <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </Link>
-                <Link href="/shop" className="px-6 py-4 border border-border text-sm tracking-wide hover:bg-muted transition-colors">
+                <Link
+                  href="/shop"
+                  className="px-6 py-4 bg-background text-xs uppercase tracking-[0.15em] hover:bg-foreground hover:text-background transition-colors"
+                >
                   Browse Drops
                 </Link>
               </div>
-
-              {/* Stats Row */}
-              <div className="flex flex-wrap gap-8 pt-4">
-                {STATS.slice(0, 3).map((stat) => (
-                  <div key={stat.label} className="flex items-center gap-3">
-                    <stat.icon className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xl font-medium">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
+          </div>
 
-            {/* Right - Product Preview Grid */}
-            <div className={`relative transition-all duration-1000 delay-300 ${isMounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-              <div className="grid grid-cols-2 gap-3">
-                {MOCK_DROPS.map((drop, i) => (
-                  <div
-                    key={drop.title}
-                    className="group relative bg-muted aspect-[3/4] overflow-hidden"
-                    style={{ animationDelay: `${i * 100}ms` }}
-                  >
-                    <img
-                      src={drop.image}
-                      alt={drop.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform">
-                      <p className="text-white text-xs font-medium truncate">{drop.title}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-white/80 text-xs">{drop.price}</span>
-                        <span className="flex items-center gap-1 text-white/60 text-xs">
-                          <Eye className="w-3 h-3" />
-                          {drop.watchers}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="absolute top-2 right-2 px-2 py-0.5 bg-white text-black text-[10px] font-medium uppercase">
-                      {drop.region}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Floating Social Card */}
-              <div className="absolute -bottom-6 -left-6 p-4 bg-background border border-border shadow-xl max-w-[200px]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="w-6 h-6 rounded-full bg-muted border-2 border-background" />
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">+2.4K online</span>
+          {/* Right — gallery stack */}
+          <div className="lg:col-span-4 grid grid-cols-2 grid-rows-2 divide-x divide-y divide-border">
+            {MOCK_DROPS.map((drop, i) => (
+              <Link
+                key={drop.title}
+                href="/shop"
+                className="group relative aspect-square bg-muted overflow-hidden"
+              >
+                <img
+                  src={drop.image}
+                  alt={drop.title}
+                  className="w-full h-full object-cover product-image-zoom"
+                />
+                <span className="absolute top-2 left-2 font-mono text-[9px] uppercase tracking-widest bg-background/90 text-foreground px-1.5 py-0.5">
+                  {String(i + 1).padStart(2, "0")} / {drop.region}
+                </span>
+                <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform bg-foreground text-background px-2 py-1.5">
+                  <p className="font-mono text-[9px] uppercase tracking-wider truncate">{drop.title}</p>
+                  <p className="font-mono text-[9px] text-signal">{drop.price}</p>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  See what others are tracking in real-time
-                </p>
-              </div>
-            </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Live Activity Feed Section */}
-      <section className="border-t border-border py-20 px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">Live Feed</p>
-              <h2 className="text-3xl lg:text-4xl font-light">Community Activity</h2>
-            </div>
-            <Link href="/shop" className="hidden md:flex items-center gap-2 text-sm tracking-wide hover:text-muted-foreground transition-colors">
-              View All <ArrowUpRight className="w-4 h-4" />
+      {/* ============ MARQUEE DIVIDER ============ */}
+      <div className="bg-foreground text-background border-b border-foreground overflow-hidden">
+        <Marquee
+          duration={30}
+          className="py-4"
+          items={[
+            <span key="1" className="display text-3xl md:text-5xl">Latest Drops</span>,
+            <span key="2" className="serif-accent text-3xl md:text-5xl text-signal">new this week</span>,
+            <span key="3" className="display text-3xl md:text-5xl">Restocks</span>,
+            <span key="4" className="serif-accent text-3xl md:text-5xl text-signal">price alerts</span>,
+          ]}
+          separator={<span aria-hidden className="px-6 text-signal text-3xl md:text-5xl">✱</span>}
+        />
+      </div>
+
+      {/* ============ DROPS INDEX ============ */}
+      <section className="border-b border-foreground">
+        <div className="flex items-end justify-between px-4 lg:px-6 py-6 border-b border-border">
+          <div>
+            <p className="mono-label text-muted-foreground mb-2">Index / 004</p>
+            <h2 className="display text-4xl md:text-6xl">On&nbsp;the&nbsp;Radar</h2>
+          </div>
+          <Link href="/shop" className="hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] link-underline">
+            All Drops <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y divide-border border-b border-border">
+          {MOCK_DROPS.map((drop, i) => (
+            <Link key={drop.title} href="/shop" className="group relative bg-background">
+              <div className="relative aspect-[3/4] bg-muted overflow-hidden">
+                <img src={drop.image} alt={drop.title} className="w-full h-full object-cover product-image-zoom" />
+                <span className="absolute top-0 left-0 font-mono text-[9px] uppercase tracking-widest bg-foreground text-background px-2 py-1">
+                  {String(i + 1).padStart(3, "0")}
+                </span>
+                <span className="absolute top-0 right-0 font-mono text-[9px] uppercase tracking-widest bg-signal text-signal-foreground px-2 py-1">
+                  {drop.region}
+                </span>
+                <div className="absolute inset-x-0 bottom-0 bg-foreground text-background px-2 py-2 translate-y-full group-hover:translate-y-0 transition-transform font-mono text-[9px] uppercase tracking-wider flex items-center justify-between">
+                  <span>◉ {drop.watchers} watching</span>
+                  <span className="text-signal">View →</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-3 py-2.5">
+                <h3 className="text-[11px] uppercase tracking-wide truncate pr-2">{drop.title}</h3>
+                <span className="font-mono text-[11px] shrink-0">{drop.price}</span>
+              </div>
             </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ============ TRANSMISSION LOG ============ */}
+      <section className="border-b border-foreground">
+        <div className="grid lg:grid-cols-12">
+          <div className="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-border px-4 lg:px-6 py-8 flex lg:flex-col justify-between">
+            <div>
+              <p className="mono-label text-signal mb-3">● Live Feed</p>
+              <h2 className="display text-3xl md:text-4xl">Trans&shy;mission</h2>
+            </div>
+            <p className="serif-accent text-xl text-muted-foreground self-end">real-time radar</p>
           </div>
 
-          <div className="space-y-4">
+          <div className="lg:col-span-9 divide-y divide-border">
             {MOCK_ACTIVITY.map((activity, i) => (
               <div
                 key={i}
-                className={`flex items-center justify-between p-4 border border-border hover:bg-muted/50 transition-colors ${i === currentActivity ? "border-foreground/50" : ""}`}
+                className={`grid grid-cols-12 items-center gap-2 px-4 lg:px-6 py-4 transition-colors ${
+                  i === currentActivity ? "bg-muted" : ""
+                }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-medium uppercase">
-                    {activity.user.slice(0, 2)}
-                  </div>
-                  <div>
-                    <p className="text-sm">
-                      <span className="font-medium">@{activity.user}</span>
-                      <span className="text-muted-foreground"> {activity.action} </span>
-                      <span className="font-medium">{activity.item}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">{activity.region} · {activity.time}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button className="p-2 hover:bg-muted rounded transition-colors">
-                    <Heart className="w-4 h-4" />
-                  </button>
-                  <button className="p-2 hover:bg-muted rounded transition-colors">
-                    <MessageCircle className="w-4 h-4" />
-                  </button>
-                </div>
+                <span className="col-span-2 lg:col-span-1 font-mono text-[10px] text-muted-foreground">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="col-span-4 lg:col-span-3 text-xs uppercase tracking-wide truncate">@{activity.user}</span>
+                <span className="hidden lg:block lg:col-span-2 font-mono text-[10px] uppercase tracking-wider text-signal">
+                  {activity.action}
+                </span>
+                <span className="col-span-4 lg:col-span-4 text-xs truncate text-muted-foreground">{activity.item}</span>
+                <span className="col-span-2 lg:col-span-2 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {activity.region} · {activity.time}
+                </span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="border-t border-border py-20 px-6 lg:px-12 bg-muted/30">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">Features</p>
-            <h2 className="text-3xl lg:text-4xl font-light">Everything you need</h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Globe,
-                title: "6 Region Tracking",
-                desc: "Monitor US, UK, EU, Japan, Australia & Singapore simultaneously. Compare prices instantly.",
-              },
-              {
-                icon: TrendingUp,
-                title: "Price Analytics",
-                desc: "Track price history, see trends, and know when to buy. Never overpay again.",
-              },
-              {
-                icon: Users,
-                title: "Community Driven",
-                desc: "See what others are tracking, get recommendations, and join the conversation.",
-              },
-            ].map((feature) => (
-              <div key={feature.title} className="group p-8 bg-background border border-border hover:border-foreground/50 transition-colors">
-                <feature.icon className="w-8 h-8 mb-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                <h3 className="text-lg font-medium mb-3">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+      {/* ============ MANIFESTO ============ */}
+      <section className="border-b border-foreground">
+        <div className="px-4 lg:px-6 py-6 border-b border-border">
+          <p className="mono-label text-muted-foreground mb-2">Index / 006 — Why</p>
+          <h2 className="display text-4xl md:text-6xl">
+            Everything you need,<span className="serif-accent text-signal text-[0.7em]"> nothing you don&apos;t.</span>
+          </h2>
+        </div>
+        <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
+          {MANIFESTO.map((m) => (
+            <div key={m.index} className="group px-4 lg:px-6 py-10 hover:bg-foreground hover:text-background transition-colors">
+              <div className="flex items-baseline justify-between mb-8">
+                <span className="font-mono text-5xl md:text-6xl text-signal">{m.index}</span>
+                <ArrowUpRight className="w-6 h-6 opacity-30 group-hover:opacity-100 transition-opacity" />
               </div>
-            ))}
-          </div>
+              <h3 className="text-xl uppercase tracking-tight mb-3">{m.title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground group-hover:text-background/70 transition-colors">
+                {m.body}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="border-t border-border py-24 px-6 lg:px-12">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs tracking-widest uppercase text-muted-foreground mb-4">Ready?</p>
-          <h2 className="text-4xl lg:text-5xl font-light mb-6">Join the community</h2>
-          <p className="text-lg text-muted-foreground mb-10">
-            Start tracking drops, comparing prices, and connecting with collectors worldwide.
+      {/* ============ CTA ============ */}
+      <section className="relative border-b border-foreground bg-foreground text-background overflow-hidden">
+        <div className="px-4 lg:px-6 py-20 md:py-28 text-center">
+          <p className="mono-label text-background/60 mb-6">Ready?</p>
+          <h2 className="display text-[clamp(3rem,13vw,11rem)]">
+            Join&nbsp;the
+            <br />
+            <span className="serif-accent text-signal normal-case tracking-normal">collective.</span>
+          </h2>
+          <p className="max-w-lg mx-auto mt-8 text-sm text-background/70 leading-relaxed">
+            Track drops, compare prices and connect with collectors worldwide. Free to start,
+            no card required.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/signup" className="group flex items-center gap-3 px-8 py-4 bg-foreground text-background text-sm tracking-wide font-medium hover:bg-foreground/90 transition-colors">
+          <div className="flex flex-wrap justify-center gap-px bg-background/20 mt-10 w-max mx-auto">
+            <Link
+              href="/signup"
+              className="group flex items-center gap-3 px-8 py-4 bg-signal text-signal-foreground text-xs uppercase tracking-[0.15em] hover:bg-background hover:text-foreground transition-colors"
+            >
               Create Free Account
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </Link>
-            <Link href="/shop" className="px-8 py-4 border border-border text-sm tracking-wide hover:bg-muted transition-colors">
+            <Link
+              href="/shop"
+              className="px-8 py-4 bg-foreground text-background text-xs uppercase tracking-[0.15em] hover:bg-background hover:text-foreground transition-colors"
+            >
               Browse Without Account
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-12 px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-center md:text-left">
-            <p className="text-lg font-medium tracking-tight uppercase mb-1">it dropped!</p>
-            <p className="text-xs text-muted-foreground">Stüssy drop tracker for collectors</p>
+      {/* ============ FOOTER ============ */}
+      <footer className="bg-background">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-border border-b border-border">
+          <div className="col-span-2 md:col-span-2 px-4 lg:px-6 py-10">
+            <p className="display text-4xl md:text-5xl mb-3">
+              It Drop<span className="text-signal">ped</span>
+            </p>
+            <p className="serif-accent text-lg text-muted-foreground">Stüssy drop radar for collectors.</p>
           </div>
-          <div className="flex items-center gap-8 text-xs text-muted-foreground">
-            <Link href="/shop" className="hover:text-foreground transition-colors">Shop</Link>
-            <Link href="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
-            <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
+          <div className="px-4 lg:px-6 py-10">
+            <p className="mono-label text-muted-foreground mb-4">Navigate</p>
+            <ul className="space-y-2 text-sm uppercase tracking-wide">
+              <li><Link href="/shop" className="link-underline">Shop</Link></li>
+              <li><Link href="/community" className="link-underline">Community</Link></li>
+              <li><Link href="/dashboard" className="link-underline">Dashboard</Link></li>
+            </ul>
           </div>
-          <p className="text-xs text-muted-foreground">© 2024</p>
+          <div className="px-4 lg:px-6 py-10">
+            <p className="mono-label text-muted-foreground mb-4">Account</p>
+            <ul className="space-y-2 text-sm uppercase tracking-wide">
+              <li><Link href="/login" className="link-underline">Sign In</Link></li>
+              <li><Link href="/signup" className="link-underline">Register</Link></li>
+              <li><Link href="/wishlist" className="link-underline">Wishlist</Link></li>
+            </ul>
+          </div>
+        </div>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-2 px-4 lg:px-6 py-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span>© 2026 It Dropped — All rights reserved</span>
+          <span>Not affiliated with Stüssy Inc.</span>
         </div>
       </footer>
     </div>

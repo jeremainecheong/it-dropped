@@ -33,32 +33,37 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left Panel - Stussy style branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-foreground items-center justify-center p-12">
-        <div className="max-w-md">
-          <Link href="/" className="text-background text-lg uppercase tracking-wide">
-            it dropped!
+      {/* Left Panel - editorial branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-foreground text-background flex-col justify-between p-12 border-r border-foreground">
+        <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-background/60">
+          <Link href="/" className="flex items-center gap-2 text-background">
+            <span className="text-signal">◉</span> it dropped
           </Link>
-          <h1 className="text-4xl text-background uppercase tracking-wide leading-tight mt-12 mb-6">
-            Never miss a drop again
-          </h1>
-          <p className="text-background/60 text-sm uppercase tracking-wide">
-            Track Stüssy releases worldwide
-          </p>
+          <span>Access / 001</span>
         </div>
+        <div>
+          <h1 className="display text-[clamp(3rem,7vw,6rem)]">
+            Never miss<br />a drop<span className="text-signal">.</span>
+          </h1>
+          <p className="serif-accent text-2xl text-background/70 mt-4">the whole floor, one feed.</p>
+        </div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-background/40">
+          Six regions · Live tracking · Price intelligence
+        </p>
       </div>
 
       {/* Right Panel - Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-8">
-            <Link href="/" className="text-lg uppercase tracking-wide">
-              it dropped!
+            <Link href="/" className="flex items-center gap-2 text-lg uppercase tracking-wide font-bold">
+              <span className="text-signal text-xs">◉</span> it dropped
             </Link>
           </div>
 
-          <h2 className="text-sm uppercase tracking-widest mb-1">Sign In</h2>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-8">
+          <p className="mono-label text-signal mb-2">● Access</p>
+          <h2 className="display text-4xl mb-2">Sign In</h2>
+          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em] mb-8">
             Enter your details below
           </p>
 
@@ -111,7 +116,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-foreground text-background text-xs uppercase tracking-wide font-medium flex items-center justify-center gap-2 hover:bg-foreground/90 transition-colors disabled:opacity-50"
+              className="w-full py-4 bg-foreground text-background text-xs uppercase tracking-[0.2em] font-medium flex items-center justify-center gap-2 hover:bg-signal transition-colors disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 size={14} className="animate-spin" />
