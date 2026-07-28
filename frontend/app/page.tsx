@@ -79,36 +79,32 @@ export default function LandingPage() {
         </div>
 
         <header className="bg-background/95 backdrop-blur-sm border-b border-foreground">
-          <div className="flex items-stretch justify-between h-14 divide-x divide-border">
-            <Link href="/" className="flex items-center gap-2 px-4 lg:px-6 shrink-0">
-              <span className="font-mono text-[9px] text-signal">◉</span>
-              <span className="text-base font-bold tracking-tight uppercase">it&nbsp;dropped</span>
+          <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+            <Link href="/" className="flex items-baseline gap-2 shrink-0">
+              <span className="text-signal text-sm">✱</span>
+              <span className="font-serif text-2xl md:text-[1.7rem] leading-none tracking-tight">It Dropped</span>
             </Link>
 
-            <nav className="hidden md:flex items-stretch divide-x divide-border">
+            <nav className="hidden md:flex items-center gap-8">
               {[
                 { href: "/shop", label: "Shop", i: "01" },
                 { href: "/community", label: "Community", i: "02" },
                 { href: "/dashboard", label: "Dashboard", i: "03" },
               ].map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className="group flex items-center gap-2 px-5 hover:bg-foreground hover:text-background transition-colors"
-                >
-                  <span className="font-mono text-[9px] tracking-widest text-signal group-hover:text-background/60">{l.i}</span>
-                  <span className="text-xs uppercase tracking-[0.15em]">{l.label}</span>
+                <Link key={l.href} href={l.href} className="group flex items-center gap-1.5">
+                  <span className="font-mono text-[9px] tracking-widest text-signal">{l.i}</span>
+                  <span className="text-xs uppercase tracking-[0.18em] link-underline">{l.label}</span>
                 </Link>
               ))}
               <Link
                 href="/login"
-                className="flex items-center px-6 bg-foreground text-background hover:bg-signal transition-colors text-xs uppercase tracking-[0.15em]"
+                className="pill flex items-center px-6 py-2.5 bg-foreground text-background hover:bg-signal text-xs uppercase tracking-[0.15em]"
               >
                 Sign&nbsp;In
               </Link>
             </nav>
 
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden flex items-center px-4">
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden flex items-center">
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
@@ -174,17 +170,17 @@ export default function LandingPage() {
                 A live index of every Stüssy release across six regions. Track drops,
                 clock restocks, compare prices and move before it&apos;s gone.
               </p>
-              <div className="flex flex-wrap items-center gap-px bg-foreground">
+              <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href="/signup"
-                  className="group flex items-center gap-3 px-6 py-4 bg-foreground text-background text-xs uppercase tracking-[0.15em] hover:bg-signal transition-colors"
+                  className="pill group inline-flex items-center gap-2.5 px-7 py-4 bg-foreground text-background text-xs uppercase tracking-[0.15em] hover:bg-signal"
                 >
                   Start Tracking
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </Link>
                 <Link
                   href="/shop"
-                  className="px-6 py-4 bg-background text-xs uppercase tracking-[0.15em] hover:bg-foreground hover:text-background transition-colors"
+                  className="pill inline-flex items-center px-7 py-4 border border-foreground text-xs uppercase tracking-[0.15em] hover:bg-foreground hover:text-background"
                 >
                   Browse Drops
                 </Link>
@@ -343,17 +339,17 @@ export default function LandingPage() {
             Track drops, compare prices and connect with collectors worldwide. Free to start,
             no card required.
           </p>
-          <div className="flex flex-wrap justify-center gap-px bg-background/20 mt-10 w-max mx-auto">
+          <div className="flex flex-wrap justify-center gap-3 mt-10 w-max mx-auto">
             <Link
               href="/signup"
-              className="group flex items-center gap-3 px-8 py-4 bg-signal text-signal-foreground text-xs uppercase tracking-[0.15em] hover:bg-background hover:text-foreground transition-colors"
+              className="pill group inline-flex items-center gap-2.5 px-8 py-4 bg-signal text-signal-foreground text-xs uppercase tracking-[0.15em] hover:bg-background hover:text-foreground"
             >
               Create Free Account
               <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </Link>
             <Link
               href="/shop"
-              className="px-8 py-4 bg-foreground text-background text-xs uppercase tracking-[0.15em] hover:bg-background hover:text-foreground transition-colors"
+              className="pill inline-flex items-center px-8 py-4 border border-background/40 text-background text-xs uppercase tracking-[0.15em] hover:bg-background hover:text-foreground"
             >
               Browse Without Account
             </Link>

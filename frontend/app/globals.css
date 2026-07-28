@@ -4,72 +4,73 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   IT DROPPED — Dover Street Market inspired design system
-   Gallery-white brutalist editorial. Mono catalog chrome,
-   oversized display type, hairline grid, signal-red accent.
+   IT DROPPED — magazine / Dover Street Market editorial system
+   Pure gallery white, neutral greys, one clean red. Fashion-
+   serif mastheads, clean grotesque body, monospace catalog
+   chrome, pill buttons against a hairline gallery grid.
    ============================================================ */
 
 :root {
-  /* Gallery paper — warm off-white */
-  --background: #f4f2ee;
-  --foreground: #111111;
+  /* Pure white paper */
+  --background: #ffffff;
+  --foreground: #0e0e0e;
   --card: #ffffff;
-  --card-foreground: #111111;
+  --card-foreground: #0e0e0e;
   --popover: #ffffff;
-  --popover-foreground: #111111;
-  --primary: #111111;
-  --primary-foreground: #f4f2ee;
-  --secondary: #e7e4de;
-  --secondary-foreground: #111111;
-  --muted: #e7e4de;
-  --muted-foreground: #6b6862;
-  --accent: #111111;
-  --accent-foreground: #f4f2ee;
-  --destructive: #e2241a;
+  --popover-foreground: #0e0e0e;
+  --primary: #0e0e0e;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #0e0e0e;
+  --muted: #f4f4f4;
+  --muted-foreground: #6f6f6f;
+  --accent: #0e0e0e;
+  --accent-foreground: #ffffff;
+  --destructive: #e4002b;
   --destructive-foreground: #ffffff;
-  --border: #d6d2ca;
+  --border: #e6e6e6;
   --input: #ffffff;
-  --ring: #111111;
+  --ring: #0e0e0e;
   --radius: 0rem;
 
-  /* Signal red — the single loud accent */
-  --signal: #e2241a;
+  /* Signal red — clean, magazine, not warm */
+  --signal: #e4002b;
   --signal-foreground: #ffffff;
   /* Hairline used for the blueprint grid */
-  --grid-line: #d6d2ca;
+  --grid-line: #ededed;
 }
 
 .dark {
-  /* Gallery after hours — near black */
-  --background: #0b0b0b;
-  --foreground: #f0efe9;
-  --card: #141414;
-  --card-foreground: #f0efe9;
-  --popover: #0b0b0b;
-  --popover-foreground: #f0efe9;
-  --primary: #f0efe9;
-  --primary-foreground: #0b0b0b;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #f0efe9;
-  --muted: #1a1a1a;
-  --muted-foreground: #8f8c85;
-  --accent: #f0efe9;
-  --accent-foreground: #0b0b0b;
-  --destructive: #ff3b30;
+  /* Neutral gallery black */
+  --background: #0a0a0a;
+  --foreground: #f2f2f2;
+  --card: #131313;
+  --card-foreground: #f2f2f2;
+  --popover: #0a0a0a;
+  --popover-foreground: #f2f2f2;
+  --primary: #f2f2f2;
+  --primary-foreground: #0a0a0a;
+  --secondary: #191919;
+  --secondary-foreground: #f2f2f2;
+  --muted: #191919;
+  --muted-foreground: #8c8c8c;
+  --accent: #f2f2f2;
+  --accent-foreground: #0a0a0a;
+  --destructive: #ff2b45;
   --destructive-foreground: #ffffff;
-  --border: #262626;
-  --input: #141414;
-  --ring: #f0efe9;
+  --border: #252525;
+  --input: #131313;
+  --ring: #f2f2f2;
 
-  --signal: #ff3b30;
+  --signal: #ff2b45;
   --signal-foreground: #ffffff;
-  --grid-line: #232323;
+  --grid-line: #202020;
 }
 
 @theme inline {
-  --font-sans: var(--font-space-grotesk), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-archivo), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
-  --font-serif: var(--font-instrument), "Times New Roman", Georgia, serif;
+  --font-serif: var(--font-fraunces), "Times New Roman", Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -105,7 +106,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
   }
 
   ::selection {
@@ -116,30 +117,39 @@
 
 /* ---------- Type helpers ---------- */
 
-/* Oversized editorial display word — fluid, tight, cropped */
+/* Fashion-magazine masthead — high-contrast serif, cropped tight */
 .display {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  line-height: 0.82;
-  letter-spacing: -0.03em;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 0.86;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
-/* Serif accent — set in italics for the couture pop */
+/* Editorial italic serif — the couture pull-quote */
 .serif-accent {
   font-family: var(--font-serif);
   font-style: italic;
   font-weight: 400;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
   text-transform: none;
 }
 
-/* Mono catalog label — the utilitarian chrome */
+/* Mono catalog label — the utilitarian gallery chrome */
 .mono-label {
   font-family: var(--font-mono);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   font-size: 0.625rem;
+}
+
+/* ---------- Pill buttons (rounded) ---------- */
+.pill {
+  border-radius: 9999px;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+.pill:active {
+  transform: scale(0.97);
 }
 
 /* ---------- Marquee ticker ---------- */
@@ -176,21 +186,21 @@
   background-size: 25% 8rem;
 }
 
-/* ---------- Film grain overlay ---------- */
+/* ---------- Film grain overlay (paper texture) ---------- */
 .grain::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.045;
+  opacity: 0.035;
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .dark .grain::after {
   mix-blend-mode: screen;
-  opacity: 0.06;
+  opacity: 0.05;
 }
 
 /* ---------- Interaction ---------- */

@@ -85,7 +85,7 @@ export default function SignupPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full px-3 py-3 bg-background border border-border text-sm focus:border-foreground focus:outline-none transition-colors"
+                className="w-full px-5 py-3.5 bg-background border border-border rounded-full text-sm focus:border-foreground focus:outline-none transition-colors"
                 placeholder="Your name"
               />
             </div>
@@ -100,7 +100,7 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-3 bg-background border border-border text-sm focus:border-foreground focus:outline-none transition-colors"
+                className="w-full px-5 py-3.5 bg-background border border-border rounded-full text-sm focus:border-foreground focus:outline-none transition-colors"
                 placeholder="you@example.com"
               />
             </div>
@@ -117,7 +117,7 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full px-3 py-3 bg-background border border-border text-sm focus:border-foreground focus:outline-none transition-colors pr-10"
+                  className="w-full px-5 py-3.5 bg-background border border-border rounded-full text-sm focus:border-foreground focus:outline-none transition-colors pr-10"
                   placeholder="••••••••"
                 />
                 <button
@@ -133,7 +133,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-foreground text-background text-xs uppercase tracking-[0.2em] font-medium flex items-center justify-center gap-2 hover:bg-signal transition-colors disabled:opacity-50"
+              className="pill w-full py-4 bg-foreground text-background text-xs uppercase tracking-[0.2em] font-medium flex items-center justify-center gap-2 hover:bg-signal disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 size={14} className="animate-spin" />

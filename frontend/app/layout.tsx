@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Space_Grotesk, JetBrains_Mono, Instrument_Serif } from "next/font/google"
+import { Archivo, JetBrains_Mono, Fraunces } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
 import { WishlistProvider } from "@/lib/wishlist-context"
@@ -8,11 +8,11 @@ import { PWAProvider } from "@/components/pwa-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 
-const spaceGrotesk = Space_Grotesk({
+const archivo = Archivo({
   subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  variable: "--font-archivo",
   display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800", "900"],
 })
 
 const jetbrainsMono = JetBrains_Mono({
@@ -22,11 +22,11 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600"],
 })
 
-const instrumentSerif = Instrument_Serif({
+const fraunces = Fraunces({
   subsets: ["latin"],
-  variable: "--font-instrument",
+  variable: "--font-fraunces",
   display: "swap",
-  weight: ["400"],
+  weight: ["400", "500", "600", "700", "900"],
   style: ["normal", "italic"],
 })
 
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   generator: "v0.app",
   keywords: ["Stüssy", "streetwear", "drops", "restocks", "price tracker", "fashion"],
   manifest: "/manifest.json",
-  themeColor: "#000000",
+  themeColor: "#ffffff",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -60,9 +60,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${archivo.variable} ${jetbrainsMono.variable} ${fraunces.variable}`} suppressHydrationWarning>
       <body className="grain font-sans antialiased bg-background text-foreground">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           <AuthProvider>
             <WishlistProvider>{children}</WishlistProvider>
           </AuthProvider>

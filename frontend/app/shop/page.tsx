@@ -226,49 +226,45 @@ function ShopPageContent() {
             <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
             {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-foreground">
-                <div className="flex items-stretch justify-between h-12 divide-x divide-border">
-                    <div className="flex items-stretch divide-x divide-border">
-                        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden flex items-center px-3 hover:bg-foreground hover:text-background transition-colors">
+            <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-foreground">
+                <div className="flex items-center justify-between h-12 px-3 lg:px-5 gap-4">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden flex items-center justify-center w-8 h-8 -ml-1">
                             <Menu className="w-4 h-4" />
                         </button>
-                        <Link href="/" className="flex items-center gap-2 px-4 lg:px-5">
-                            <span className="font-mono text-[9px] text-signal">◉</span>
-                            <span className="text-base font-bold tracking-tight uppercase">it&nbsp;dropped</span>
+                        <Link href="/" className="flex items-baseline gap-1.5">
+                            <span className="text-signal text-xs">✱</span>
+                            <span className="font-serif text-xl leading-none tracking-tight">It&nbsp;Dropped</span>
                         </Link>
                     </div>
 
-                    <nav className="hidden md:flex items-stretch divide-x divide-border">
+                    <nav className="hidden md:flex items-center gap-6">
                         {[
                             { href: "/dashboard", label: "Dashboard", i: "03", active: false },
                             { href: "/shop", label: "Shop", i: "01", active: true },
                             { href: "/community", label: "Community", i: "02", active: false },
                         ].map((l) => (
-                            <Link
-                                key={l.href}
-                                href={l.href}
-                                className={`group flex items-center gap-2 px-5 transition-colors ${l.active ? "bg-foreground text-background" : "hover:bg-foreground hover:text-background"}`}
-                            >
-                                <span className={`font-mono text-[9px] tracking-widest ${l.active ? "text-background/60" : "text-signal group-hover:text-background/60"}`}>{l.i}</span>
-                                <span className="text-xs uppercase tracking-[0.15em]">{l.label}</span>
+                            <Link key={l.href} href={l.href} className="group flex items-center gap-1.5">
+                                <span className="font-mono text-[9px] tracking-widest text-signal">{l.i}</span>
+                                <span className={`text-xs uppercase tracking-[0.18em] ${l.active ? "text-signal" : "link-underline"}`}>{l.label}</span>
                             </Link>
                         ))}
                     </nav>
 
-                    <div className="ml-auto flex items-stretch divide-x divide-border">
-                        <button onClick={() => setSearchOpen(true)} className="flex items-center px-3 hover:bg-foreground hover:text-background transition-colors"><Search className="w-4 h-4" /></button>
-                        <div className="flex items-center px-3"><ThemeToggle /></div>
-                        {user && <div className="flex items-center px-3">{<NotificationBell />}</div>}
+                    <div className="flex items-center gap-1">
+                        <button onClick={() => setSearchOpen(true)} className="flex items-center justify-center w-8 h-8 hover:text-signal transition-colors"><Search className="w-4 h-4" /></button>
+                        <ThemeToggle />
+                        {user && <NotificationBell />}
                         {user ? (
                             <>
-                                <Link href="/wishlist" className="hidden sm:flex items-center px-3 hover:bg-foreground hover:text-background transition-colors"><Heart className="w-4 h-4" /></Link>
-                                <Link href="/profile" className="flex items-center gap-2 px-4 bg-foreground text-background hover:bg-signal transition-colors">
+                                <Link href="/wishlist" className="hidden sm:flex items-center justify-center w-8 h-8 hover:text-signal transition-colors"><Heart className="w-4 h-4" /></Link>
+                                <Link href="/profile" className="pill flex items-center gap-2 pl-3 pr-4 py-2 bg-foreground text-background hover:bg-signal ml-1">
                                     <User className="w-3.5 h-3.5" />
                                     <span className="hidden sm:inline text-xs uppercase tracking-[0.15em]">{user.name?.split(" ")[0] || "Profile"}</span>
                                 </Link>
                             </>
                         ) : (
-                            <Link href="/login" className="flex items-center px-5 bg-foreground text-background hover:bg-signal transition-colors text-xs uppercase tracking-[0.15em]">Account</Link>
+                            <Link href="/login" className="pill flex items-center px-5 py-2 bg-foreground text-background hover:bg-signal text-xs uppercase tracking-[0.15em] ml-1">Account</Link>
                         )}
                     </div>
                 </div>
@@ -283,11 +279,11 @@ function ShopPageContent() {
                         {/* View Mode */}
                         <div className="mb-6">
                             <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">View</h3>
-                            <div className="space-y-1">
-                                <button onClick={() => setViewMode("latest")} className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${viewMode === "latest" ? "bg-foreground text-background" : "hover:bg-muted"}`}>
+                            <div className="space-y-1.5">
+                                <button onClick={() => setViewMode("latest")} className={`pill w-full flex items-center gap-2 px-4 py-2.5 text-sm ${viewMode === "latest" ? "bg-foreground text-background" : "border border-border hover:border-foreground"}`}>
                                     <Clock className="w-4 h-4" />Latest Drops
                                 </button>
-                                <button onClick={() => setViewMode("all")} className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${viewMode === "all" ? "bg-foreground text-background" : "hover:bg-muted"}`}>
+                                <button onClick={() => setViewMode("all")} className={`pill w-full flex items-center gap-2 px-4 py-2.5 text-sm ${viewMode === "all" ? "bg-foreground text-background" : "border border-border hover:border-foreground"}`}>
                                     <Package className="w-4 h-4" />All Products
                                 </button>
                             </div>
@@ -295,7 +291,7 @@ function ShopPageContent() {
 
                         {/* Price Comparison Toggle */}
                         <div className="mb-6">
-                            <button onClick={() => setCompareMode(!compareMode)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm border ${compareMode ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}>
+                            <button onClick={() => setCompareMode(!compareMode)} className={`pill w-full flex items-center gap-2 px-4 py-2.5 text-sm border ${compareMode ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}>
                                 <Globe className="w-4 h-4" />Compare Prices
                             </button>
                         </div>
@@ -344,7 +340,7 @@ function ShopPageContent() {
                             <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Size</h3>
                             <div className="flex flex-wrap gap-1">
                                 {SIZES.map((size) => (
-                                    <button key={size} onClick={() => setSelectedSize(selectedSize === size ? null : size)} className={`px-2 py-1 text-xs border ${selectedSize === size ? "bg-foreground text-background border-foreground" : "border-border hover:border-foreground"}`}>
+                                    <button key={size} onClick={() => setSelectedSize(selectedSize === size ? null : size)} className={`pill min-w-9 px-3 py-1.5 text-xs border ${selectedSize === size ? "bg-foreground text-background border-foreground" : "border-border hover:border-foreground"}`}>
                                         {size}
                                     </button>
                                 ))}
@@ -449,7 +445,7 @@ function ShopPageContent() {
                                 ) : (
                                     <button
                                         onClick={() => loadMore()}
-                                        className="px-8 py-3 border border-foreground font-mono text-[10px] uppercase tracking-[0.25em] hover:bg-foreground hover:text-background transition-colors"
+                                        className="pill px-8 py-3 border border-foreground font-mono text-[10px] uppercase tracking-[0.25em] hover:bg-foreground hover:text-background"
                                     >
                                         Load More +
                                     </button>
