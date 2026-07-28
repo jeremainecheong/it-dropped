@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { supabase } from "@/lib/supabase"
 import { AuthGuard } from "@/components/auth-guard"
+import { Header } from "@/components/layout/header"
 
 interface UserActivity {
     type: "thread" | "comment" | "like"
@@ -76,18 +77,7 @@ function ProfileContent() {
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-                <div className="flex items-center justify-between px-4 lg:px-8 h-14">
-                    <Link href="/shop" className="flex items-center gap-2 text-sm tracking-wide hover:text-muted-foreground">
-                        <ArrowLeft className="w-4 h-4" />
-                        Shop
-                    </Link>
-                    <Link href="/" className="text-lg font-medium tracking-tight uppercase">
-                        it dropped<span className="text-muted-foreground">!</span>
-                    </Link>
-                    <span className="text-xs uppercase tracking-widest text-muted-foreground">Profile</span>
-                </div>
-            </header>
+            <Header />
 
             <main className="pt-14 max-w-4xl mx-auto px-4 lg:px-8 py-8">
                 {/* Profile Header */}

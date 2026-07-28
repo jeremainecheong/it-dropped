@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import { ArrowUpRight, TrendingUp, TrendingDown, Package, Globe, Activity, BarChart2, Clock, AlertTriangle } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
+import { Header } from "@/components/layout/header"
 import {
     AreaChart,
     Area,
@@ -132,73 +133,60 @@ export default function DashboardPage() {
         <AuthGuard>
             <div className="min-h-screen bg-background text-foreground">
                 {/* Header */}
-                <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
-                    <div className="flex items-center justify-between px-4 lg:px-8 h-12">
-                        <Link href="/" className="text-base font-medium tracking-wide uppercase">it dropped!</Link>
-                        <nav className="hidden md:flex items-center gap-6">
-                            <Link href="/dashboard" className="text-sm uppercase tracking-wide bg-foreground text-background px-3 py-1">Dashboard</Link>
-                            <Link href="/shop" className="text-sm uppercase tracking-wide link-underline">Shop</Link>
-                            <Link href="/community" className="text-sm uppercase tracking-wide link-underline">Community</Link>
-                        </nav>
-                        <div className="flex items-center gap-4">
-                            <Link href="/wishlist" className="text-sm uppercase tracking-wide link-underline">Saved</Link>
-                            <Link href="/profile" className="px-3 py-1 bg-foreground text-background text-xs uppercase tracking-wide">Profile</Link>
-                        </div>
-                    </div>
-                </header>
+                <Header />
 
-                <main className="pt-12">
+                <main className="pt-12 mx-auto max-w-6xl px-4 sm:px-6">
                     {/* Header */}
-                    <section className="border-b border-border px-4 lg:px-8 py-6">
-                        <h1 className="text-xl lg:text-2xl uppercase tracking-wide mb-1">Analytics Dashboard</h1>
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground">Stüssy Market Intelligence • Real-time Data</p>
+                    <section className="pt-8 pb-6">
+                        <h1 className="display text-2xl md:text-3xl">Dashboard</h1>
+                        <p className="text-[13px] text-muted-foreground mt-1">Stüssy market intelligence, updated in real time.</p>
                     </section>
 
                     {/* Key Metrics */}
-                    <section className="border-b border-border">
-                        <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-border">
-                            <div className="p-4 lg:p-6">
-                                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                                    <Package className="w-3 h-3" />
-                                    <span className="text-[10px] uppercase tracking-widest">Total SKUs</span>
+                    <section className="pb-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="rounded-2xl bg-secondary p-5">
+                                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                                    <Package className="w-3.5 h-3.5" strokeWidth={1.8} />
+                                    <span className="label">Total SKUs</span>
                                 </div>
-                                <p className="text-2xl lg:text-3xl font-medium">{isLoading ? "—" : totalProducts.toLocaleString()}</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">Across all regions</p>
+                                <p className="display text-2xl lg:text-3xl">{isLoading ? "—" : totalProducts.toLocaleString()}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Across all regions</p>
                             </div>
-                            <div className="p-4 lg:p-6">
-                                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                                    <Activity className="w-3 h-3" />
-                                    <span className="text-[10px] uppercase tracking-widest">Active Drops (24h)</span>
+                            <div className="rounded-2xl bg-secondary p-5">
+                                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                                    <Activity className="w-3.5 h-3.5" strokeWidth={1.8} />
+                                    <span className="label">Drops (24h)</span>
                                 </div>
-                                <p className="text-2xl lg:text-3xl font-medium">{isLoading ? "—" : totalDrops24h}</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">New products detected</p>
+                                <p className="display text-2xl lg:text-3xl">{isLoading ? "—" : totalDrops24h}</p>
+                                <p className="text-xs text-muted-foreground mt-1">New products detected</p>
                             </div>
-                            <div className="p-4 lg:p-6">
-                                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                                    {Number(priceChange) >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                    <span className="text-[10px] uppercase tracking-widest">Price Trend (30d)</span>
+                            <div className="rounded-2xl bg-secondary p-5">
+                                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                                    {Number(priceChange) >= 0 ? <TrendingUp className="w-3.5 h-3.5" strokeWidth={1.8} /> : <TrendingDown className="w-3.5 h-3.5" strokeWidth={1.8} />}
+                                    <span className="label">Price trend (30d)</span>
                                 </div>
-                                <p className="text-2xl lg:text-3xl font-medium">{priceChange}%</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">{Number(priceChange) >= 0 ? "Prices increasing" : "Prices decreasing"}</p>
+                                <p className="display text-2xl lg:text-3xl">{priceChange}%</p>
+                                <p className="text-xs text-muted-foreground mt-1">{Number(priceChange) >= 0 ? "Prices increasing" : "Prices decreasing"}</p>
                             </div>
-                            <div className="p-4 lg:p-6">
-                                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                                    <Globe className="w-3 h-3" />
-                                    <span className="text-[10px] uppercase tracking-widest">Top Region</span>
+                            <div className="rounded-2xl bg-secondary p-5">
+                                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                                    <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
+                                    <span className="label">Top region</span>
                                 </div>
-                                <p className="text-2xl lg:text-3xl font-medium">{topRegion ? topRegion.region.toUpperCase() : "—"}</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">{topRegion ? `${topRegion.total_tracked_items} products` : ""}</p>
+                                <p className="display text-2xl lg:text-3xl">{topRegion ? topRegion.region.toUpperCase() : "—"}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{topRegion ? `${topRegion.total_tracked_items} products` : ""}</p>
                             </div>
                         </div>
                     </section>
 
                     {/* Charts Row 1 */}
-                    <section className="px-4 lg:px-8 py-6 border-b border-border">
+                    <section className="pb-6">
                         <div className="grid lg:grid-cols-2 gap-6">
                             {/* Price Range Chart */}
-                            <div className="border border-border p-4">
+                            <div className="rounded-2xl border border-border p-5">
                                 <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xs uppercase tracking-widest text-muted-foreground">Price Band Analysis (30 Days)</h3>
+                                    <h3 className="label">Price Band Analysis (30 Days)</h3>
                                     <span className="text-[10px] text-muted-foreground">Min / Avg / Max</span>
                                 </div>
                                 <div className="h-48">
@@ -219,7 +207,7 @@ export default function DashboardPage() {
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
-                                <div className="mt-3 p-2 bg-muted text-[10px]">
+                                <div className="mt-4 rounded-xl bg-muted px-3 py-2.5 text-[11px] leading-relaxed">
                                     {priceHistory.length > 0 ? (
                                         <>
                                             <strong>Insight:</strong> Average prices have {Number(priceChange) >= 0 ? "increased" : "decreased"} by {Math.abs(Number(priceChange))}% over the past 30 days. Current range: ${priceHistory[priceHistory.length - 1]?.min} - ${priceHistory[priceHistory.length - 1]?.max}.
@@ -231,8 +219,8 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Drop Activity */}
-                            <div className="border border-border p-4">
-                                <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Drop & Restock Activity (7 Days)</h3>
+                            <div className="rounded-2xl border border-border p-5">
+                                <h3 className="label mb-4">Drop & Restock Activity (7 Days)</h3>
                                 <div className="h-48">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={dropActivity}>
@@ -245,7 +233,7 @@ export default function DashboardPage() {
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
-                                <div className="mt-3 p-2 bg-muted text-[10px]">
+                                <div className="mt-4 rounded-xl bg-muted px-3 py-2.5 text-[11px] leading-relaxed">
                                     {dropActivity.length > 0 ? (
                                         <>
                                             <strong>Insight:</strong> {dropActivity.reduce((sum, d) => sum + d.drops, 0)} new drops and {dropActivity.reduce((sum, d) => sum + d.restocks, 0)} restocks detected this week. Peak activity on {dropActivity.reduce((prev, curr) => prev.drops > curr.drops ? prev : curr).day}.
@@ -259,11 +247,11 @@ export default function DashboardPage() {
                     </section>
 
                     {/* Charts Row 2 */}
-                    <section className="px-4 lg:px-8 py-6 border-b border-border">
+                    <section className="pb-6">
                         <div className="grid lg:grid-cols-3 gap-6">
                             {/* Regional Distribution */}
-                            <div className="border border-border p-4">
-                                <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Regional Distribution</h3>
+                            <div className="rounded-2xl border border-border p-5">
+                                <h3 className="label mb-4">Regional Distribution</h3>
                                 <div className="h-40">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -277,8 +265,8 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Top Categories */}
-                            <div className="border border-border p-4">
-                                <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Hot Categories</h3>
+                            <div className="rounded-2xl border border-border p-5">
+                                <h3 className="label mb-4">Hot Categories</h3>
                                 <div className="space-y-2">
                                     {categoryData.length > 0 ? categoryData.map((cat, i) => (
                                         <div key={i} className="flex items-center justify-between text-xs">
@@ -292,8 +280,8 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Alerts */}
-                            <div className="border border-border p-4">
-                                <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Market Alerts</h3>
+                            <div className="rounded-2xl border border-border p-5">
+                                <h3 className="label mb-4">Market Alerts</h3>
                                 <div className="space-y-3">
                                     <div className="flex items-start gap-2 text-xs">
                                         <AlertTriangle className="w-3 h-3 mt-0.5 text-muted-foreground" />
@@ -322,11 +310,11 @@ export default function DashboardPage() {
                     </section>
 
                     {/* Region Cards */}
-                    <section className="px-4 lg:px-8 py-6">
-                        <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">By Region</h2>
+                    <section className="pb-10">
+                        <h2 className="label mb-4">By Region</h2>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {stats.map((region) => (
-                                <Link key={region.region} href={`/shop?region=${region.region}`} className="group border border-border p-4 hover:border-foreground transition-colors">
+                                <Link key={region.region} href={`/shop?region=${region.region}`} className="group rounded-2xl bg-secondary p-5 card-hover hover:bg-border/60">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm uppercase tracking-wide">{REGION_FULL[region.region] || region.region}</span>
                                         <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />

@@ -7,6 +7,7 @@ import { Heart, ArrowLeft, Trash2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { ImageWithLoading } from "@/components/image-with-loading"
+import { Header } from "@/components/layout/header"
 
 export default function WishlistPage() {
   const router = useRouter()
@@ -38,42 +39,35 @@ export default function WishlistPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Stussy-style Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
-        <div className="flex items-center justify-between px-4 lg:px-8 h-12">
-          <Link
-            href="/shop"
-            className="flex items-center gap-2 text-xs uppercase tracking-wide link-underline"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            Back to Shop
-          </Link>
-
-          <span className="text-base font-medium tracking-wide uppercase">Saved</span>
-
-          <span className="text-xs text-muted-foreground uppercase tracking-wider">
-            {items.length} Items
-          </span>
-        </div>
-      </header>
+      <Header />
 
       <main className="pt-12">
-        <div className="px-4 lg:px-8 py-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <h1 className="display text-2xl md:text-3xl">Saved</h1>
+              <p className="text-[13px] text-muted-foreground mt-1">{items.length} {items.length === 1 ? "item" : "items"}</p>
+            </div>
+            <Link href="/shop" className="hidden sm:inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to shop
+            </Link>
+          </div>
+
           {items.length === 0 ? (
             <div
-              className={`min-h-[60vh] flex flex-col items-center justify-center text-center transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"
+              className={`min-h-[55vh] flex flex-col items-center justify-center text-center transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"
                 }`}
             >
-              <Heart className="w-10 h-10 text-muted-foreground mb-4" />
-              <h2 className="text-sm uppercase tracking-wide mb-2">Your saved items</h2>
-              <p className="text-xs text-muted-foreground mb-6 max-w-xs">
+              <Heart className="w-9 h-9 text-muted-foreground mb-4" strokeWidth={1.5} />
+              <h2 className="text-[15px] font-semibold mb-1.5">Your saved items</h2>
+              <p className="text-[13px] text-muted-foreground mb-6 max-w-xs">
                 Items you save will appear here. Start browsing to find something you like.
               </p>
               <Link
                 href="/shop"
-                className="px-6 py-2.5 bg-foreground text-background text-xs uppercase tracking-wide"
+                className="pill px-6 py-2.5 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
               >
-                Shop Now
+                Shop now
               </Link>
             </div>
           ) : (
@@ -84,10 +78,11 @@ export default function WishlistPage() {
                   className={`group transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`}
                   style={{ transitionDelay: `${Math.min(index * 20, 200)}ms` }}
                 >
-                  <div className="relative aspect-[3/4] bg-muted mb-3 overflow-hidden">
+                  <div className="relative aspect-[3/4] bg-secondary rounded-2xl mb-3 overflow-hidden">
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center bg-background text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Remove from wishlist"
+                      className="pill absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center bg-background/90 backdrop-blur text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-all"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -99,24 +94,15 @@ export default function WishlistPage() {
                         className="w-full h-full object-cover product-image-zoom"
                       />
                     </a>
-
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="absolute bottom-0 left-0 right-0 py-3 bg-foreground text-background text-center text-xs uppercase tracking-wider opacity-0 group-hover:opacity-100 translate-y-full group-hover:translate-y-0 transition-all duration-200"
-                    >
-                      Quick Shop
-                    </a>
                   </div>
 
-                  <a href={item.url} target="_blank" rel="noopener noreferrer">
-                    <h3 className="text-xs uppercase tracking-wide leading-snug mb-1 line-clamp-2">
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="block px-1">
+                    <h3 className="text-[13px] font-medium leading-snug mb-0.5 line-clamp-1">
                       {item.name}
                     </h3>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-[13px]">
                       <span className="text-muted-foreground">{formatPrice(item.price, item.currency)}</span>
-                      <span className="text-muted-foreground uppercase">{item.region}</span>
+                      <span className="text-muted-foreground uppercase text-[11px]">{item.region}</span>
                     </div>
                   </a>
                 </div>

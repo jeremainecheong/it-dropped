@@ -6,6 +6,7 @@ import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, Heart, MessageCircle, Pin, Lock, Trash2, Send, MoreHorizontal } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { Header } from "@/components/layout/header"
 
 interface Thread {
     id: string
@@ -226,30 +227,29 @@ export default function ThreadPage() {
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
-                <div className="flex items-center justify-between px-4 lg:px-8 h-14">
-                    <Link href="/community" className="flex items-center gap-2 text-sm tracking-wide hover:text-muted-foreground">
-                        <ArrowLeft className="w-4 h-4" />
-                        Back
-                    </Link>
-
-                    {isAdmin && (
-                        <div className="flex items-center gap-2">
-                            <button onClick={handlePinThread} className={`p-2 hover:bg-muted ${thread.is_pinned ? "text-foreground" : "text-muted-foreground"}`}>
+            <Header
+                actions={
+                    isAdmin ? (
+                        <>
+                            <button onClick={handlePinThread} aria-label="Pin thread" className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${thread.is_pinned ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                                 <Pin className="w-4 h-4" />
                             </button>
-                            <button onClick={handleLockThread} className={`p-2 hover:bg-muted ${thread.is_locked ? "text-foreground" : "text-muted-foreground"}`}>
+                            <button onClick={handleLockThread} aria-label="Lock thread" className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${thread.is_locked ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                                 <Lock className="w-4 h-4" />
                             </button>
-                            <button onClick={handleDeleteThread} className="p-2 hover:bg-muted text-muted-foreground hover:text-destructive">
+                            <button onClick={handleDeleteThread} aria-label="Delete thread" className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-destructive transition-colors">
                                 <Trash2 className="w-4 h-4" />
                             </button>
-                        </div>
-                    )}
-                </div>
-            </header>
+                        </>
+                    ) : undefined
+                }
+            />
 
-            <main className="pt-14 max-w-3xl mx-auto px-4 lg:px-8 py-8">
+            <main className="pt-12 max-w-3xl mx-auto px-4 sm:px-6 py-8">
+                <Link href="/community" className="inline-flex items-center gap-1.5 mb-6 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back to community
+                </Link>
                 {/* Thread Content */}
                 <article className="mb-8">
                     <div className="flex items-center gap-2 mb-3">

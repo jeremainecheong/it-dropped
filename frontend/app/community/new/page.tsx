@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Search, X } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { Header } from "@/components/layout/header"
 
 interface Product {
     id: string
@@ -111,24 +112,22 @@ export default function NewThreadPage() {
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
-                <div className="flex items-center justify-between px-4 lg:px-8 h-14">
-                    <Link href="/community" className="flex items-center gap-2 text-sm tracking-wide hover:text-muted-foreground">
-                        <ArrowLeft className="w-4 h-4" />
+            <Header />
+
+            <main className="pt-12 max-w-2xl mx-auto px-4 sm:px-6 py-8">
+                <div className="flex items-center justify-between mb-6">
+                    <Link href="/community" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+                        <ArrowLeft className="w-3.5 h-3.5" />
                         Cancel
                     </Link>
-                    <span className="text-sm uppercase tracking-wide">New Thread</span>
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitting || !title.trim() || !content.trim()}
-                        className="px-4 py-2 bg-foreground text-background text-sm tracking-wide disabled:opacity-50"
+                        className="pill px-5 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85 disabled:opacity-50"
                     >
-                        {isSubmitting ? "Posting..." : "Post"}
+                        {isSubmitting ? "Posting…" : "Post"}
                     </button>
                 </div>
-            </header>
-
-            <main className="pt-14 max-w-2xl mx-auto px-4 lg:px-8 py-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {error && (
                         <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm">

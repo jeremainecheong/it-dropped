@@ -6,6 +6,7 @@ import { ArrowLeft, Bell, Trash2, RefreshCw } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 import { AuthGuard } from "@/components/auth-guard"
+import { Header } from "@/components/layout/header"
 
 interface Alert {
     id: string
@@ -89,18 +90,13 @@ function AlertsContent() {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-                <div className="flex items-center justify-between px-4 lg:px-8 h-14">
-                    <Link href="/profile" className="flex items-center gap-2 text-sm hover:text-muted-foreground">
-                        <ArrowLeft className="w-4 h-4" />
-                        Profile
-                    </Link>
-                    <span className="text-sm uppercase tracking-widest">My Alerts</span>
-                    <button onClick={fetchAlerts} className="p-2 hover:bg-muted rounded">
+            <Header
+                actions={
+                    <button onClick={fetchAlerts} aria-label="Refresh alerts" className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors">
                         <RefreshCw className="w-4 h-4" />
                     </button>
-                </div>
-            </header>
+                }
+            />
 
             <main className="pt-14 pb-20 md:pb-8">
                 <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8">

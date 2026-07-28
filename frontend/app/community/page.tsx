@@ -7,6 +7,7 @@ import { Plus, MessageCircle, Eye, Heart, Pin, Lock, TrendingUp, Users, Flame, C
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { AuthGuard } from "@/components/auth-guard"
+import { Header } from "@/components/layout/header"
 
 interface Thread {
     id: string
@@ -87,57 +88,42 @@ function CommunityContent() {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            {/* Premium Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-                <div className="flex items-center justify-between px-4 lg:px-8 h-14">
-                    <div className="flex items-center gap-6">
-                        <Link href="/" className="text-lg font-medium tracking-tight uppercase">
-                            it dropped<span className="text-muted-foreground">!</span>
-                        </Link>
-                        <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span>{activeUsers} online</span>
-                        </div>
-                    </div>
+            <Header />
 
-                    <div className="flex items-center gap-4">
-                        <Link href="/shop" className="text-sm tracking-wide hover:text-muted-foreground transition-colors">Shop</Link>
-                        <Link href="/profile" className="text-sm tracking-wide hover:text-muted-foreground transition-colors">Profile</Link>
+            <main className="pt-12">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6">
+                    {/* Page heading */}
+                    <div className="flex items-end justify-between pt-8 pb-6">
+                        <div>
+                            <h1 className="display text-2xl md:text-3xl">Community</h1>
+                            <p className="text-[13px] text-muted-foreground mt-1 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
+                                {activeUsers} online — share fits, discuss drops, stay ahead.
+                            </p>
+                        </div>
                         <Link
                             href="/community/new"
-                            className="flex items-center gap-2 px-4 py-2 bg-foreground text-background text-sm font-medium tracking-wide hover:bg-foreground/90 transition-all hover:scale-105"
+                            className="pill flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
                         >
                             <Plus className="w-4 h-4" />
-                            <span className="hidden sm:inline">New Thread</span>
+                            <span className="hidden sm:inline">New thread</span>
                         </Link>
-                    </div>
-                </div>
-            </header>
-
-            <main className="pt-14">
-                <div className="max-w-7xl mx-auto px-4 lg:px-8">
-                    {/* Hero Banner */}
-                    <div className="py-8 lg:py-12 border-b border-border">
-                        <h1 className="text-4xl lg:text-5xl font-light tracking-tight mb-4">Community</h1>
-                        <p className="text-lg text-muted-foreground max-w-2xl">
-                            Connect with fellow collectors. Share fits, discuss drops, and stay ahead of the game.
-                        </p>
                     </div>
 
                     <div className="grid lg:grid-cols-4 gap-8 py-8">
                         {/* Sidebar */}
                         <aside className="lg:col-span-1 space-y-6">
                             {/* Categories */}
-                            <div className="p-4 border border-border">
-                                <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Categories</h3>
+                            <div className="rounded-2xl border border-border p-5">
+                                <h3 className="label mb-4">Categories</h3>
                                 <div className="space-y-1">
                                     {CATEGORIES.map((cat) => (
                                         <button
                                             key={cat.id}
                                             onClick={() => setSelectedCategory(cat.id)}
-                                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-all ${selectedCategory === cat.id
-                                                    ? "bg-foreground text-background"
-                                                    : "hover:bg-muted"
+                                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors ${selectedCategory === cat.id
+                                                    ? "bg-secondary font-medium"
+                                                    : "text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             <span className="text-base">{cat.icon}</span>
@@ -149,8 +135,8 @@ function CommunityContent() {
                             </div>
 
                             {/* Trending */}
-                            <div className="p-4 border border-border">
-                                <h3 className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-4">
+                            <div className="rounded-2xl border border-border p-5">
+                                <h3 className="label flex items-center gap-1.5 mb-4">
                                     <Flame className="w-3 h-3" /> Trending
                                 </h3>
                                 <div className="space-y-3">
@@ -173,8 +159,8 @@ function CommunityContent() {
                             </div>
 
                             {/* Stats */}
-                            <div className="p-4 border border-border">
-                                <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Stats</h3>
+                            <div className="rounded-2xl border border-border p-5">
+                                <h3 className="label mb-4">Stats</h3>
                                 <div className="space-y-3 text-sm">
                                     <div className="flex items-center justify-between">
                                         <span className="text-muted-foreground">Total Threads</span>
@@ -210,7 +196,7 @@ function CommunityContent() {
                             {isLoading ? (
                                 <div className="space-y-4">
                                     {[1, 2, 3, 4].map((i) => (
-                                        <div key={i} className="p-6 border border-border animate-pulse">
+                                        <div key={i} className="rounded-2xl border border-border p-6 animate-pulse">
                                             <div className="flex gap-4">
                                                 <div className="w-12 h-12 rounded-full bg-muted" />
                                                 <div className="flex-1">
@@ -222,13 +208,13 @@ function CommunityContent() {
                                     ))}
                                 </div>
                             ) : threads.length === 0 ? (
-                                <div className="text-center py-20 border border-dashed border-border">
+                                <div className="text-center py-20 rounded-3xl border border-dashed border-border">
                                     <MessageCircle className="w-16 h-16 mx-auto text-muted-foreground mb-6" />
                                     <h2 className="text-2xl font-medium mb-2">No threads yet</h2>
                                     <p className="text-muted-foreground mb-8">Be the first to start a conversation!</p>
                                     <Link
                                         href="/community/new"
-                                        className="inline-flex items-center gap-2 px-8 py-3 bg-foreground text-background text-sm font-medium tracking-wide"
+                                        className="pill inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
                                     >
                                         <Plus className="w-4 h-4" />
                                         Create Thread
@@ -242,11 +228,11 @@ function CommunityContent() {
                                             <Link
                                                 key={thread.id}
                                                 href={`/community/${thread.id}`}
-                                                className="block p-5 border border-border hover:border-foreground/30 transition-all group hover:shadow-lg"
+                                                className="block rounded-2xl border border-border p-5 transition-colors group hover:bg-secondary/60"
                                             >
                                                 <div className="flex gap-4">
                                                     {/* Avatar */}
-                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                                    <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center text-[13px] font-semibold shrink-0">
                                                         {thread.user_id.slice(0, 2).toUpperCase()}
                                                     </div>
 
@@ -254,23 +240,23 @@ function CommunityContent() {
                                                         {/* Meta Row */}
                                                         <div className="flex items-center gap-2 mb-2">
                                                             {thread.is_pinned && (
-                                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-[10px] uppercase tracking-wider">
+                                                                <span className="pill flex items-center gap-1 px-2 py-0.5 bg-secondary text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
                                                                     <Pin className="w-3 h-3" /> Pinned
                                                                 </span>
                                                             )}
                                                             {thread.is_locked && (
-                                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-red-500/20 text-red-500 text-[10px] uppercase tracking-wider">
+                                                                <span className="pill flex items-center gap-1 px-2 py-0.5 bg-secondary text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
                                                                     <Lock className="w-3 h-3" /> Locked
                                                                 </span>
                                                             )}
-                                                            <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider ${catInfo.color}`}>
+                                                            <span className="pill px-2.5 py-0.5 bg-secondary text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                                                                 {catInfo.icon} {catInfo.label}
                                                             </span>
                                                             <span className="text-xs text-muted-foreground ml-auto">{formatTimeAgo(thread.created_at)}</span>
                                                         </div>
 
                                                         {/* Title */}
-                                                        <h3 className="text-lg font-medium mb-2 group-hover:text-foreground/80 transition-colors line-clamp-1">
+                                                        <h3 className="text-[15px] font-semibold mb-1.5 line-clamp-1">
                                                             {thread.title}
                                                         </h3>
 

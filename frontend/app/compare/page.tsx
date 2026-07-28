@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink, Check, X } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
+import { Header } from "@/components/layout/header"
 
 interface Product {
     id: string
@@ -91,16 +92,7 @@ function CompareContent() {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-                <div className="flex items-center justify-between px-4 lg:px-8 h-14">
-                    <Link href="/shop" className="flex items-center gap-2 text-sm hover:text-muted-foreground">
-                        <ArrowLeft className="w-4 h-4" />
-                        Shop
-                    </Link>
-                    <span className="text-sm uppercase tracking-widest">Compare Prices</span>
-                    <div className="w-16" />
-                </div>
-            </header>
+            <Header />
 
             <main className="pt-14 pb-20 md:pb-8">
                 <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8">

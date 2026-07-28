@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Archivo, Inter, Fraunces } from "next/font/google"
+import localFont from "next/font/local"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
 import { WishlistProvider } from "@/lib/wishlist-context"
@@ -8,26 +8,26 @@ import { PWAProvider } from "@/components/pwa-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 
-const archivo = Archivo({
-  subsets: ["latin"],
-  variable: "--font-archivo",
+// San Francisco (SF Pro) — self-hosted, subset to Latin
+const sfText = localFont({
+  variable: "--font-sf-text",
   display: "swap",
-  weight: ["400", "500", "600", "700", "800", "900"],
+  src: [
+    { path: "../public/fonts/SF-Pro-Text-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/SF-Pro-Text-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../public/fonts/SF-Pro-Text-Semibold.woff2", weight: "600", style: "normal" },
+  ],
 })
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+const sfDisplay = localFont({
+  variable: "--font-sf-display",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
-})
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap",
-  weight: ["400", "500", "600", "700", "900"],
-  style: ["normal", "italic"],
+  src: [
+    { path: "../public/fonts/SF-Pro-Display-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/SF-Pro-Display-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../public/fonts/SF-Pro-Display-Semibold.woff2", weight: "600", style: "normal" },
+    { path: "../public/fonts/SF-Pro-Display-Bold.woff2", weight: "700", style: "normal" },
+  ],
 })
 
 export const metadata: Metadata = {
@@ -60,8 +60,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${archivo.variable} ${inter.variable} ${fraunces.variable}`} suppressHydrationWarning>
-      <body className="grain font-sans antialiased bg-background text-foreground">
+    <html lang="en" className={`${sfText.variable} ${sfDisplay.variable}`} suppressHydrationWarning>
+      <body className="font-sans antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           <AuthProvider>
             <WishlistProvider>{children}</WishlistProvider>

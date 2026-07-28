@@ -3,11 +3,11 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Search, Heart, User, ChevronDown, ChevronRight, X, Menu, Clock, Package, Globe, Filter } from "lucide-react"
+import { Search, Heart, ChevronDown, ChevronRight, X, Menu, Clock, Package, Globe, Filter } from "lucide-react"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { Header } from "@/components/layout/header"
 import { SearchOverlay } from "@/components/ui/search-overlay"
 import { NotificationBell } from "@/components/ui/notification-bell"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
@@ -225,83 +225,57 @@ function ShopPageContent() {
         <div className="min-h-screen bg-background text-foreground">
             <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
-            {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-foreground">
-                <div className="flex items-center justify-between h-12 px-3 lg:px-5 gap-4">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden flex items-center justify-center w-8 h-8 -ml-1">
+            {/* Shared fixed header with page-specific actions */}
+            <Header
+                actions={
+                    <>
+                        <button
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            aria-label="Filters"
+                            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                        >
                             <Menu className="w-4 h-4" />
                         </button>
-                        <Link href="/" className="flex items-baseline gap-1.5">
-                            <span className="text-signal text-xs">✱</span>
-                            <span className="font-serif text-xl leading-none tracking-tight">It&nbsp;Dropped</span>
-                        </Link>
-                    </div>
-
-                    <nav className="hidden md:flex items-center gap-6">
-                        {[
-                            { href: "/dashboard", label: "Dashboard", i: "03", active: false },
-                            { href: "/shop", label: "Shop", i: "01", active: true },
-                            { href: "/community", label: "Community", i: "02", active: false },
-                        ].map((l) => (
-                            <Link key={l.href} href={l.href} className="group flex items-center gap-1.5">
-                                <span className="font-mono text-[9px] tracking-widest text-signal">{l.i}</span>
-                                <span className={`text-xs uppercase tracking-[0.18em] ${l.active ? "text-signal" : "link-underline"}`}>{l.label}</span>
-                            </Link>
-                        ))}
-                    </nav>
-
-                    <div className="flex items-center gap-1">
-                        <button onClick={() => setSearchOpen(true)} className="flex items-center justify-center w-8 h-8 hover:text-signal transition-colors"><Search className="w-4 h-4" /></button>
-                        <ThemeToggle />
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            aria-label="Search"
+                            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <Search className="w-4 h-4" />
+                        </button>
                         {user && <NotificationBell />}
-                        {user ? (
-                            <>
-                                <Link href="/wishlist" className="hidden sm:flex items-center justify-center w-8 h-8 hover:text-signal transition-colors"><Heart className="w-4 h-4" /></Link>
-                                <Link href="/profile" className="pill flex items-center gap-2 pl-3 pr-4 py-2 bg-foreground text-background hover:bg-signal ml-1">
-                                    <User className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline text-xs uppercase tracking-[0.15em]">{user.name?.split(" ")[0] || "Profile"}</span>
-                                </Link>
-                            </>
-                        ) : (
-                            <Link href="/login" className="pill flex items-center px-5 py-2 bg-foreground text-background hover:bg-signal text-xs uppercase tracking-[0.15em] ml-1">Account</Link>
-                        )}
-                    </div>
-                </div>
-            </header>
+                    </>
+                }
+            />
 
             <div className="pt-12 flex">
                 {/* Sidebar */}
                 <aside className={`fixed lg:sticky top-12 left-0 h-[calc(100vh-48px)] w-64 bg-background border-r border-border z-40 transform transition-transform lg:transform-none overflow-y-auto ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-                    <div className="p-4">
-                        <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-2 right-2 p-2 hover:bg-muted"><X className="w-4 h-4" /></button>
+                    <div className="p-5">
+                        <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-3 right-3 p-2 rounded-full hover:bg-secondary"><X className="w-4 h-4" /></button>
 
                         {/* View Mode */}
-                        <div className="mb-6">
-                            <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">View</h3>
-                            <div className="space-y-1.5">
-                                <button onClick={() => setViewMode("latest")} className={`pill w-full flex items-center gap-2 px-4 py-2.5 text-sm ${viewMode === "latest" ? "bg-foreground text-background" : "border border-border hover:border-foreground"}`}>
-                                    <Clock className="w-4 h-4" />Latest Drops
+                        <div className="mb-7">
+                            <h3 className="label mb-3">View</h3>
+                            <div className="space-y-1">
+                                <button onClick={() => setViewMode("latest")} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${viewMode === "latest" ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+                                    <Clock className="w-4 h-4" strokeWidth={1.8} />Latest drops
                                 </button>
-                                <button onClick={() => setViewMode("all")} className={`pill w-full flex items-center gap-2 px-4 py-2.5 text-sm ${viewMode === "all" ? "bg-foreground text-background" : "border border-border hover:border-foreground"}`}>
-                                    <Package className="w-4 h-4" />All Products
+                                <button onClick={() => setViewMode("all")} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${viewMode === "all" ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+                                    <Package className="w-4 h-4" strokeWidth={1.8} />All products
+                                </button>
+                                <button onClick={() => setCompareMode(!compareMode)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${compareMode ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+                                    <Globe className="w-4 h-4" strokeWidth={1.8} />Compare prices
                                 </button>
                             </div>
                         </div>
 
-                        {/* Price Comparison Toggle */}
-                        <div className="mb-6">
-                            <button onClick={() => setCompareMode(!compareMode)} className={`pill w-full flex items-center gap-2 px-4 py-2.5 text-sm border ${compareMode ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}>
-                                <Globe className="w-4 h-4" />Compare Prices
-                            </button>
-                        </div>
-
                         {/* Region Filter */}
-                        <div className="mb-6">
-                            <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Region</h3>
-                            <div className="space-y-1">
+                        <div className="mb-7">
+                            <h3 className="label mb-3">Region</h3>
+                            <div className="space-y-0.5">
                                 {REGIONS.map((r) => (
-                                    <button key={r.code} onClick={() => setSelectedRegion(r.code)} className={`w-full text-left px-3 py-2 text-sm ${selectedRegion === r.code ? "bg-foreground text-background" : "hover:bg-muted"}`}>
+                                    <button key={r.code} onClick={() => setSelectedRegion(r.code)} className={`w-full text-left px-3 py-1.5 rounded-lg text-[13px] transition-colors ${selectedRegion === r.code ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
                                         {r.name}
                                     </button>
                                 ))}
@@ -309,22 +283,22 @@ function ShopPageContent() {
                         </div>
 
                         {/* Category Accordion */}
-                        <div className="mb-6">
-                            <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Category</h3>
-                            <div className="space-y-1">
-                                <button onClick={() => { setSelectedProductTypes([]); setSelectedCategoryLabel(null) }} className={`w-full text-left px-3 py-2 text-sm ${!selectedCategoryLabel ? "bg-foreground text-background" : "hover:bg-muted"}`}>
-                                    All Categories
+                        <div className="mb-7">
+                            <h3 className="label mb-3">Category</h3>
+                            <div className="space-y-0.5">
+                                <button onClick={() => { setSelectedProductTypes([]); setSelectedCategoryLabel(null) }} className={`w-full text-left px-3 py-1.5 rounded-lg text-[13px] transition-colors ${!selectedCategoryLabel ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+                                    All categories
                                 </button>
                                 {Object.entries(CATEGORY_GROUPS).map(([group, subcategories]) => (
                                     <div key={group}>
-                                        <button onClick={() => toggleGroup(group)} className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-muted">
+                                        <button onClick={() => toggleGroup(group)} className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] text-muted-foreground hover:text-foreground transition-colors">
                                             {group}
                                             {expandedGroups.has(group) ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                         </button>
                                         {expandedGroups.has(group) && (
-                                            <div className="pl-4 space-y-1">
+                                            <div className="pl-3 space-y-0.5 mt-0.5">
                                                 {Object.entries(subcategories).map(([label, productTypes]) => (
-                                                    <button key={label} onClick={() => { setSelectedProductTypes(productTypes); setSelectedCategoryLabel(label) }} className={`w-full text-left px-3 py-1.5 text-xs ${selectedCategoryLabel === label ? "bg-foreground text-background" : "hover:bg-muted text-muted-foreground"}`}>
+                                                    <button key={label} onClick={() => { setSelectedProductTypes(productTypes); setSelectedCategoryLabel(label) }} className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${selectedCategoryLabel === label ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                                                         {label}
                                                     </button>
                                                 ))}
@@ -336,11 +310,11 @@ function ShopPageContent() {
                         </div>
 
                         {/* Size Filter */}
-                        <div className="mb-6">
-                            <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Size</h3>
-                            <div className="flex flex-wrap gap-1">
+                        <div className="mb-7">
+                            <h3 className="label mb-3">Size</h3>
+                            <div className="flex flex-wrap gap-1.5">
                                 {SIZES.map((size) => (
-                                    <button key={size} onClick={() => setSelectedSize(selectedSize === size ? null : size)} className={`pill min-w-9 px-3 py-1.5 text-xs border ${selectedSize === size ? "bg-foreground text-background border-foreground" : "border-border hover:border-foreground"}`}>
+                                    <button key={size} onClick={() => setSelectedSize(selectedSize === size ? null : size)} className={`pill min-w-9 px-3 py-1.5 text-xs transition-colors ${selectedSize === size ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
                                         {size}
                                     </button>
                                 ))}
@@ -349,7 +323,7 @@ function ShopPageContent() {
 
                         {/* Clear Filters */}
                         {hasActiveFilters && (
-                            <button onClick={clearFilters} className="w-full text-center text-xs uppercase tracking-wider underline py-2">Clear All Filters</button>
+                            <button onClick={clearFilters} className="w-full text-center text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2">Clear all filters</button>
                         )}
                     </div>
                 </aside>
@@ -358,19 +332,16 @@ function ShopPageContent() {
 
                 {/* Main Content - scrolls independently */}
                 <main className="flex-1 h-[calc(100vh-48px)] overflow-y-auto">
-                    <div className="px-4 lg:px-8 py-5 border-b border-foreground flex items-end justify-between sticky top-0 bg-background/95 backdrop-blur-sm z-20">
+                    <div className="px-4 lg:px-8 pt-8 pb-5 flex items-end justify-between">
                         <div>
-                            <p className="mono-label text-signal mb-1">● {viewMode === "latest" ? "Live Index" : "Full Archive"}</p>
-                            <h1 className="display text-3xl md:text-4xl">{viewMode === "latest" ? "Latest Drops" : "All Products"}</h1>
+                            <h1 className="display text-2xl md:text-3xl">{viewMode === "latest" ? "Latest drops" : "All products"}</h1>
+                            <p className="text-[13px] text-muted-foreground mt-1">{totalProducts.toLocaleString()} items across 6 regions</p>
                         </div>
-                        <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                            {hasActiveFilters && (
-                                <span className="flex items-center gap-1.5 text-signal">
-                                    <Filter className="w-3 h-3" /> Filtered
-                                </span>
-                            )}
-                            <span>{totalProducts.toLocaleString()} Items</span>
-                        </div>
+                        {hasActiveFilters && (
+                            <span className="pill inline-flex items-center gap-1.5 bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                                <Filter className="w-3 h-3" /> Filtered
+                            </span>
+                        )}
                     </div>
 
                     <div className="px-4 lg:px-8 py-6">
@@ -379,28 +350,28 @@ function ShopPageContent() {
                                 {Array.from({ length: 8 }).map((_, i) => (<div key={i} className="space-y-2"><div className="aspect-[3/4] bg-muted animate-pulse" /><div className="h-3 bg-muted animate-pulse w-3/4" /></div>))}
                             </div>
                         ) : products.length === 0 ? (
-                            <div className="text-center py-16">
-                                <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                                <p className="text-sm uppercase tracking-wider text-muted-foreground">No products found</p>
-                                <button onClick={clearFilters} className="mt-4 text-xs uppercase tracking-wider underline">Clear Filters</button>
+                            <div className="text-center py-20">
+                                <Package className="w-10 h-10 mx-auto text-muted-foreground mb-4" strokeWidth={1.5} />
+                                <p className="text-sm text-muted-foreground">No products found</p>
+                                <button onClick={clearFilters} className="pill mt-5 px-5 py-2 bg-secondary text-[13px] font-medium hover:bg-border transition-colors">Clear filters</button>
                             </div>
                         ) : compareMode && groupedByHandle ? (
                             // Price Comparison View
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                                 {Array.from(groupedByHandle.entries()).slice(0, 20).map(([handle, variants]) => (
-                                    <div key={handle} className="border border-border p-4">
+                                    <div key={handle} className="rounded-2xl bg-secondary p-4">
                                         <div className="flex gap-4">
-                                            <div className="w-24 h-32 bg-muted flex-shrink-0">
+                                            <div className="w-20 h-28 rounded-xl overflow-hidden bg-background flex-shrink-0">
                                                 <ImageWithLoading src={variants[0].image_url} alt={variants[0].title} className="w-full h-full object-cover" />
                                             </div>
-                                            <div className="flex-1">
-                                                <h3 className="text-sm uppercase tracking-wide mb-2">{variants[0].title}</h3>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-[13px] font-medium mb-3 truncate">{variants[0].title}</h3>
                                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                                                     {variants.sort((a, b) => a.price - b.price).map((v) => (
-                                                        <a key={v.id} href={v.product_url} target="_blank" rel="noopener noreferrer" className={`p-2 border text-center ${v.is_available ? "border-border hover:border-foreground" : "border-border/50 opacity-50"}`}>
-                                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{v.region}</p>
-                                                            <p className="text-sm font-medium">{formatPrice(v.price, v.currency)}</p>
-                                                            {!v.is_available && <p className="text-[9px] text-muted-foreground">Sold Out</p>}
+                                                        <a key={v.id} href={v.product_url} target="_blank" rel="noopener noreferrer" className={`rounded-xl bg-background p-2.5 text-center transition-opacity ${v.is_available ? "hover:opacity-70" : "opacity-40"}`}>
+                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{v.region}</p>
+                                                            <p className="text-[13px] font-medium mt-0.5">{formatPrice(v.price, v.currency)}</p>
+                                                            {!v.is_available && <p className="text-[10px] text-muted-foreground">Sold out</p>}
                                                         </a>
                                                     ))}
                                                 </div>
@@ -410,27 +381,33 @@ function ShopPageContent() {
                                 ))}
                             </div>
                         ) : (
-                            // Grid View — hairline gallery
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 border-t border-l border-border">
+                            // Grid View
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
                                 {products.map((product, index) => {
                                     const inWishlist = isInWishlist(product.id)
                                     return (
-                                        <div key={product.id} className={`group relative border-r border-b border-border bg-background transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`} style={{ transitionDelay: `${Math.min(index * 15, 150)}ms` }}>
-                                            <div className="relative aspect-[3/4] bg-muted overflow-hidden">
-                                                <span className="absolute top-0 left-0 z-10 font-mono text-[9px] uppercase tracking-widest bg-foreground text-background px-1.5 py-1">{String(index + 1).padStart(3, "0")}</span>
-                                                <span className="absolute top-0 right-0 z-10 font-mono text-[9px] uppercase tracking-widest bg-signal text-signal-foreground px-1.5 py-1">{product.region}</span>
-                                                <button onClick={() => handleWishlist(product)} className={`absolute bottom-2 right-2 z-10 w-7 h-7 flex items-center justify-center transition-all ${inWishlist ? "bg-signal text-signal-foreground" : "bg-background opacity-0 group-hover:opacity-100"}`}>
-                                                    <Heart className={`w-3 h-3 ${inWishlist ? "fill-current" : ""}`} />
+                                        <div key={product.id} className={`group transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`} style={{ transitionDelay: `${Math.min(index * 15, 150)}ms` }}>
+                                            <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
+                                                <span className="absolute top-3 left-3 z-10 pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium uppercase">{product.region}</span>
+                                                <button
+                                                    onClick={() => handleWishlist(product)}
+                                                    aria-label="Toggle wishlist"
+                                                    className={`pill absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center transition-all ${inWishlist ? "bg-primary text-primary-foreground" : "bg-background/90 backdrop-blur text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"}`}
+                                                >
+                                                    <Heart className={`w-3.5 h-3.5 ${inWishlist ? "fill-current" : ""}`} />
                                                 </button>
-                                                {!product.is_available && <div className="absolute inset-0 bg-background/70 flex items-center justify-center"><span className="font-mono text-[10px] uppercase tracking-widest">Sold Out</span></div>}
+                                                {!product.is_available && (
+                                                    <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[2px] flex items-center justify-center">
+                                                        <span className="pill bg-background px-3 py-1.5 text-xs font-medium">Sold out</span>
+                                                    </div>
+                                                )}
                                                 <Link href={`/product/${product.id}`} className="block w-full h-full">
                                                     <ImageWithLoading src={product.image_url} alt={product.title} className="w-full h-full object-cover product-image-zoom" />
                                                 </Link>
-                                                <Link href={`/product/${product.id}`} className="absolute bottom-0 left-0 right-0 py-2.5 bg-foreground text-background text-center font-mono text-[9px] uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 translate-y-full group-hover:translate-y-0 transition-all duration-200">View Details →</Link>
                                             </div>
-                                            <Link href={`/product/${product.id}`} className="flex items-start justify-between gap-2 px-2.5 py-2.5">
-                                                <h3 className="text-[11px] uppercase tracking-wide leading-snug line-clamp-2">{product.title}</h3>
-                                                <p className="font-mono text-[11px] shrink-0">{formatPrice(product.price, product.currency)}</p>
+                                            <Link href={`/product/${product.id}`} className="flex items-baseline justify-between gap-3 mt-3 px-1">
+                                                <h3 className="text-[13px] font-medium leading-snug line-clamp-1">{product.title}</h3>
+                                                <p className="text-[13px] text-muted-foreground shrink-0">{formatPrice(product.price, product.currency)}</p>
                                             </Link>
                                         </div>
                                     )
@@ -441,13 +418,13 @@ function ShopPageContent() {
                         {hasMore && products.length > 0 && !compareMode && (
                             <div ref={scrollRef} className="mt-8 flex flex-col items-center gap-4">
                                 {isLoadingMore ? (
-                                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Loading...</div>
+                                    <div className="text-[13px] text-muted-foreground">Loading…</div>
                                 ) : (
                                     <button
                                         onClick={() => loadMore()}
-                                        className="pill px-8 py-3 border border-foreground font-mono text-[10px] uppercase tracking-[0.25em] hover:bg-foreground hover:text-background"
+                                        className="pill px-6 py-2.5 bg-secondary text-[13px] font-medium hover:bg-border transition-colors"
                                     >
-                                        Load More +
+                                        Load more
                                     </button>
                                 )}
                             </div>
@@ -456,27 +433,6 @@ function ShopPageContent() {
                 </main>
             </div>
 
-            {/* Mobile Bottom Navigation */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border pb-safe">
-                <div className="flex items-center justify-around h-14">
-                    <Link href="/" className="flex flex-col items-center gap-0.5 p-2 text-muted-foreground">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                        <span className="text-[10px]">Home</span>
-                    </Link>
-                    <Link href="/shop" className="flex flex-col items-center gap-0.5 p-2 text-foreground">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                        <span className="text-[10px]">Shop</span>
-                    </Link>
-                    <Link href="/community" className="flex flex-col items-center gap-0.5 p-2 text-muted-foreground">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        <span className="text-[10px]">Forum</span>
-                    </Link>
-                    <Link href={user ? "/profile" : "/login"} className="flex flex-col items-center gap-0.5 p-2 text-muted-foreground">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                        <span className="text-[10px]">{user ? "Profile" : "Login"}</span>
-                    </Link>
-                </div>
-            </nav>
         </div>
     )
 }

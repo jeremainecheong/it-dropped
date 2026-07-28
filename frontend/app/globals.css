@@ -4,74 +4,68 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   IT DROPPED — magazine / Dover Street Market editorial system
-   Pure gallery white, neutral greys, one clean red. Fashion-
-   serif mastheads, clean grotesque body, monospace catalog
-   chrome, pill buttons against a hairline gallery grid.
+   IT DROPPED — minimal design system
+   Pure white, quiet neutrals, San Francisco type, soft radii,
+   pill buttons, generous whitespace. One restrained red accent
+   reserved for live states.
    ============================================================ */
 
 :root {
-  /* Pure white paper */
   --background: #ffffff;
-  --foreground: #0e0e0e;
+  --foreground: #1d1d1f;
   --card: #ffffff;
-  --card-foreground: #0e0e0e;
+  --card-foreground: #1d1d1f;
   --popover: #ffffff;
-  --popover-foreground: #0e0e0e;
-  --primary: #0e0e0e;
+  --popover-foreground: #1d1d1f;
+  --primary: #1d1d1f;
   --primary-foreground: #ffffff;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #0e0e0e;
-  --muted: #f4f4f4;
-  --muted-foreground: #6f6f6f;
-  --accent: #0e0e0e;
-  --accent-foreground: #ffffff;
-  --destructive: #e4002b;
+  --secondary: #f5f5f7;
+  --secondary-foreground: #1d1d1f;
+  --muted: #f5f5f7;
+  --muted-foreground: #6e6e73;
+  --accent: #f5f5f7;
+  --accent-foreground: #1d1d1f;
+  --destructive: #e11d2e;
   --destructive-foreground: #ffffff;
-  --border: #e6e6e6;
-  --input: #ffffff;
-  --ring: #0e0e0e;
-  --radius: 0rem;
+  --border: #e8e8ed;
+  --input: #f5f5f7;
+  --ring: #1d1d1f;
+  --radius: 0.75rem;
 
-  /* Signal red — clean, magazine, not warm */
-  --signal: #e4002b;
+  /* Live / alert accent — used sparingly */
+  --signal: #e11d2e;
   --signal-foreground: #ffffff;
-  /* Hairline used for the blueprint grid */
-  --grid-line: #ededed;
 }
 
 .dark {
-  /* Neutral gallery black */
-  --background: #0a0a0a;
-  --foreground: #f2f2f2;
-  --card: #131313;
-  --card-foreground: #f2f2f2;
-  --popover: #0a0a0a;
-  --popover-foreground: #f2f2f2;
-  --primary: #f2f2f2;
-  --primary-foreground: #0a0a0a;
-  --secondary: #191919;
-  --secondary-foreground: #f2f2f2;
-  --muted: #191919;
-  --muted-foreground: #8c8c8c;
-  --accent: #f2f2f2;
-  --accent-foreground: #0a0a0a;
-  --destructive: #ff2b45;
+  --background: #0b0b0c;
+  --foreground: #f5f5f7;
+  --card: #151517;
+  --card-foreground: #f5f5f7;
+  --popover: #151517;
+  --popover-foreground: #f5f5f7;
+  --primary: #f5f5f7;
+  --primary-foreground: #0b0b0c;
+  --secondary: #1c1c1e;
+  --secondary-foreground: #f5f5f7;
+  --muted: #1c1c1e;
+  --muted-foreground: #98989d;
+  --accent: #1c1c1e;
+  --accent-foreground: #f5f5f7;
+  --destructive: #ff453a;
   --destructive-foreground: #ffffff;
-  --border: #252525;
-  --input: #131313;
-  --ring: #f2f2f2;
+  --border: #26262a;
+  --input: #1c1c1e;
+  --ring: #f5f5f7;
 
-  --signal: #ff2b45;
+  --signal: #ff453a;
   --signal-foreground: #ffffff;
-  --grid-line: #202020;
 }
 
 @theme inline {
-  --font-sans: var(--font-archivo), -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  /* Label / chrome role: Inter as an SF-style face, real San Francisco on Apple devices */
-  --font-mono: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-  --font-serif: var(--font-fraunces), "Times New Roman", Georgia, serif;
+  --font-sans: var(--font-sf-text), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-sf-display), -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-sf-text), -apple-system, BlinkMacSystemFont, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -93,11 +87,10 @@
   --color-ring: var(--ring);
   --color-signal: var(--signal);
   --color-signal-foreground: var(--signal-foreground);
-  --color-grid-line: var(--grid-line);
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
-  --radius-xl: 0;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
 }
 
 @layer base {
@@ -107,150 +100,60 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    font-feature-settings: "kern" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
   }
 
   ::selection {
-    background: var(--signal);
-    color: var(--signal-foreground);
+    background: var(--foreground);
+    color: var(--background);
   }
 }
 
 /* ---------- Type helpers ---------- */
 
-/* Fashion-magazine masthead — high-contrast serif, cropped tight */
+/* Large display headline — SF Pro Display, tight and calm */
 .display {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-weight: 600;
-  line-height: 0.86;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
 }
 
-/* Editorial italic serif — the couture pull-quote */
-.serif-accent {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.005em;
-  text-transform: none;
-}
-
-/* Catalog label — clean SF-style gallery chrome */
-.mono-label {
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.625rem;
+/* Small section label — quiet uppercase */
+.label {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
   font-weight: 500;
-  font-feature-settings: "tnum" 1, "cv01" 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-foreground);
 }
 
-/* ---------- Pill buttons (rounded) ---------- */
+/* ---------- Buttons ---------- */
 .pill {
   border-radius: 9999px;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
 }
 .pill:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
-/* ---------- Marquee ticker ---------- */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+/* ---------- Cards ---------- */
+.card-hover {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-hover:hover {
+  background: var(--muted);
 }
 
-.marquee {
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.marquee__track {
-  display: inline-flex;
-  min-width: 100%;
-  width: max-content;
-  animation: marquee var(--marquee-duration, 40s) linear infinite;
-}
-
-.marquee:hover .marquee__track {
-  animation-play-state: paused;
-}
-
-.marquee--reverse .marquee__track {
-  animation-direction: reverse;
-}
-
-/* ---------- Blueprint grid background ---------- */
-.grid-lines {
-  background-image:
-    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-  background-size: 25% 8rem;
-}
-
-/* ---------- Film grain overlay (paper texture) ---------- */
-.grain::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.dark .grain::after {
-  mix-blend-mode: screen;
-  opacity: 0.05;
-}
-
-/* ---------- Interaction ---------- */
-
-/* Invert on hover — the gallery flip */
-.hover-invert {
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-.hover-invert:hover {
-  background: var(--foreground);
-  color: var(--background);
-}
-
-/* Signal flip — hover into the loud red */
-.hover-signal {
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-.hover-signal:hover {
-  background: var(--signal);
-  color: var(--signal-foreground);
-}
-
-/* Animated link underline sweep */
-.link-underline {
-  position: relative;
-}
-.link-underline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -2px;
-  width: 0;
-  height: 1px;
-  background: currentColor;
-  transition: width 0.25s ease;
-}
-.link-underline:hover::after {
-  width: 100%;
-}
-
-/* Product image hover zoom */
+/* ---------- Images ---------- */
 .product-image-zoom {
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.4s ease;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .group:hover .product-image-zoom,
 .product-image-zoom:hover {
-  transform: scale(1.04);
+  transform: scale(1.03);
 }
 
 /* ---------- Reveal ---------- */
@@ -263,11 +166,11 @@
 }
 
 @keyframes rise-in {
-  from { opacity: 0; transform: translateY(1.5rem); }
+  from { opacity: 0; transform: translateY(0.75rem); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-rise {
-  animation: rise-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: rise-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ---------- Utility ---------- */
@@ -289,8 +192,10 @@
   100% { background-position: 200% 0; }
 }
 
-/* Vertical rotated label */
-.vertical-rl {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+/* Legacy helper kept for compatibility */
+.link-underline {
+  transition: color 0.15s ease;
+}
+.link-underline:hover {
+  color: var(--foreground);
 }

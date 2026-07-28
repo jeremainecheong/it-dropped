@@ -7,6 +7,7 @@ import { ArrowLeft, Heart, ExternalLink, Share2, Bell, Check, Globe } from "luci
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { AuthGuard } from "@/components/auth-guard"
+import { Header } from "@/components/layout/header"
 import { PriceHistoryChart } from "@/components/product/price-history-chart"
 
 interface Product {
@@ -158,30 +159,30 @@ function ProductDetailContent() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="flex items-center justify-between px-4 lg:px-8 h-14">
-          <Link href="/shop" className="flex items-center gap-2 text-sm hover:text-muted-foreground">
-            <ArrowLeft className="w-4 h-4" />
-            Shop
-          </Link>
-          <Link href="/" className="text-lg font-medium tracking-tight uppercase">
-            it dropped<span className="text-muted-foreground">!</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <button onClick={handleShare} className="p-2 hover:bg-muted rounded">
+      <Header
+        actions={
+          <>
+            <button onClick={handleShare} aria-label="Share" className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors">
               <Share2 className="w-4 h-4" />
             </button>
             <button
               onClick={handleWishlist}
-              className={`p-2 rounded ${isWishlisted ? "bg-foreground text-background" : "hover:bg-muted"}`}
+              aria-label="Toggle wishlist"
+              className={`pill flex items-center justify-center w-8 h-8 transition-colors ${isWishlisted ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Heart className={`w-4 h-4 ${isWishlisted ? "fill-current" : ""}`} />
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="pt-14 pb-20 md:pb-8">
+      <main className="pt-12 pb-20 md:pb-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-5">
+          <Link href="/shop" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to shop
+          </Link>
+        </div>
         <div className="max-w-6xl mx-auto px-4 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 py-8">
             <div className="aspect-[3/4] bg-muted overflow-hidden">
