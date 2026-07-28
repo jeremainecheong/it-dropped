@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { User, Heart, Home, ShoppingBag, Users, LayoutGrid } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { Logo } from "@/components/ui/logo"
 
 interface HeaderProps {
     /** Page-specific actions rendered before the default actions (e.g. search) */
@@ -32,11 +33,8 @@ export function Header({ actions }: HeaderProps) {
         <>
             <header className="fixed top-0 left-0 right-0 z-50 h-12 bg-background/80 backdrop-blur-xl border-b border-border">
                 <div className="mx-auto max-w-6xl h-full px-4 sm:px-6 flex items-center justify-between gap-4">
-                    {/* Wordmark */}
-                    <Link href="/" className="flex items-center gap-1.5 shrink-0">
-                        <span className="font-display text-[15px] font-semibold tracking-tight">It Dropped</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-signal mt-px" aria-hidden />
-                    </Link>
+                    {/* Logo */}
+                    <Logo size="sm" />
 
                     {/* Center nav */}
                     <nav className="hidden md:flex items-center gap-7 absolute left-1/2 -translate-x-1/2">

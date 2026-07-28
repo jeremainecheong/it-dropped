@@ -147,6 +147,35 @@
   background: var(--muted);
 }
 
+/* Lift on hover — subtle rise + soft shadow */
+.card-lift {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px -16px rgb(0 0 0 / 0.18);
+}
+.dark .card-lift:hover {
+  box-shadow: 0 16px 40px -16px rgb(0 0 0 / 0.7);
+}
+
+/* ---------- Type spice ---------- */
+
+/* Hollow display text — outline only */
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--foreground);
+}
+
+/* Slow pulse for the brand dot */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+
 /* ---------- Images ---------- */
 .product-image-zoom {
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Logo } from "@/components/ui/logo"
 
 /** Minimal shared footer, used by every page. */
 export function Footer() {
@@ -7,11 +8,8 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-8">
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-display text-[15px] font-semibold tracking-tight">It Dropped</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-signal mt-px" aria-hidden />
-            </div>
-            <p className="text-[13px] text-muted-foreground mt-1.5 max-w-xs">
+            <Logo size="md" asLink={false} />
+            <p className="text-[13px] text-muted-foreground mt-2 max-w-xs">
               Live Stüssy drop tracking across six regions.
             </p>
           </div>

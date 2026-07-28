@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { Logo } from "@/components/ui/logo"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -35,10 +36,9 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <Link href="/" className="flex items-center justify-center gap-1.5 mb-10">
-          <span className="font-display text-[15px] font-semibold tracking-tight">It Dropped</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-signal mt-px" aria-hidden />
-        </Link>
+        <div className="flex justify-center mb-10">
+          <Logo size="md" />
+        </div>
 
         <h1 className="display text-2xl text-center mb-1.5">Create your account</h1>
         <p className="text-sm text-muted-foreground text-center mb-8">

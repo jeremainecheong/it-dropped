@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowRight, Globe, LineChart, Users } from "lucide-react"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
+import { LogoMark } from "@/components/ui/logo"
 
 const FEATURED_DROPS = [
   { title: "8 Ball Fleece Jacket", price: "$185", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/115690_BLAC_1.jpg", region: "US" },
@@ -50,7 +51,7 @@ export default function LandingPage() {
 
       <main className="flex-1 pt-12">
         {/* Hero */}
-        <section className="mx-auto max-w-3xl px-6 pt-24 pb-20 sm:pt-32 sm:pb-24 text-center">
+        <section className="mx-auto max-w-4xl px-6 pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
           <div className={isMounted ? "animate-rise" : "opacity-0"}>
             <span className="inline-flex items-center gap-2 pill bg-secondary px-3.5 py-1.5 text-xs font-medium text-muted-foreground">
               <span className="relative flex h-1.5 w-1.5">
@@ -60,13 +61,14 @@ export default function LandingPage() {
               Live in 6 regions
             </span>
 
-            <h1 className="display text-5xl sm:text-6xl lg:text-7xl mt-7">
+            <h1 className="display text-6xl sm:text-7xl lg:text-[6.5rem] mt-8 tracking-[-0.03em]">
               Never miss
               <br />
-              a drop.
+              <span className="text-outline">a drop</span>
+              <LogoMark className="inline-block w-[0.6em] h-[0.6em] ml-[0.08em] align-baseline" />
             </h1>
 
-            <p className="text-lg text-muted-foreground leading-relaxed mt-6 max-w-xl mx-auto">
+            <p className="text-lg text-muted-foreground leading-relaxed mt-7 max-w-xl mx-auto">
               It Dropped tracks every Stüssy release, restock and price change
               worldwide — quietly, in one place.
             </p>
@@ -93,7 +95,10 @@ export default function LandingPage() {
         <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
           <div className="flex items-end justify-between mb-6">
             <div>
-              <p className="label mb-1.5">This week</p>
+              <p className="label mb-1.5 flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-signal" aria-hidden />
+                This week
+              </p>
               <h2 className="display text-2xl sm:text-3xl">On the radar</h2>
             </div>
             <Link
@@ -105,9 +110,14 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {FEATURED_DROPS.map((drop) => (
-              <Link key={drop.title} href="/shop" className="group">
-                <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
+            {FEATURED_DROPS.map((drop, i) => (
+              <Link
+                key={drop.title}
+                href="/shop"
+                className={`group ${isMounted ? "animate-rise" : "opacity-0"}`}
+                style={{ animationDelay: `${150 + i * 90}ms` }}
+              >
+                <div className="card-lift relative aspect-[3/4] bg-secondary rounded-3xl overflow-hidden">
                   <img
                     src={drop.image}
                     alt={drop.title}
@@ -116,8 +126,11 @@ export default function LandingPage() {
                   <span className="absolute top-3 left-3 pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium">
                     {drop.region}
                   </span>
+                  <span className="pill absolute bottom-3 right-3 bg-foreground text-background px-3 py-1.5 text-[12px] font-medium opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+                    {drop.price}
+                  </span>
                 </div>
-                <div className="flex items-baseline justify-between gap-3 mt-3 px-1">
+                <div className="flex items-baseline justify-between gap-3 mt-3.5 px-1">
                   <h3 className="text-[13px] font-medium truncate">{drop.title}</h3>
                   <span className="text-[13px] text-muted-foreground shrink-0">{drop.price}</span>
                 </div>
@@ -129,9 +142,14 @@ export default function LandingPage() {
         {/* Features */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
           <div className="grid md:grid-cols-3 gap-4">
-            {FEATURES.map((feature) => (
-              <div key={feature.title} className="rounded-2xl bg-secondary p-8">
-                <feature.icon className="w-5 h-5 text-muted-foreground mb-5" strokeWidth={1.8} />
+            {FEATURES.map((feature, i) => (
+              <div key={feature.title} className="card-lift relative rounded-3xl bg-secondary p-8 overflow-hidden">
+                <span className="absolute top-6 right-7 font-display text-sm font-semibold text-muted-foreground/40">
+                  0{i + 1}
+                </span>
+                <span className="inline-flex items-center justify-center w-10 h-10 rounded-2xl bg-background mb-6">
+                  <feature.icon className="w-[18px] h-[18px]" strokeWidth={1.8} />
+                </span>
                 <h3 className="text-[15px] font-semibold mb-2">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{feature.body}</p>
               </div>
@@ -141,11 +159,11 @@ export default function LandingPage() {
 
         {/* Stats */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
-          <div className="flex flex-wrap justify-center gap-x-20 gap-y-8 py-2">
+          <div className="flex flex-wrap justify-center gap-x-24 gap-y-8 py-2">
             {STATS.map((stat) => (
               <div key={stat.label} className="text-center">
-                <p className="display text-3xl sm:text-4xl">{stat.value}</p>
-                <p className="text-[13px] text-muted-foreground mt-1">{stat.label}</p>
+                <p className="display text-4xl sm:text-5xl">{stat.value}</p>
+                <p className="text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -153,17 +171,24 @@ export default function LandingPage() {
 
         {/* CTA */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-28">
-          <div className="rounded-3xl bg-secondary px-6 py-16 sm:py-20 text-center">
-            <h2 className="display text-3xl sm:text-4xl">Ready when you are.</h2>
-            <p className="text-muted-foreground mt-3 max-w-md mx-auto">
+          <div className="relative rounded-[2rem] bg-primary text-primary-foreground px-6 py-20 sm:py-24 text-center overflow-hidden">
+            {/* watermark drop */}
+            <LogoMark className="absolute -right-10 -bottom-14 w-64 h-64 opacity-[0.07] rotate-12 pointer-events-none" />
+
+            <span className="inline-flex items-center gap-2 pill bg-primary-foreground/10 px-3.5 py-1.5 text-xs font-medium text-primary-foreground/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-soft" />
+              Tracking runs 24/7
+            </span>
+            <h2 className="display text-4xl sm:text-5xl mt-6">Ready when you are.</h2>
+            <p className="text-primary-foreground/60 mt-3.5 max-w-md mx-auto">
               Free to start. Track drops, compare prices, join the community.
             </p>
             <Link
               href="/signup"
-              className="pill inline-flex items-center gap-2 px-6 py-3 mt-8 bg-primary text-primary-foreground text-sm font-medium hover:opacity-85"
+              className="pill group inline-flex items-center gap-2 px-7 py-3.5 mt-9 bg-primary-foreground text-primary text-sm font-medium hover:opacity-90"
             >
               Create free account
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
         </section>
