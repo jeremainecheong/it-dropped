@@ -68,8 +68,9 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-archivo), "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
+  --font-sans: var(--font-archivo), -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Label / chrome role: Inter as an SF-style face, real San Francisco on Apple devices */
+  --font-mono: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   --font-serif: var(--font-fraunces), "Times New Roman", Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -135,12 +136,14 @@
   text-transform: none;
 }
 
-/* Mono catalog label — the utilitarian gallery chrome */
+/* Catalog label — clean SF-style gallery chrome */
 .mono-label {
   font-family: var(--font-mono);
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   font-size: 0.625rem;
+  font-weight: 500;
+  font-feature-settings: "tnum" 1, "cv01" 1;
 }
 
 /* ---------- Pill buttons (rounded) ---------- */

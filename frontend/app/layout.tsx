@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Archivo, JetBrains_Mono, Fraunces } from "next/font/google"
+import { Archivo, Inter, Fraunces } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
 import { WishlistProvider } from "@/lib/wishlist-context"
@@ -15,11 +15,11 @@ const archivo = Archivo({
   weight: ["400", "500", "600", "700", "800", "900"],
 })
 
-const jetbrainsMono = JetBrains_Mono({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-jetbrains",
+  variable: "--font-inter",
   display: "swap",
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 })
 
 const fraunces = Fraunces({
@@ -60,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${archivo.variable} ${jetbrainsMono.variable} ${fraunces.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${archivo.variable} ${inter.variable} ${fraunces.variable}`} suppressHydrationWarning>
       <body className="grain font-sans antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           <AuthProvider>
