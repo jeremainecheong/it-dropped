@@ -23,30 +23,8 @@ export function NotificationBell() {
     const [unreadCount, setUnreadCount] = useState(0)
 
     useEffect(() => {
-        if (user) {
-            fetchNotifications()
-            subscribeToNotifications()
-        }
-    }, [user])
-
-    const fetchNotifications = async () => {
         if (!user) return
-
-        const { data, error } = await supabase
-            .from("notifications")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(20)
-
-        if (!error && data) {
-            setNotifications(data)
-            setUnreadCount(data.filter((n) => !n.is_read).length)
-        }
-    }
-
-    const subscribeToNotifications = () => {
-        if (!user) return
+        fetchNotifications()
 
         const channel = supabase
             .channel(`notifications:${user.id}`)
@@ -66,7 +44,23 @@ export function NotificationBell() {
             .subscribe()
 
         return () => {
-            channel.unsubscribe()
+            supabase.removeChannel(channel)
+        }
+    }, [user])
+
+    const fetchNotifications = async () => {
+        if (!user) return
+
+        const { data, error } = await supabase
+            .from("notifications")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(20)
+
+        if (!error && data) {
+            setNotifications(data)
+            setUnreadCount(data.filter((n) => !n.is_read).length)
         }
     }
 

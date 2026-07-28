@@ -52,12 +52,25 @@ export default function ThreadPage() {
     const isAdmin = user?.role === "admin"
 
     useEffect(() => {
-        if (threadId) {
-            fetchThread()
-            fetchComments()
-            incrementViewCount()
-            checkLikeStatus()
-            subscribeToComments()
+        if (!threadId) return
+        fetchThread()
+        fetchComments()
+        incrementViewCount()
+        checkLikeStatus()
+
+        const channel = supabase
+            .channel(`thread:${threadId}`)
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "forum_comments", filter: `thread_id=eq.${threadId}` },
+                () => {
+                    fetchComments() // Re-fetch to get nested structure
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
         }
     }, [threadId])
 
@@ -116,23 +129,6 @@ export default function ThreadPage() {
             .eq("user_id", user.id)
             .single()
         setHasLiked(!!data)
-    }
-
-    const subscribeToComments = () => {
-        const channel = supabase
-            .channel(`thread:${threadId}`)
-            .on(
-                "postgres_changes",
-                { event: "INSERT", schema: "public", table: "forum_comments", filter: `thread_id=eq.${threadId}` },
-                (payload) => {
-                    fetchComments() // Re-fetch to get nested structure
-                }
-            )
-            .subscribe()
-
-        return () => {
-            supabase.removeChannel(channel)
-        }
     }
 
     const handleSubmitComment = async (e: React.FormEvent) => {
