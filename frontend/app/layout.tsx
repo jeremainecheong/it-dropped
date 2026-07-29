@@ -31,7 +31,12 @@ const sfDisplay = localFont({
 })
 
 export const metadata: Metadata = {
-  title: "it dropped! — Stüssy Drop Tracker",
+  // Required so relative OG/canonical URLs resolve correctly.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://itdropped.app"),
+  title: {
+    default: "It Dropped — Stüssy drop tracker across six regions",
+    template: "%s — It Dropped",
+  },
   description: "Never miss a Stüssy drop. Track releases, restocks, and price changes across all regions in real-time.",
   generator: "v0.app",
   keywords: ["Stüssy", "streetwear", "drops", "restocks", "price tracker", "fashion"],

@@ -4,9 +4,11 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink, Check, X } from "lucide-react"
-import { AuthGuard } from "@/components/auth-guard"
 import { Header } from "@/components/layout/header"
-import { formatPrice, rankByUSD, bestOffer, toUSD } from "@/lib/currency"
+import { formatPrice } from "@/lib/currency"
+import { rankByLandedCost, formatUSD } from "@/lib/landed-cost"
+import { useDestination } from "@/lib/use-destination"
+import { DestinationSelect } from "@/components/ui/destination-select"
 
 interface Product {
     id: string
@@ -37,6 +39,7 @@ function CompareContent() {
 
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const { destination, setDestination } = useDestination()
 
     useEffect(() => {
         if (handle) {
@@ -50,8 +53,7 @@ function CompareContent() {
             const response = await fetch(`/api/dropradar/products/by-handle/${productHandle}`)
             const data = await response.json()
             if (data.success && Array.isArray(data.data)) {
-                // Rank by approximate USD — raw prices are in different currencies
-                setProducts(rankByUSD<Product>(data.data))
+                setProducts(data.data)
             }
         } catch (error) {
             console.error("Error:", error)
@@ -60,8 +62,10 @@ function CompareContent() {
         }
     }
 
-    // Cheapest in-stock offer by approximate USD value
-    const cheapest = bestOffer(products) ?? null
+    // Ranked by estimated delivered cost — sticker price alone is misleading
+    // once shipping and duty enter the picture.
+    const ranked = rankByLandedCost(products, destination)
+    const cheapest = ranked.find((r) => r.offer.is_available)?.offer ?? null
 
     if (!handle) {
         return (
@@ -91,13 +95,20 @@ function CompareContent() {
                         </div>
                     ) : (
                         <>
-                            <div className="mb-8">
-                                <h1 className="display text-2xl md:text-3xl">{products[0].title}</h1>
-                                <p className="text-[13px] text-muted-foreground mt-1">{products[0].vendor}</p>
+                            <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+                                <div>
+                                    <h1 className="display text-2xl md:text-3xl">{products[0].title}</h1>
+                                    <p className="text-[13px] text-muted-foreground mt-1">{products[0].vendor}</p>
+                                </div>
+                                <DestinationSelect value={destination.code} onChange={setDestination} />
                             </div>
+                            <p className="text-xs text-muted-foreground mb-8 max-w-xl">
+                                Ranked by estimated cost delivered to {destination.name}. Shipping and duty are
+                                estimates, not a quote — customs assess the final amount.
+                            </p>
 
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {products.map((product) => {
+                                {ranked.map(({ offer: product, landed }) => {
                                     const isCheapest = cheapest && product.id === cheapest.id
                                     return (
                                         <div
@@ -107,7 +118,7 @@ function CompareContent() {
                                         >
                                             {isCheapest && (
                                                 <span className="pill inline-block bg-signal text-signal-foreground px-2.5 py-0.5 text-[10px] font-semibold mb-4">
-                                                    Best price
+                                                    Best delivered
                                                 </span>
                                             )}
 
@@ -121,14 +132,24 @@ function CompareContent() {
                                             </div>
 
                                             <div className="mb-4">
-                                                <div className="display text-3xl">
-                                                    {formatPrice(product.price, product.currency)}
+                                                <div className="display text-3xl">~{formatUSD(landed.totalUSD)}</div>
+                                                <div className={`text-xs mt-1 ${isCheapest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                                                    delivered · {formatPrice(product.price, product.currency)} item
                                                 </div>
-                                                {product.currency !== "USD" && (
-                                                    <div className={`text-xs mt-1 ${isCheapest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                                                        ≈ ${Math.round(toUSD(product.price, product.currency))}
+                                            </div>
+
+                                            <div className={`mb-4 space-y-0.5 text-xs ${isCheapest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                                                {landed.shippingUSD > 0 && (
+                                                    <div className="flex justify-between">
+                                                        <span>Shipping</span><span>~{formatUSD(landed.shippingUSD)}</span>
                                                     </div>
                                                 )}
+                                                {landed.importUSD > 0 && (
+                                                    <div className="flex justify-between">
+                                                        <span>Duty &amp; tax</span><span>~{formatUSD(landed.importUSD)}</span>
+                                                    </div>
+                                                )}
+                                                <div>{landed.notes}</div>
                                             </div>
 
                                             <div className="flex items-center gap-2 mb-4">
@@ -188,8 +209,6 @@ function CompareContent() {
 
 export default function ComparePage() {
     return (
-        <AuthGuard>
-            <CompareContent />
-        </AuthGuard>
+                    <CompareContent />
     )
 }

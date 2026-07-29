@@ -10,7 +10,6 @@ import { useWishlist } from "@/lib/wishlist-context"
 import { Header } from "@/components/layout/header"
 import { NotificationBell } from "@/components/ui/notification-bell"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
-import { AuthGuard } from "@/components/auth-guard"
 
 interface Product {
     id: string
@@ -471,10 +470,8 @@ function ShopPageContent() {
 
 export default function ShopPage() {
     return (
-        <AuthGuard>
-            <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
                 <ShopPageContent />
             </Suspense>
-        </AuthGuard>
     )
 }
