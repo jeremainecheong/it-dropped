@@ -1,12 +1,14 @@
 /**
- * Server-side API access.
+ * Server-side catalogue access for rendering and metadata.
  *
- * Client components reach the Go API through the Next rewrite at
- * /api/dropradar/*, but that rewrite only exists in the browser's origin —
- * server components and metadata generation must call the API directly.
+ * Product pages, the sitemap and the OG images are generated on the server,
+ * before any browser is involved, so they cannot go through the /api/dropradar
+ * route handlers — those are same-origin URLs that do not exist yet at build
+ * time. They read Supabase directly instead, which is the same source those
+ * handlers read and one hop shorter.
  */
 
-const API_BASE_URL = (process.env.API_BASE_URL || "http://localhost:8080").replace(/\/$/, "")
+import { PRODUCT_COLUMNS, catalogue } from "@/lib/catalogue"
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://itdropped.app").replace(/\/$/, "")
 
@@ -31,32 +33,34 @@ export interface ApiProduct {
   last_seen_at: string
 }
 
-async function apiGet<T>(path: string, revalidate = 300): Promise<T | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
-      next: { revalidate },
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    if (!json?.success) return null
-    return json.data as T
-  } catch {
-    // The API being unreachable must not break rendering — callers fall back.
-    return null
-  }
+/** A missing product must render a 404, not crash the route — every caller
+ *  here already branches on null. */
+export async function getProduct(id: string): Promise<ApiProduct | null> {
+  const { data, error } = await catalogue
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .eq("id", id)
+    .maybeSingle()
+  if (error) return null
+  return (data as unknown as ApiProduct) ?? null
 }
 
-export function getProduct(id: string) {
-  return apiGet<ApiProduct>(`/products/${id}`)
-}
-
-export function getProductsByHandle(handle: string) {
-  return apiGet<ApiProduct[]>(`/products/by-handle/${encodeURIComponent(handle)}`)
+/** Every regional listing of the same garment, for the compare grid. */
+export async function getProductsByHandle(handle: string): Promise<ApiProduct[] | null> {
+  const { data, error } = await catalogue.rpc("products_by_handle", { h: handle })
+  if (error) return null
+  return (data as unknown as ApiProduct[]) ?? []
 }
 
 /** Products for the sitemap. Capped — sitemaps have a 50k URL limit. */
-export function getProductsForSitemap(limit = 5000) {
-  return apiGet<ApiProduct[]>(`/products?limit=${Math.min(limit, 100)}&sort=newest`, 3600)
+export async function getProductsForSitemap(limit = 5000): Promise<ApiProduct[] | null> {
+  const { data, error } = await catalogue
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .order("first_seen_at", { ascending: false })
+    .limit(Math.min(limit, 5000))
+  if (error) return null
+  return (data as unknown as ApiProduct[]) ?? []
 }
 
 export const CURRENCY_SYMBOLS: Record<string, string> = {

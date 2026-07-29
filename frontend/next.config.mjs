@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 
-// Where the Go API lives. Locally this is the dev server on :8080; in a
-// deployed environment (Vercel, k8s) set API_BASE_URL to the public API origin,
-// e.g. https://api.itdropped.com — without it, every /api/dropradar/* call
-// would proxy to a localhost that doesn't exist on the serverless host.
-const apiBaseUrl = (process.env.API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '')
+// There is no separate API to point at any more. The catalogue is read
+// straight from Supabase: by the route handlers under app/api/dropradar/* for
+// anything the browser asks for, and by lib/api.ts for server-rendered pages,
+// the sitemap and the OG images. The rewrite that used to proxy
+// /api/dropradar/* to a Go service is gone with it, so API_BASE_URL is no
+// longer read anywhere and does not need setting on the host.
 
 const nextConfig = {
   typescript: {
@@ -12,14 +13,6 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/dropradar/:path*',
-        destination: `${apiBaseUrl}/api/v1/:path*`,
-      },
-    ]
   },
 }
 

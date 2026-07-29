@@ -1,18 +1,28 @@
 # Deploying It Dropped
 
-The stack is split in two, and only one half belongs on Vercel:
+Two platforms, both free at hobby scale, and no server to run.
 
 | Component | Where it runs | Why |
 |---|---|---|
-| `frontend/` (Next.js) | **Vercel** | Static/serverless, no long-lived processes |
-| `backend/` API (Go) | Your own host — Vultr/k8s (`infra/k8s`), Fly.io, Railway, Render | Long-running HTTP server |
-| `backend/` scraper (Go) | Same host, as a CronJob or loop | Needs to run on a schedule, not per-request |
-| `backend/` Telegram bot | Same host | Long-lived process |
-| Postgres | Supabase | Already the source of truth |
+| `frontend/` (Next.js) | **Vercel** | Pages, plus the read API as route handlers |
+| Catalogue read API | **Vercel**, `frontend/app/api/dropradar/*` | 13 read-only routes over Supabase |
+| Postgres + PostgREST + Auth | **Supabase** | The source of truth |
+| `backend/` scraper (Go) | **GitHub Actions**, daily | A 20-second batch job wants a scheduler, not a server |
+| `backend/` Telegram bot | Only if you want announcements — see below | Long-lived process |
 
-> **Vercel cannot host the Go scraper.** Serverless functions are request-scoped
-> and capped well below a full scrape; the scraper must live somewhere that can
-> run background work. Deploy the frontend to Vercel and point it at your API.
+> **There is no separate Go API any more.** It was 13 read-only GET routes over
+> four public tables. Migration 014 moved the queries PostgREST cannot express
+> (ranked search, the handle-to-style-code lookup, the stats CTEs, the analytics
+> aggregates) into Postgres functions and a view; the route handlers under
+> `frontend/app/api/dropradar/*` are thin wrappers that return the identical
+> `{success, data, meta}` envelope, so no call site changed. `backend/cmd/api`
+> and `infra/k8s` are kept for reference but nothing deploys them.
+
+> **Why the scrape is daily.** Vercel's Hobby plan caps cron at **once per day**,
+> and a `*/5` schedule is rejected at deploy time. Daily also keeps the scraper
+> inside Supabase's 5 GB free egress: the differ reads the region's rows on every
+> cycle, which is ~720 MB/month at one run a day and would be ~35 GB at every
+> five minutes.
 
 ---
 
@@ -29,16 +39,40 @@ The stack is split in two, and only one half belongs on Vercel:
 | Variable | Example | Notes |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://abcd.supabase.co` | Supabase → Settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGci...` | anon/public key — safe in the browser |
-| `API_BASE_URL` | `https://api.your-domain.com` | Public origin of the Go API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_...` | publishable key — safe in the browser |
+| `NEXT_PUBLIC_SITE_URL` | `https://your-domain.com` | Canonical URLs, sitemap, OG images |
 
-`API_BASE_URL` is consumed by the rewrite in `next.config.mjs`, which proxies
-`/api/dropradar/*` → `<API_BASE_URL>/api/v1/*`. Because the rewrite is
-server-side, the browser only ever calls your own origin — so **no CORS
-configuration is needed** on the Go API.
+There is no `API_BASE_URL` and no service key. Every read goes through the
+publishable key, which is safe because migration 013 gives the catalogue tables
+RLS with a SELECT-only policy — the same key cannot write.
 
-If `API_BASE_URL` is unset it falls back to `http://localhost:8080`, which on
-Vercel means every product request fails. Set it before the first deploy.
+`NEXT_PUBLIC_SITE_URL` defaults to `https://itdropped.app`; if that is not your
+domain, canonical tags and the sitemap will point at someone else's site.
+
+---
+
+## 1b. Scraper on GitHub Actions
+
+`.github/workflows/scrape.yml` runs `backend/cmd/scraper` once a day and can be
+triggered by hand from the Actions tab.
+
+**Repository secret** (Settings → Secrets and variables → Actions):
+
+| Secret | Where to get it |
+|---|---|
+| `DATABASE_URL` | Supabase → **Connect** → **Session pooler** |
+| `TELEGRAM_BOT_TOKEN` | Optional. Absent, drops are stored but not announced |
+| `TELEGRAM_CHANNEL_ID` | Optional, with the token |
+
+Use the **session pooler** string, not the direct `db.<ref>.supabase.co` host.
+The direct host resolves to IPv6 only and GitHub's runners are IPv4, so it
+cannot connect at all.
+
+Two things to know about Actions as a scheduler: scheduled runs are queued and
+can be delayed by tens of minutes at busy times, which is harmless daily and
+would not be at five-minute cadence; and **GitHub disables scheduled workflows
+in a repository with no activity for 60 days**, so a repo you stop committing to
+will quietly stop scraping.
 
 ---
 
@@ -112,24 +146,21 @@ an open redirect.
 
 ---
 
-## 3. Backend (API + scraper)
+## 3. Database and the scraper
 
-Deploy from `infra/k8s` (manifests provided) or any container host.
+Nothing here is deployed as a service. The scraper runs in CI (section 1b);
+this section covers the schema it writes into and running it by hand.
 
-Required environment:
+Scraper environment:
 
 ```bash
-DATABASE_URL=postgres://…            # Supabase Postgres connection string
-GIN_MODE=release
-API_PORT=8080
-
-# Scraper
+DATABASE_URL=postgres://…            # Supabase SESSION POOLER string
 REGIONS=us,uk,eu,jp,au,sg
-SCRAPE_INTERVAL=5m                   # loop mode; ignored by the CronJob
+SCRAPE_INTERVAL=0                    # one cycle, then exit
 SCRAPE_TIMEOUT=30s
 REQUEST_DELAY=500ms
 
-# Telegram bot (optional)
+# Telegram announcements (optional)
 TELEGRAM_BOT_TOKEN=…
 ```
 
@@ -160,29 +191,40 @@ alert tables; a local database needs a stub with `id` and `raw_user_meta_data`.
 
 ### Scrape rate
 
-A full cycle is roughly 4 pages × 6 regions ≈ 24 upstream requests. At the
-default `SCRAPE_INTERVAL=5m` that is ~290 requests/hour spread across six
-different storefronts — deliberately polite. Lower it only if you have a
-reason to, and keep `REQUEST_DELAY` in place: it spaces out the pages within a
-single region so no one store sees a burst.
+A full cycle is roughly 4 pages × 6 regions ≈ 24 upstream requests and takes
+about 20 seconds. Once a day that is nothing to the stores; keep `REQUEST_DELAY`
+in place regardless, since it spaces out the pages within a region so no one
+store sees a burst.
 
-The scraper is safe to run as either a loop (`SCRAPE_INTERVAL`) or a one-shot
-CronJob (`infra/k8s/scraper-cronjob.yaml`, `*/5`). Do not run both against the
-same database.
+`SCRAPE_INTERVAL=0` runs one cycle and exits, which is what CI wants. Any
+positive value runs an internal loop instead — useful locally, wrong under a
+scheduler, because the job never ends and the next run is skipped. Do not run
+a loop and the scheduled job against the same database.
 
 ---
 
 ## 4. Post-deploy checks
 
 ```bash
-# API reachable and talking to Postgres
-curl https://api.your-domain.com/health
+# Catalogue reachable, and how fresh it is
+curl https://your-domain.com/api/dropradar/status
 
-# Frontend proxy resolves to the API (not localhost)
-curl https://your-domain.com/api/dropradar/products?limit=1
+# A read that exercises Postgres, PostgREST and the route handler together
+curl "https://your-domain.com/api/dropradar/products?limit=1&sort=price_asc"
+
+# The ranked-search function (this one is an RPC, not a table read)
+curl "https://your-domain.com/api/dropradar/products/search?q=hoodie&limit=3"
+
+# The publishable key must NOT be able to write. Expect [] — anything else
+# means migration 013 has not been applied.
+curl -X PATCH "https://<project-ref>.supabase.co/rest/v1/products?id=eq.<any-id>" \
+  -H "apikey: <publishable-key>" -H "Authorization: Bearer <publishable-key>" \
+  -H "Content-Type: application/json" -H "Prefer: return=representation" \
+  -d '{"price": 1}'
 
 # OAuth callback rejects a missing code instead of erroring
 curl -sI "https://your-domain.com/auth/callback" | grep -i location
 ```
 
-Then sign in with Google once end-to-end and confirm you land on `/shop`.
+Then run the scrape workflow by hand from the Actions tab and confirm
+`last_scrape_at` moves, and sign in with Google once end-to-end.
