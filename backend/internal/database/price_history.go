@@ -49,15 +49,7 @@ func (c *Client) GetPriceHistory(ctx context.Context, productID string, limit in
 	return history, nil
 }
 
-// RecordPrice appends a price observation for a product. The scraper calls
-// this whenever a price actually changes, so the product page chart and any
-// "lowest since" maths have real data to work with — previously nothing in
-// the codebase ever wrote to this table.
-func (c *Client) RecordPrice(ctx context.Context, productID uuid.UUID, price float64, comparePrice *float64, currency string) error {
-	_, err := c.pool.Exec(ctx, `
-		INSERT INTO price_history (product_id, price, compare_price, currency)
-		VALUES ($1, $2, $3, $4)`,
-		productID, price, comparePrice, currency,
-	)
-	return err
-}
+// Nothing writes price_history from Go. Migration 004 puts
+// on_product_insert and on_product_price_change on the products table, so a
+// row is appended by the database itself whenever a product is inserted or
+// its price moves — including for writers that are not the scraper.

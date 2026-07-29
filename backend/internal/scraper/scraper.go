@@ -165,8 +165,6 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 			continue
 		}
 
-		old, existed := existingProducts[p.ShopifyID]
-
 		if err := s.db.UpsertProduct(ctx, p); err != nil {
 			log.Error().Err(err).
 				Int64("shopifyID", p.ShopifyID).
@@ -175,15 +173,10 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		}
 		upserted++
 
-		// Append to price history on a genuine price move (and once when the
-		// product first appears) so the product-page chart has real data.
-		if !existed || old.Price != p.Price {
-			if err := s.db.RecordPrice(ctx, p.ID, p.Price, p.ComparePrice, p.Currency); err != nil {
-				log.Error().Err(err).
-					Int64("shopifyID", p.ShopifyID).
-					Msg("Failed to record price history")
-			}
-		}
+		// Price history is not written here: 004 puts on_product_insert and
+		// on_product_price_change on the products table, so the upsert above
+		// has already appended a row. Recording it again from Go would double
+		// every point on the product-page chart.
 	}
 
 	if len(unchangedIDs) > 0 {

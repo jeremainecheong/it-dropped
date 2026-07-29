@@ -108,6 +108,18 @@ func TestStyleCodeResolution(t *testing.T) {
 		// A new listing with no SKU still recovers its real code from the slug.
 		{"no sku, stussy handle", "", "1140364-garment-dyed-ss-tee-olive", "1140364"},
 
+		// DSM appends the season marker after the code on some listings,
+		// leaving it at neither end of the handle.
+		{"code inboard of a season suffix", "",
+			"stussy-mens-ls-thermal-fbla-1140396-ss26", "1140396"},
+		{"code inboard, unsegmented retailer sku", "800012044FBLA00S",
+			"stussy-stussy-sport-stripe-skullcap-blac-1321253-ss26", "1321253"},
+
+		// Two interior candidates is a guess between them, so decline and let
+		// the handle stand rather than pick the wrong identity.
+		{"ambiguous interior candidates", "",
+			"stussy-112350-tee-116751-ss26", "stussy-112350-tee-116751-ss26"},
+
 		// Nothing code-shaped anywhere: the handle is the last resort.
 		{"nothing usable", "", "mystery-item", "mystery-item"},
 	}
