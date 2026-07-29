@@ -1,9 +1,9 @@
-const CACHE_NAME = 'itdropped-v2';
+const CACHE_NAME = 'itdropped-v3';
+// Only assets that are safe to serve from cache indefinitely. HTML documents
+// are deliberately NOT here: a cached page references build-hashed chunk URLs
+// that stop existing at the next deploy, and serving it then produces a
+// ChunkLoadError and a blank screen.
 const STATIC_ASSETS = [
-    '/',
-    '/shop',
-    '/community',
-    '/wishlist',
     '/manifest.json',
 ];
 
@@ -36,6 +36,24 @@ self.addEventListener('fetch', (event) => {
 
     // Skip non-GET requests
     if (request.method !== 'GET') return;
+
+    // Never touch another origin. Supabase reads are cross-origin GETs whose
+    // pathname is /rest/v1/..., so they missed the /api check below and fell
+    // through to stale-while-revalidate — which returned the CACHED body and
+    // revalidated in the background. A comment posted and then re-read came
+    // back without itself, appearing only on the next page load. The same
+    // applied to every client-side read: wishlist, alerts, notifications,
+    // profile. Authenticated responses have no business in a shared cache
+    // regardless.
+    if (url.origin !== self.location.origin) return;
+
+    // Navigations: network-first. A cached document outlives the build whose
+    // chunks it names, so serving it stale is how a deploy turns into a blank
+    // page for anyone who had visited before.
+    if (request.mode === 'navigate') {
+        event.respondWith(fetch(request).catch(() => caches.match(request)));
+        return;
+    }
 
     // API requests: network-first
     if (url.pathname.startsWith('/api')) {
