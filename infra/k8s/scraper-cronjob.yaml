@@ -25,6 +25,13 @@ spec:
                 name: app-config
             - secretRef:
                 name: app-secrets
+            env:
+            # The schedule above is the loop. Without this the binary runs its
+            # own internal ticker and never exits, so activeDeadlineSeconds
+            # kills it mid-scrape every five minutes and Forbid blocks the
+            # next run. Zero means one cycle, then exit.
+            - name: SCRAPE_INTERVAL
+              value: "0"
             resources:
               requests:
                 memory: "64Mi"

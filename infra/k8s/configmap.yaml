@@ -4,7 +4,10 @@ metadata:
   name: app-config
   namespace: dropradar
 data:
-  REGIONS: "us,uk,eu,jp,au"
+  # sg is Dover Street Market Singapore, the one retailer-operated storefront.
+  # It carries stock the brand's own stores do not, so leaving it out costs
+  # exactly the cross-region comparisons the product exists to make.
+  REGIONS: "us,uk,eu,jp,au,sg"
   LOG_LEVEL: "info"
   API_PORT: "8080"
   BOT_PORT: "8081"
