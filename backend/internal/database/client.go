@@ -5,45 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
-	"github.com/yourusername/dropradar/internal/models"
 )
-
-// Store defines the interface for database operations
-type Store interface {
-	GetDropActivity(ctx context.Context, days int) ([]models.DropActivityPoint, error)
-	GetPriceBands(ctx context.Context, days int) ([]models.PriceBandPoint, error)
-	GetCategoryBreakdown(ctx context.Context, limit int) ([]models.CategoryCount, error)
-	UpsertProduct(ctx context.Context, p *models.Product) error
-	GetProductByShopifyID(ctx context.Context, shopifyID int64, region string) (*models.Product, error)
-	GetProductByID(ctx context.Context, id string) (*models.Product, error)
-	GetProducts(ctx context.Context, filter models.ProductFilter) ([]models.Product, error)
-	SearchProducts(ctx context.Context, query string, region string, limit int) ([]models.Product, error)
-	GetProductsByHandle(ctx context.Context, handle string) ([]models.Product, error)
-	GetCategories(ctx context.Context) ([]string, error)
-	GetAllProductsByRegion(ctx context.Context, region string) (map[int64]*models.Product, error)
-	CountProducts(ctx context.Context, filter models.ProductFilter) (int, error)
-
-	CreateDrop(ctx context.Context, d *models.Drop) error
-	GetDrops(ctx context.Context, filter models.DropFilter) ([]models.Drop, error)
-	GetUnnotifiedDrops(ctx context.Context) ([]models.Drop, error)
-	MarkDropNotified(ctx context.Context, dropID uuid.UUID) error
-	CountDrops(ctx context.Context, filter models.DropFilter) (int, error)
-
-	// Scrape Logs
-	CreateScrapeLog(ctx context.Context, region string) (*models.ScrapeLog, error)
-	CompleteScrapeLog(ctx context.Context, log *models.ScrapeLog) error
-	GetRecentScrapeLogs(ctx context.Context, limit int) ([]models.ScrapeLog, error)
-	GetLatestScrapeLogByRegion(ctx context.Context, region string) (*models.ScrapeLog, error)
-
-	GetRegionStats(ctx context.Context) ([]models.RegionStats, error)
-
-	Health(ctx context.Context) error
-	Close()
-}
 
 // Client wraps the PostgreSQL connection pool
 type Client struct {

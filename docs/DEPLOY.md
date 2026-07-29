@@ -16,7 +16,9 @@ Two platforms, both free at hobby scale, and no server to run.
 > aggregates) into Postgres functions and a view; the route handlers under
 > `frontend/app/api/dropradar/*` are thin wrappers that return the identical
 > `{success, data, meta}` envelope, so no call site changed. `backend/cmd/api`
-> and `infra/k8s` are kept for reference but nothing deploys them.
+> and `internal/api` have been deleted rather than left to rot — two copies of
+> the same queries is how this project ended up with a frozen catalogue and a
+> broken style code in the first place.
 
 > **Why the scrape is daily.** Vercel's Hobby plan caps cron at **once per day**,
 > and a `*/5` schedule is rejected at deploy time. Daily also keeps the scraper

@@ -7,8 +7,6 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - secret.yaml
-  - api-deployment.yaml
-  - api-service.yaml
   - bot-deployment.yaml
   - bot-service.yaml
   - scraper-cronjob.yaml

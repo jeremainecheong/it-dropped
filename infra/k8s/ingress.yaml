@@ -8,16 +8,6 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: api.dropradar.dev
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: api-service
-            port:
-              number: 8080
   - host: bot.dropradar.dev
     http:
       paths:
