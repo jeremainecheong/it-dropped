@@ -17,6 +17,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>
+  loginWithGoogle: (redirectTo?: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
 }
 
@@ -26,7 +27,11 @@ function mapSupabaseUser(supabaseUser: SupabaseUser): User {
   return {
     id: supabaseUser.id,
     email: supabaseUser.email || "",
-    name: supabaseUser.user_metadata?.name || supabaseUser.email?.split("@")[0] || "User",
+    name:
+      supabaseUser.user_metadata?.name ||
+      supabaseUser.user_metadata?.full_name ||
+      supabaseUser.email?.split("@")[0] ||
+      "User",
     avatar: supabaseUser.user_metadata?.avatar_url ||
       `https://api.dicebear.com/7.x/avataaars/svg?seed=${supabaseUser.email}`,
     role: supabaseUser.email === "admin@dropradar.com" ? "admin" : "user",
@@ -99,13 +104,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
+  /**
+   * Google SSO. Supabase redirects to Google, then back to /auth/callback,
+   * which finishes the exchange and forwards to `redirectTo`.
+   */
+  const loginWithGoogle = async (redirectTo = "/shop") => {
+    const callback = new URL("/auth/callback", window.location.origin)
+    callback.searchParams.set("next", redirectTo)
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: callback.toString(),
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
+      },
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+    // On success the browser navigates away to Google.
+    return { success: true }
+  }
+
   const logout = async () => {
     await supabase.auth.signOut()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   )

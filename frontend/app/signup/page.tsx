@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { GoogleButton } from "@/components/ui/google-button"
 import { Logo } from "@/components/ui/logo"
 
 export default function SignupPage() {
@@ -115,6 +116,14 @@ export default function SignupPage() {
             {isLoading ? <Loader2 size={15} className="animate-spin" /> : "Create account"}
           </button>
         </form>
+
+        <div className="flex items-center gap-3 my-6">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-[11px] text-muted-foreground">or</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        <GoogleButton redirectTo="/shop" onError={setError} />
 
         <p className="mt-8 text-center text-[13px] text-muted-foreground">
           Already have an account?{" "}

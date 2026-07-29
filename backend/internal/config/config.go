@@ -31,6 +31,11 @@ type Config struct {
 	// Scraper settings
 	ScrapeTimeout time.Duration `envconfig:"SCRAPE_TIMEOUT" default:"30s"`
 	RequestDelay  time.Duration `envconfig:"REQUEST_DELAY" default:"500ms"`
+	// How often the long-running scraper starts a new cycle. Drops don't land
+	// more than once every few minutes, and a full cycle is ~24 requests, so
+	// 5m keeps us to a polite request rate against the upstream stores.
+	// Ignored when the scraper runs as a one-shot CronJob.
+	ScrapeInterval time.Duration `envconfig:"SCRAPE_INTERVAL" default:"5m"`
 }
 
 // Load reads configuration from environment variables

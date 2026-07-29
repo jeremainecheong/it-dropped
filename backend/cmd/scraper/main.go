@@ -58,10 +58,12 @@ func main() {
 	s := scraper.New(cfg, db)
 
 	// Scraper loop
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(cfg.ScrapeInterval)
 	defer ticker.Stop()
 
-	log.Info().Msg("Starting scraper loop (interval: 60s)")
+	log.Info().
+		Dur("interval", cfg.ScrapeInterval).
+		Msg("Starting scraper loop")
 
 	// Run immediately once
 	runScraper(ctx, s)
