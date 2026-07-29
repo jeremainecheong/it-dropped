@@ -15,6 +15,14 @@ const (
 	ChangeTypePriceDrop     ChangeType = "price_drop"
 	ChangeTypePriceIncrease ChangeType = "price_increase"
 	ChangeTypeSizeRestock   ChangeType = "size_restock"
+	// ChangeTypeSoldOut is the available -> unavailable transition. It is the
+	// input to every derived metric worth having (time-to-sellout, hype,
+	// restock cadence) and the moment users most want to hear about
+	// alternatives in other regions.
+	ChangeTypeSoldOut ChangeType = "sold_out"
+	// ChangeTypeSizeSoldOut fires when specific sizes disappear while the
+	// product itself is still buyable.
+	ChangeTypeSizeSoldOut ChangeType = "size_sold_out"
 )
 
 // Drop represents a detected product change

@@ -59,6 +59,7 @@ func (s *Server) setupRoutes() {
 		v1.GET("/drops", s.handleGetDrops)
 		v1.GET("/trending", s.handleGetTrending)
 		v1.GET("/stats", s.handleGetStats)
+		v1.GET("/analytics", s.handleGetAnalytics)
 	}
 
 	// Also expose at root for convenience

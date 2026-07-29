@@ -39,39 +39,6 @@ const REGION_FULL: Record<string, string> = {
     us: "United States", uk: "United Kingdom", eu: "Europe", jp: "Japan", au: "Australia", sg: "Singapore",
 }
 
-// Simulate historical data for demo
-const generatePriceHistory = () => {
-    const data = []
-    let avgPrice = 95
-    for (let i = 30; i >= 0; i--) {
-        const date = new Date()
-        date.setDate(date.getDate() - i)
-        const change = (Math.random() - 0.48) * 8
-        avgPrice = Math.max(70, Math.min(130, avgPrice + change))
-        data.push({
-            date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-            avg: Math.round(avgPrice),
-            min: Math.round(avgPrice - 15 - Math.random() * 10),
-            max: Math.round(avgPrice + 40 + Math.random() * 20),
-        })
-    }
-    return data
-}
-
-const generateDropActivity = () => {
-    const data = []
-    for (let i = 6; i >= 0; i--) {
-        const date = new Date()
-        date.setDate(date.getDate() - i)
-        data.push({
-            day: date.toLocaleDateString("en-US", { weekday: "short" }),
-            drops: Math.floor(Math.random() * 30) + 10,
-            restocks: Math.floor(Math.random() * 15) + 5,
-        })
-    }
-    return data
-}
-
 const COLORS = ["#000000", "#333333", "#555555", "#777777", "#999999", "#BBBBBB"]
 
 export default function DashboardPage() {
@@ -80,14 +47,51 @@ export default function DashboardPage() {
     const [priceHistory, setPriceHistory] = useState<Array<{ date: string, avg: number, min: number, max: number }>>([])
     const [dropActivity, setDropActivity] = useState<Array<{ day: string, drops: number, restocks: number }>>([])
     const [isMounted, setIsMounted] = useState(false)
+    const [categories, setCategories] = useState<Array<{ name: string, count: number }>>([])
 
     useEffect(() => {
         setIsMounted(true)
-        // Generate data client-side only to avoid hydration mismatch
-        setPriceHistory(generatePriceHistory())
-        setDropActivity(generateDropActivity())
         fetchStats()
+        fetchAnalytics()
     }, [])
+
+    // Real aggregates from the tracker's own history. This page used to plot
+    // Math.random() while claiming "market intelligence, updated in real time".
+    const fetchAnalytics = async () => {
+        try {
+            const res = await fetch("/api/dropradar/analytics?days=30")
+            const data = await res.json()
+            if (!data.success) return
+
+            setPriceHistory(
+                (data.data.price_bands || [])
+                    .filter((b: any) => b.samples > 0)
+                    .map((b: any) => ({
+                        date: new Date(b.day).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                        avg: Math.round(b.avg),
+                        min: Math.round(b.min),
+                        max: Math.round(b.max),
+                    }))
+            )
+
+            setDropActivity(
+                (data.data.drop_activity || []).map((d: any) => ({
+                    day: new Date(d.day).toLocaleDateString("en-US", { weekday: "short" }),
+                    drops: d.drops,
+                    restocks: d.restocks,
+                }))
+            )
+
+            setCategories(
+                (data.data.categories || []).map((c: any) => ({
+                    name: String(c.name).replace(/^Mens /, ""),
+                    count: c.count,
+                }))
+            )
+        } catch (error) {
+            console.error("Error fetching analytics:", error)
+        }
+    }
 
     const fetchStats = async () => {
         try {
@@ -119,15 +123,7 @@ export default function DashboardPage() {
 
     const pieData = stats.map(s => ({ name: s.region.toUpperCase(), value: s.total_tracked_items }))
 
-    const categoryData = useMemo(() => {
-        const cats: Record<string, number> = {}
-        stats.forEach(s => {
-            if (s.top_category && s.top_category !== "N/A") {
-                cats[s.top_category] = (cats[s.top_category] || 0) + 1
-            }
-        })
-        return Object.entries(cats).map(([name, count]) => ({ name: name.replace(/^Mens /, ""), count }))
-    }, [stats])
+    const categoryData = categories
 
     return (
         <AuthGuard>
@@ -189,6 +185,11 @@ export default function DashboardPage() {
                                     <h3 className="label">Price Band Analysis (30 Days)</h3>
                                     <span className="text-[10px] text-muted-foreground">Min / Avg / Max</span>
                                 </div>
+                                {priceHistory.length === 0 ? (
+                                    <div className="h-48 flex items-center justify-center text-[13px] text-muted-foreground">
+                                        Not enough price history yet
+                                    </div>
+                                ) : (
                                 <div className="h-48">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <ComposedChart data={priceHistory}>
@@ -207,6 +208,7 @@ export default function DashboardPage() {
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
+                                )}
                                 <div className="mt-4 rounded-xl bg-muted px-3 py-2.5 text-[11px] leading-relaxed">
                                     {priceHistory.length > 0 ? (
                                         <>
@@ -271,7 +273,7 @@ export default function DashboardPage() {
                                     {categoryData.length > 0 ? categoryData.map((cat, i) => (
                                         <div key={i} className="flex items-center justify-between text-xs">
                                             <span className="truncate">{cat.name}</span>
-                                            <span className="text-muted-foreground">{cat.count} regions</span>
+                                            <span className="text-muted-foreground">{cat.count.toLocaleString()}</span>
                                         </div>
                                     )) : (
                                         <p className="text-[13px] text-muted-foreground">Loading…</p>

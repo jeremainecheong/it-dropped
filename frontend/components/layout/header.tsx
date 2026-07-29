@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { User, Heart, Home, ShoppingBag, Users, LayoutGrid, Search } from "lucide-react"
+import { User, Heart, Home, ShoppingBag, Users, Sparkles, Search } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Logo } from "@/components/ui/logo"
@@ -15,6 +15,7 @@ interface HeaderProps {
 }
 
 const NAV_LINKS = [
+    { href: "/drops", label: "Drops" },
     { href: "/shop", label: "Shop" },
     { href: "/community", label: "Community" },
     { href: "/dashboard", label: "Dashboard" },
@@ -144,9 +145,9 @@ export function Header({ actions }: HeaderProps) {
                 <div className="flex items-center justify-around h-14">
                     {[
                         { href: "/", label: "Home", icon: Home, active: pathname === "/" },
+                        { href: "/drops", label: "Drops", icon: Sparkles, active: isActive("/drops") },
                         { href: "/shop", label: "Shop", icon: ShoppingBag, active: isActive("/shop") },
                         { href: "/community", label: "Forum", icon: Users, active: isActive("/community") },
-                        { href: "/dashboard", label: "Stats", icon: LayoutGrid, active: isActive("/dashboard") },
                         {
                             href: user ? "/profile" : "/login",
                             label: user ? "Profile" : "Login",

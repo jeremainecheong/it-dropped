@@ -12,6 +12,9 @@ import (
 
 // Store defines the interface for database operations
 type Store interface {
+	GetDropActivity(ctx context.Context, days int) ([]models.DropActivityPoint, error)
+	GetPriceBands(ctx context.Context, days int) ([]models.PriceBandPoint, error)
+	GetCategoryBreakdown(ctx context.Context, limit int) ([]models.CategoryCount, error)
 	UpsertProduct(ctx context.Context, p *models.Product) error
 	GetProductByShopifyID(ctx context.Context, shopifyID int64, region string) (*models.Product, error)
 	GetProductByID(ctx context.Context, id string) (*models.Product, error)

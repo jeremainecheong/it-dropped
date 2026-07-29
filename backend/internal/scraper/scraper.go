@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/rs/zerolog/log"
 	"github.com/yourusername/dropradar/internal/config"
 	"github.com/yourusername/dropradar/internal/database"
@@ -38,9 +40,9 @@ func (s *Scraper) Run(ctx context.Context) error {
 		Msg("Starting scraper")
 
 	var (
-		mu                                     sync.Mutex
-		wg                                     sync.WaitGroup
-		totalNew, totalRestock, totalPriceChanges int
+		mu                                                      sync.Mutex
+		wg                                                      sync.WaitGroup
+		totalNew, totalRestock, totalPriceChanges, totalSoldOut int
 	)
 
 	for _, regionCode := range regions {
@@ -54,7 +56,7 @@ func (s *Scraper) Run(ctx context.Context) error {
 		go func(region Region) {
 			defer wg.Done()
 
-			newCount, restockCount, priceChanges, err := s.scrapeRegion(ctx, region)
+			newCount, restockCount, priceChanges, soldOut, err := s.scrapeRegion(ctx, region)
 			if err != nil {
 				log.Error().Err(err).Str("region", region.Code).Msg("Failed to scrape region")
 				return
@@ -64,6 +66,7 @@ func (s *Scraper) Run(ctx context.Context) error {
 			totalNew += newCount
 			totalRestock += restockCount
 			totalPriceChanges += priceChanges
+			totalSoldOut += soldOut
 			mu.Unlock()
 		}(*region)
 	}
@@ -74,17 +77,18 @@ func (s *Scraper) Run(ctx context.Context) error {
 		Int("new", totalNew).
 		Int("restocks", totalRestock).
 		Int("priceChanges", totalPriceChanges).
+		Int("soldOut", totalSoldOut).
 		Msg("Scraping completed")
 
 	return nil
 }
 
 // scrapeRegion scrapes a single region
-func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, restockCount, priceChanges int, err error) {
+func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, restockCount, priceChanges, soldOutCount int, err error) {
 	// Create scrape log
 	scrapeLog, err := s.db.CreateScrapeLog(ctx, region.Code)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, 0, err
 	}
 
 	startTime := time.Now()
@@ -112,7 +116,7 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 	// Fetch products from API
 	shopifyProducts, err := s.client.FetchProducts(ctx, region)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, 0, err
 	}
 
 	scrapeLog.ProductsFound = len(shopifyProducts)
@@ -120,7 +124,7 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 	// Get existing products from database
 	existingProducts, err := s.db.GetAllProductsByRegion(ctx, region.Code)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, 0, err
 	}
 
 	// Parse and process products
@@ -143,6 +147,8 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 			restockCount++
 		case models.ChangeTypePriceDrop, models.ChangeTypePriceIncrease:
 			priceChanges++
+		case models.ChangeTypeSoldOut, models.ChangeTypeSizeSoldOut:
+			soldOutCount++
 		}
 	}
 
@@ -159,6 +165,8 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 			continue
 		}
 
+		old, existed := existingProducts[p.ShopifyID]
+
 		if err := s.db.UpsertProduct(ctx, p); err != nil {
 			log.Error().Err(err).
 				Int64("shopifyID", p.ShopifyID).
@@ -166,6 +174,16 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 			continue
 		}
 		upserted++
+
+		// Append to price history on a genuine price move (and once when the
+		// product first appears) so the product-page chart has real data.
+		if !existed || old.Price != p.Price {
+			if err := s.db.RecordPrice(ctx, p.ID, p.Price, p.ComparePrice, p.Currency); err != nil {
+				log.Error().Err(err).
+					Int64("shopifyID", p.ShopifyID).
+					Msg("Failed to record price history")
+			}
+		}
 	}
 
 	if len(unchangedIDs) > 0 {
@@ -198,13 +216,39 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		}
 	}
 
+	// Fire any user alerts these drops satisfy. This is what makes the web
+	// app's notification bell ring; without it, alerts could be created but
+	// never delivered.
+	if len(drops) > 0 {
+		if n, err := s.db.MatchAlerts(ctx, drops); err != nil {
+			log.Error().Err(err).Str("region", region.Code).Msg("Failed to match alerts")
+		} else if n > 0 {
+			log.Info().Str("region", region.Code).Int("notifications", n).Msg("User alerts fired")
+		}
+	}
+
+	// Re-arm restock alerts on anything that has gone out of stock, so a user
+	// keeps being told about future restocks rather than only the first.
+	for i := range newProducts {
+		p := &newProducts[i]
+		if p.IsAvailable || p.ID == uuid.Nil {
+			continue
+		}
+		if old, ok := existingProducts[p.ShopifyID]; ok && old.IsAvailable {
+			if err := s.db.ReArmAlerts(ctx, p.ID, p.IsAvailable); err != nil {
+				log.Error().Err(err).Msg("Failed to re-arm alerts")
+			}
+		}
+	}
+
 	log.Info().
 		Str("region", region.Code).
 		Int("products", len(newProducts)).
 		Int("new", newCount).
 		Int("restocks", restockCount).
 		Int("priceChanges", priceChanges).
+		Int("soldOut", soldOutCount).
 		Msg("Region scrape completed")
 
-	return newCount, restockCount, priceChanges, nil
+	return newCount, restockCount, priceChanges, soldOutCount, nil
 }

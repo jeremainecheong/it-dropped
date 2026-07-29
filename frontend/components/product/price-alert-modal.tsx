@@ -74,55 +74,56 @@ export function PriceAlertModal({
     return (
         <>
             <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50" onClick={onClose} />
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-background border border-border z-50">
-                <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-md bg-card rounded-3xl shadow-2xl z-50 animate-rise">
+                <div className="flex items-center justify-between px-5 pt-5 pb-3">
                     <div className="flex items-center gap-2">
                         <Bell className="w-4 h-4" />
-                        <span className="text-sm uppercase tracking-widest">Set Alert</span>
+                        <span className="text-[15px] font-semibold">Set alert</span>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-muted rounded">
+                    <button onClick={onClose} aria-label="Close" className="pill w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-4 space-y-4">
+                <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4">
                     <div>
                         <p className="text-sm font-medium mb-1 line-clamp-1">{productName}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[13px] text-muted-foreground">
                             Current price: {formatPrice(currentPrice)}
                         </p>
                     </div>
 
                     {error && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
+                        <div className="rounded-xl bg-destructive/10 px-4 py-3 text-destructive text-[13px]">
                             {error}
                         </div>
                     )}
 
                     {success ? (
                         <div className="py-8 text-center">
-                            <Check className="w-12 h-12 mx-auto text-green-500 mb-4" />
-                            <p className="text-sm">Alert set successfully</p>
+                            <Check className="w-10 h-10 mx-auto mb-4" strokeWidth={1.5} />
+                            <p className="text-[15px] font-semibold">Alert set</p>
+                            <p className="text-[13px] text-muted-foreground mt-1">We&apos;ll notify you the moment it happens.</p>
                         </div>
                     ) : (
                         <>
                             <div>
-                                <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-2">
+                                <label className="label block mb-2">
                                     Alert Type
                                 </label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {[
-                                        { type: "price_drop" as AlertType, label: "Price Drop" },
+                                        { type: "price_drop" as AlertType, label: "Price drop" },
                                         { type: "restock" as AlertType, label: "Restock" },
-                                        { type: "any_change" as AlertType, label: "Any Change" },
+                                        { type: "any_change" as AlertType, label: "Any change" },
                                     ].map((option) => (
                                         <button
                                             key={option.type}
                                             type="button"
                                             onClick={() => setAlertType(option.type)}
-                                            className={`py-2 text-xs uppercase tracking-wide border transition-colors ${alertType === option.type
-                                                    ? "bg-foreground text-background border-foreground"
-                                                    : "border-border hover:border-foreground"
+                                            className={`pill py-2 text-xs font-medium transition-colors ${alertType === option.type
+                                                    ? "bg-primary text-primary-foreground"
+                                                    : "bg-secondary text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             {option.label}
@@ -133,8 +134,8 @@ export function PriceAlertModal({
 
                             {alertType === "price_drop" && (
                                 <div>
-                                    <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-2">
-                                        Target Price ({currency})
+                                    <label className="label block mb-2">
+                                        Target price ({currency})
                                     </label>
                                     <input
                                         type="number"
@@ -143,7 +144,7 @@ export function PriceAlertModal({
                                         max={currentPrice - 1}
                                         min={1}
                                         step={1}
-                                        className="w-full px-3 py-2 bg-background border border-border text-sm focus:border-foreground focus:outline-none"
+                                        className="w-full px-4 py-3 bg-secondary rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 transition-shadow"
                                     />
                                     <p className="text-xs text-muted-foreground mt-1">
                                         Alert when price drops to {formatPrice(targetPrice)} or below
@@ -154,7 +155,7 @@ export function PriceAlertModal({
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full py-3 bg-foreground text-background text-sm uppercase tracking-wide font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50"
+                                className="pill w-full py-3 bg-primary text-primary-foreground text-sm font-medium hover:opacity-85 disabled:opacity-50"
                             >
                                 {isSubmitting ? "Setting..." : "Set Alert"}
                             </button>

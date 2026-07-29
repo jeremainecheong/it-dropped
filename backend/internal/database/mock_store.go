@@ -535,3 +535,94 @@ func priceUSD(p *models.Product) float64 {
 	}
 	return p.Price
 }
+
+// --- Analytics (mock) ------------------------------------------------------
+// Deterministic shapes so mock mode exercises the dashboard without pretending
+// to be real market data.
+
+func (m *MockStore) GetDropActivity(ctx context.Context, days int) ([]models.DropActivityPoint, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if days <= 0 {
+		days = 7
+	}
+	out := make([]models.DropActivityPoint, 0, days)
+	for i := days - 1; i >= 0; i-- {
+		day := time.Now().AddDate(0, 0, -i)
+		p := models.DropActivityPoint{Day: day}
+		for _, d := range m.drops {
+			if d.DetectedAt.YearDay() != day.YearDay() {
+				continue
+			}
+			switch d.ChangeType {
+			case models.ChangeTypeNew:
+				p.Drops++
+			case models.ChangeTypeRestock, models.ChangeTypeSizeRestock:
+				p.Restocks++
+			case models.ChangeTypeSoldOut, models.ChangeTypeSizeSoldOut:
+				p.SoldOut++
+			case models.ChangeTypePriceDrop:
+				p.PriceDrops++
+			}
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (m *MockStore) GetPriceBands(ctx context.Context, days int) ([]models.PriceBandPoint, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if days <= 0 {
+		days = 30
+	}
+	// One point for today from the seeded catalog; earlier days have no
+	// observations, which is honest for a store with no history.
+	var min, max, sum float64
+	n := 0
+	for _, p := range m.products {
+		usd := priceUSD(p)
+		if n == 0 || usd < min {
+			min = usd
+		}
+		if usd > max {
+			max = usd
+		}
+		sum += usd
+		n++
+	}
+
+	out := make([]models.PriceBandPoint, 0, days)
+	for i := days - 1; i > 0; i-- {
+		out = append(out, models.PriceBandPoint{Day: time.Now().AddDate(0, 0, -i)})
+	}
+	if n > 0 {
+		out = append(out, models.PriceBandPoint{
+			Day: time.Now(), Avg: sum / float64(n), Min: min, Max: max, Samples: n,
+		})
+	}
+	return out, nil
+}
+
+func (m *MockStore) GetCategoryBreakdown(ctx context.Context, limit int) ([]models.CategoryCount, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	counts := map[string]int{}
+	for _, p := range m.products {
+		if p.ProductType != "" {
+			counts[p.ProductType]++
+		}
+	}
+	out := make([]models.CategoryCount, 0, len(counts))
+	for name, n := range counts {
+		out = append(out, models.CategoryCount{Name: name, Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}

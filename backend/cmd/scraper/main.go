@@ -12,6 +12,7 @@ import (
 	"github.com/yourusername/dropradar/internal/config"
 	"github.com/yourusername/dropradar/internal/database"
 	"github.com/yourusername/dropradar/internal/scraper"
+	"github.com/yourusername/dropradar/internal/telegram"
 )
 
 func main() {
@@ -57,6 +58,22 @@ func main() {
 	// Initialize scraper
 	s := scraper.New(cfg, db)
 
+	// Outbound notifications. The scraper is the only process that knows a
+	// drop just happened, so it owns delivery. Optional: with no bot token
+	// configured the scraper still runs, it just doesn't announce anything.
+	var notifier *telegram.Notifier
+	if cfg.TelegramBotToken != "" {
+		bot, err := telegram.New(cfg, db)
+		if err != nil {
+			log.Error().Err(err).Msg("Telegram bot unavailable; running without notifications")
+		} else {
+			notifier = telegram.NewNotifier(bot, db)
+			log.Info().Msg("Drop notifications enabled")
+		}
+	} else {
+		log.Warn().Msg("TELEGRAM_BOT_TOKEN unset — drops will be detected but not announced")
+	}
+
 	// Scraper loop
 	ticker := time.NewTicker(cfg.ScrapeInterval)
 	defer ticker.Stop()
@@ -66,7 +83,7 @@ func main() {
 		Msg("Starting scraper loop")
 
 	// Run immediately once
-	runScraper(ctx, s)
+	runScraper(ctx, s, notifier)
 
 	for {
 		select {
@@ -74,16 +91,24 @@ func main() {
 			log.Info().Msg("Scraper shutting down")
 			return
 		case <-ticker.C:
-			runScraper(ctx, s)
+			runScraper(ctx, s, notifier)
 		}
 	}
 }
 
-func runScraper(ctx context.Context, s *scraper.Scraper) {
+func runScraper(ctx context.Context, s *scraper.Scraper, notifier *telegram.Notifier) {
 	log.Info().Msg("Starting scrape cycle")
 	if err := s.Run(ctx); err != nil {
 		log.Error().Err(err).Msg("Scraper cycle failed")
-	} else {
-		log.Info().Msg("Scraper cycle completed")
+		return
+	}
+	log.Info().Msg("Scraper cycle completed")
+
+	// Announce what we just found. Failures here must not fail the cycle —
+	// the drops are already durably recorded and will be retried next pass.
+	if notifier != nil {
+		if err := notifier.NotifyDrops(ctx); err != nil {
+			log.Error().Err(err).Msg("Notification pass failed")
+		}
 	}
 }

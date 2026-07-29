@@ -27,6 +27,24 @@ type Product struct {
 	FirstSeenAt    time.Time `json:"first_seen_at" db:"first_seen_at"`
 	LastSeenAt     time.Time `json:"last_seen_at" db:"last_seen_at"`
 	LastHash       string    `json:"last_hash" db:"last_hash"`
+
+	// StyleCode is the leading segment of the Shopify SKU (e.g. "1140364").
+	// It identifies the same garment across regional storefronts, which
+	// `handle` does not: only ~4% of Australian products share a handle with
+	// their US counterpart. Falls back to the handle when a store publishes
+	// no structured SKU.
+	StyleCode string `json:"style_code" db:"style_code"`
+	// Color of this listing, read from the declared Color option axis.
+	Color string `json:"color" db:"color"`
+	// AllSizes is the full size run, including sold-out sizes; AvailableSizes
+	// is only what is currently buyable. The difference is what sold out.
+	AllSizes []string `json:"all_sizes" db:"all_sizes"`
+	// AvailableVariants is how many variants are buyable, giving sell-through
+	// (AvailableVariants / TotalVariants) without an Admin API key.
+	AvailableVariants int `json:"available_variants" db:"available_variants"`
+	// PublishedAt is when the STORE published the product — the real drop
+	// timestamp, as opposed to first_seen_at which is when we noticed.
+	PublishedAt *time.Time `json:"published_at" db:"published_at"`
 }
 
 // Sort options for product listings

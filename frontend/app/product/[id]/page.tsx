@@ -9,6 +9,7 @@ import { useWishlist } from "@/lib/wishlist-context"
 import { AuthGuard } from "@/components/auth-guard"
 import { Header } from "@/components/layout/header"
 import { PriceHistoryChart } from "@/components/product/price-history-chart"
+import { PriceAlertModal } from "@/components/product/price-alert-modal"
 import { formatPrice, toUSD, rankByUSD, bestOffer as pickBestOffer } from "@/lib/currency"
 
 interface Product {
@@ -50,7 +51,7 @@ function ProductDetailContent() {
   const [product, setProduct] = useState<Product | null>(null)
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [alertSet, setAlertSet] = useState(false)
+  const [alertModalOpen, setAlertModalOpen] = useState(false)
 
   const isWishlisted = wishlist.some((item) => item.id === productId)
 
@@ -177,6 +178,15 @@ function ProductDetailContent() {
         }
       />
 
+      <PriceAlertModal
+        isOpen={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        productId={product.id}
+        productName={product.title}
+        currentPrice={product.price}
+        currency={product.currency}
+      />
+
       <main className="pt-12 pb-20 md:pb-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-5">
           <Link href="/shop" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -280,14 +290,11 @@ function ProductDetailContent() {
                   Buy on Stüssy
                 </a>
                 <button
-                  onClick={() => setAlertSet(!alertSet)}
-                  className={`pill flex items-center justify-center gap-2 w-full py-3.5 text-sm font-medium ${alertSet
-                    ? "bg-secondary text-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                    }`}
+                  onClick={() => setAlertModalOpen(true)}
+                  className="pill flex items-center justify-center gap-2 w-full py-3.5 text-sm font-medium bg-secondary text-muted-foreground hover:text-foreground"
                 >
-                  {alertSet ? <Check className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-                  {alertSet ? "Alert set" : "Set price alert"}
+                  <Bell className="w-4 h-4" />
+                  Set price alert
                 </button>
               </div>
 

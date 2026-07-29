@@ -14,9 +14,11 @@ func (c *Client) UpsertProduct(ctx context.Context, p *models.Product) error {
 		INSERT INTO products (
 			shopify_id, region, handle, title, vendor, product_type,
 			tags, price, compare_price, currency, is_available,
-			available_sizes, total_variants, image_url, product_url, last_hash
+			available_sizes, total_variants, image_url, product_url, last_hash,
+			style_code, color, all_sizes, available_variants, published_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+			$17, $18, $19, $20, $21
 		)
 		ON CONFLICT (shopify_id, region) DO UPDATE SET
 			handle = EXCLUDED.handle,
@@ -33,6 +35,11 @@ func (c *Client) UpsertProduct(ctx context.Context, p *models.Product) error {
 			image_url = EXCLUDED.image_url,
 			product_url = EXCLUDED.product_url,
 			last_hash = EXCLUDED.last_hash,
+			style_code = EXCLUDED.style_code,
+			color = EXCLUDED.color,
+			all_sizes = EXCLUDED.all_sizes,
+			available_variants = EXCLUDED.available_variants,
+			published_at = EXCLUDED.published_at,
 			last_seen_at = NOW()
 		RETURNING id`
 
@@ -40,6 +47,7 @@ func (c *Client) UpsertProduct(ctx context.Context, p *models.Product) error {
 		p.ShopifyID, p.Region, p.Handle, p.Title, p.Vendor, p.ProductType,
 		p.Tags, p.Price, p.ComparePrice, p.Currency, p.IsAvailable,
 		p.AvailableSizes, p.TotalVariants, p.ImageURL, p.ProductURL, p.LastHash,
+		p.StyleCode, p.Color, p.AllSizes, p.AvailableVariants, p.PublishedAt,
 	).Scan(&p.ID)
 }
 
@@ -77,7 +85,9 @@ func (c *Client) GetProductByShopifyID(ctx context.Context, shopifyID int64, reg
 		SELECT id, shopify_id, region, handle, title, vendor, product_type,
 			tags, price, compare_price, currency, is_available,
 			available_sizes, total_variants, image_url, product_url,
-			first_seen_at, last_seen_at, last_hash
+			first_seen_at, last_seen_at, last_hash,
+			COALESCE(style_code, handle), COALESCE(color, ''),
+			COALESCE(all_sizes, '{}'), COALESCE(available_variants, 0), published_at
 		FROM products
 		WHERE shopify_id = $1 AND region = $2`
 
@@ -87,6 +97,7 @@ func (c *Client) GetProductByShopifyID(ctx context.Context, shopifyID int64, reg
 		&p.Tags, &p.Price, &p.ComparePrice, &p.Currency, &p.IsAvailable,
 		&p.AvailableSizes, &p.TotalVariants, &p.ImageURL, &p.ProductURL,
 		&p.FirstSeenAt, &p.LastSeenAt, &p.LastHash,
+		&p.StyleCode, &p.Color, &p.AllSizes, &p.AvailableVariants, &p.PublishedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -105,7 +116,9 @@ func (c *Client) GetProductByID(ctx context.Context, id string) (*models.Product
 		SELECT id, shopify_id, region, handle, title, vendor, product_type,
 			tags, price, compare_price, currency, is_available,
 			available_sizes, total_variants, image_url, product_url,
-			first_seen_at, last_seen_at, last_hash
+			first_seen_at, last_seen_at, last_hash,
+			COALESCE(style_code, handle), COALESCE(color, ''),
+			COALESCE(all_sizes, '{}'), COALESCE(available_variants, 0), published_at
 		FROM products
 		WHERE id = $1`
 
@@ -115,6 +128,7 @@ func (c *Client) GetProductByID(ctx context.Context, id string) (*models.Product
 		&p.Tags, &p.Price, &p.ComparePrice, &p.Currency, &p.IsAvailable,
 		&p.AvailableSizes, &p.TotalVariants, &p.ImageURL, &p.ProductURL,
 		&p.FirstSeenAt, &p.LastSeenAt, &p.LastHash,
+		&p.StyleCode, &p.Color, &p.AllSizes, &p.AvailableVariants, &p.PublishedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -133,7 +147,9 @@ func (c *Client) GetProducts(ctx context.Context, filter models.ProductFilter) (
 		SELECT id, shopify_id, region, handle, title, vendor, product_type,
 			tags, price, compare_price, currency, is_available,
 			available_sizes, total_variants, image_url, product_url,
-			first_seen_at, last_seen_at, last_hash
+			first_seen_at, last_seen_at, last_hash,
+			COALESCE(style_code, handle), COALESCE(color, ''),
+			COALESCE(all_sizes, '{}'), COALESCE(available_variants, 0), published_at
 		FROM products
 		WHERE 1=1`
 
@@ -197,6 +213,7 @@ func (c *Client) GetProducts(ctx context.Context, filter models.ProductFilter) (
 			&p.Tags, &p.Price, &p.ComparePrice, &p.Currency, &p.IsAvailable,
 			&p.AvailableSizes, &p.TotalVariants, &p.ImageURL, &p.ProductURL,
 			&p.FirstSeenAt, &p.LastSeenAt, &p.LastHash,
+			&p.StyleCode, &p.Color, &p.AllSizes, &p.AvailableVariants, &p.PublishedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan product: %w", err)
 		}
@@ -277,6 +294,8 @@ func (c *Client) SearchProducts(ctx context.Context, query string, region string
 			tags, price, compare_price, currency, is_available,
 			available_sizes, total_variants, image_url, product_url,
 			first_seen_at, last_seen_at, last_hash,
+			COALESCE(style_code, handle), COALESCE(color, ''),
+			COALESCE(all_sizes, '{}'), COALESCE(available_variants, 0), published_at,
 			ts_rank(search_vector, plainto_tsquery('english', $1)) as rank
 		FROM products
 		WHERE search_vector @@ plainto_tsquery('english', $1)`
@@ -308,7 +327,8 @@ func (c *Client) SearchProducts(ctx context.Context, query string, region string
 			&p.ID, &p.ShopifyID, &p.Region, &p.Handle, &p.Title, &p.Vendor, &p.ProductType,
 			&p.Tags, &p.Price, &p.ComparePrice, &p.Currency, &p.IsAvailable,
 			&p.AvailableSizes, &p.TotalVariants, &p.ImageURL, &p.ProductURL,
-			&p.FirstSeenAt, &p.LastSeenAt, &p.LastHash, &rank,
+			&p.FirstSeenAt, &p.LastSeenAt, &p.LastHash,
+			&p.StyleCode, &p.Color, &p.AllSizes, &p.AvailableVariants, &p.PublishedAt, &rank,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan product: %w", err)
 		}
@@ -324,9 +344,15 @@ func (c *Client) GetProductsByHandle(ctx context.Context, handle string) ([]mode
 		SELECT id, shopify_id, region, handle, title, vendor, product_type,
 			tags, price, compare_price, currency, is_available,
 			available_sizes, total_variants, image_url, product_url,
-			first_seen_at, last_seen_at, last_hash
+			first_seen_at, last_seen_at, last_hash,
+			COALESCE(style_code, handle), COALESCE(color, ''),
+			COALESCE(all_sizes, '{}'), COALESCE(available_variants, 0), published_at
 		FROM products
-		WHERE handle = $1
+		WHERE style_code = COALESCE(
+			(SELECT style_code FROM products WHERE handle = $1 AND style_code IS NOT NULL LIMIT 1),
+			$1
+		)
+		   OR handle = $1
 		ORDER BY region`
 
 	rows, err := c.pool.Query(ctx, query, handle)
@@ -343,6 +369,7 @@ func (c *Client) GetProductsByHandle(ctx context.Context, handle string) ([]mode
 			&p.Tags, &p.Price, &p.ComparePrice, &p.Currency, &p.IsAvailable,
 			&p.AvailableSizes, &p.TotalVariants, &p.ImageURL, &p.ProductURL,
 			&p.FirstSeenAt, &p.LastSeenAt, &p.LastHash,
+			&p.StyleCode, &p.Color, &p.AllSizes, &p.AvailableVariants, &p.PublishedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan product: %w", err)
 		}

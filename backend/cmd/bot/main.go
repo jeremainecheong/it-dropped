@@ -49,8 +49,15 @@ func main() {
 
 	log.Info().Msg("Starting Dropradar Telegram Bot")
 
-	// Initialize database
-	db, err := database.New(ctx, cfg.SupabaseURL)
+	// Initialize database.
+	// SupabaseURL is the REST API origin (https://project.supabase.co), not a
+	// Postgres DSN — connecting with it fails. Use DATABASE_URL like the
+	// scraper and API do, falling back only if it is unset.
+	dsn := cfg.DatabaseURL
+	if dsn == "" {
+		dsn = cfg.SupabaseURL
+	}
+	db, err := database.New(ctx, dsn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to connect to database")
 	}
