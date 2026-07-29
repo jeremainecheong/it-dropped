@@ -1,14 +1,13 @@
 "use client"
 
-import { Suspense, useState, useEffect, useCallback, useMemo } from "react"
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Search, Heart, ChevronDown, ChevronRight, X, Menu, Clock, Package, Globe, Filter } from "lucide-react"
+import { Heart, ChevronDown, ChevronRight, X, Menu, Clock, Package, Globe, Filter } from "lucide-react"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { Header } from "@/components/layout/header"
-import { SearchOverlay } from "@/components/ui/search-overlay"
 import { NotificationBell } from "@/components/ui/notification-bell"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { AuthGuard } from "@/components/auth-guard"
@@ -91,20 +90,24 @@ function ShopPageContent() {
     const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>([])
     const [selectedCategoryLabel, setSelectedCategoryLabel] = useState<string | null>(null)
     const [selectedSize, setSelectedSize] = useState<string | null>(null)
-    const [viewMode, setViewMode] = useState<"latest" | "all">("latest")
+    const [inStockOnly, setInStockOnly] = useState(false)
+    const [sortBy, setSortBy] = useState<"newest" | "price_asc" | "price_desc">("newest")
     const [compareMode, setCompareMode] = useState(false)
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["Tops"]))
 
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [isPageLoaded, setIsPageLoaded] = useState(false)
-    const [searchOpen, setSearchOpen] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [totalProducts, setTotalProducts] = useState(0)
 
     const [offset, setOffset] = useState(0)
     const [hasMore, setHasMore] = useState(true)
     const LIMIT = 24
+
+    // Monotonic id so a slow response from an earlier filter state can never
+    // overwrite the results of a newer one.
+    const requestSeq = useRef(0)
 
     useEffect(() => {
         setIsPageLoaded(true)
@@ -116,9 +119,10 @@ function ShopPageContent() {
         setProducts([])
         setHasMore(true)
         fetchProducts(0, true)
-    }, [selectedRegion, selectedProductTypes, selectedSize, viewMode])
+    }, [selectedRegion, selectedProductTypes, selectedSize, inStockOnly, sortBy])
 
     const fetchProducts = async (currentOffset: number, reset = false) => {
+        const seq = ++requestSeq.current
         if (reset) setIsLoading(true)
         else setIsLoadingMore(true)
 
@@ -138,12 +142,16 @@ function ShopPageContent() {
                 url += `&size=${encodeURIComponent(selectedSize)}`
             }
 
-            if (viewMode === "latest") {
-                url += `&sort=newest`
+            if (inStockOnly) {
+                url += `&available=true`
             }
+
+            url += `&sort=${sortBy}`
 
             const response = await fetch(url)
             const data = await response.json()
+
+            if (seq !== requestSeq.current) return // superseded by a newer request
 
             if (data.success && Array.isArray(data.data)) {
                 if (reset) {
@@ -160,8 +168,10 @@ function ShopPageContent() {
         } catch (error) {
             console.error("Error:", error)
         } finally {
-            setIsLoading(false)
-            setIsLoadingMore(false)
+            if (seq === requestSeq.current) {
+                setIsLoading(false)
+                setIsLoadingMore(false)
+            }
         }
     }
 
@@ -205,9 +215,10 @@ function ShopPageContent() {
         setSelectedProductTypes([])
         setSelectedCategoryLabel(null)
         setSelectedSize(null)
+        setInStockOnly(false)
     }
 
-    const hasActiveFilters = selectedRegion !== "all" || selectedProductTypes.length > 0 || selectedSize
+    const hasActiveFilters = selectedRegion !== "all" || selectedProductTypes.length > 0 || !!selectedSize || inStockOnly
 
     // Group products by handle for price comparison
     const groupedByHandle = useMemo(() => {
@@ -223,9 +234,7 @@ function ShopPageContent() {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-
-            {/* Shared fixed header with page-specific actions */}
+            {/* Shared fixed header with page-specific actions (search lives in the header) */}
             <Header
                 actions={
                     <>
@@ -235,13 +244,6 @@ function ShopPageContent() {
                             className="lg:hidden flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors"
                         >
                             <Menu className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => setSearchOpen(true)}
-                            aria-label="Search"
-                            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            <Search className="w-4 h-4" />
                         </button>
                         {user && <NotificationBell />}
                     </>
@@ -254,19 +256,36 @@ function ShopPageContent() {
                     <div className="p-5">
                         <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-3 right-3 p-2 rounded-full hover:bg-secondary"><X className="w-4 h-4" /></button>
 
-                        {/* View Mode */}
+                        {/* View */}
                         <div className="mb-7">
                             <h3 className="label mb-3">View</h3>
                             <div className="space-y-1">
-                                <button onClick={() => setViewMode("latest")} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${viewMode === "latest" ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
-                                    <Clock className="w-4 h-4" strokeWidth={1.8} />Latest drops
-                                </button>
-                                <button onClick={() => setViewMode("all")} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${viewMode === "all" ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
-                                    <Package className="w-4 h-4" strokeWidth={1.8} />All products
+                                <button onClick={() => setInStockOnly(!inStockOnly)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${inStockOnly ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+                                    <Package className="w-4 h-4" strokeWidth={1.8} />In stock only
                                 </button>
                                 <button onClick={() => setCompareMode(!compareMode)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${compareMode ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
                                     <Globe className="w-4 h-4" strokeWidth={1.8} />Compare prices
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Sort */}
+                        <div className="mb-7">
+                            <h3 className="label mb-3">Sort</h3>
+                            <div className="flex flex-wrap gap-1.5">
+                                {([
+                                    ["newest", "Newest"],
+                                    ["price_asc", "Price ↑"],
+                                    ["price_desc", "Price ↓"],
+                                ] as const).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        onClick={() => setSortBy(value)}
+                                        className={`pill px-3.5 py-1.5 text-xs transition-colors ${sortBy === value ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
@@ -334,7 +353,7 @@ function ShopPageContent() {
                 <main className="flex-1 h-[calc(100vh-48px)] overflow-y-auto">
                     <div className="px-4 lg:px-8 pt-8 pb-5 flex items-end justify-between">
                         <div>
-                            <h1 className="display text-2xl md:text-3xl">{viewMode === "latest" ? "Latest drops" : "All products"}</h1>
+                            <h1 className="display text-2xl md:text-3xl">{sortBy === "newest" ? "Latest drops" : "All products"}</h1>
                             <p className="text-[13px] text-muted-foreground mt-1">{totalProducts.toLocaleString()} items across 6 regions</p>
                         </div>
                         {hasActiveFilters && (
@@ -385,10 +404,18 @@ function ShopPageContent() {
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
                                 {products.map((product, index) => {
                                     const inWishlist = isInWishlist(product.id)
+                                    const isNew = Date.now() - new Date(product.first_seen_at).getTime() < 48 * 3600 * 1000
+                                    const salePct = product.compare_price && product.compare_price > product.price
+                                        ? Math.round((1 - product.price / product.compare_price) * 100)
+                                        : 0
                                     return (
                                         <div key={product.id} className={`group transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`} style={{ transitionDelay: `${Math.min(index * 15, 150)}ms` }}>
                                             <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
-                                                <span className="absolute top-3 left-3 z-10 pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium uppercase">{product.region}</span>
+                                                <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5">
+                                                    <span className="pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium uppercase">{product.region}</span>
+                                                    {isNew && <span className="pill bg-foreground text-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">New</span>}
+                                                    {salePct > 0 && <span className="pill bg-signal text-signal-foreground px-2.5 py-1 text-[10px] font-semibold">−{salePct}%</span>}
+                                                </div>
                                                 <button
                                                     onClick={() => handleWishlist(product)}
                                                     aria-label="Toggle wishlist"
@@ -407,7 +434,12 @@ function ShopPageContent() {
                                             </div>
                                             <Link href={`/product/${product.id}`} className="flex items-baseline justify-between gap-3 mt-3 px-1">
                                                 <h3 className="text-[13px] font-medium leading-snug line-clamp-1">{product.title}</h3>
-                                                <p className="text-[13px] text-muted-foreground shrink-0">{formatPrice(product.price, product.currency)}</p>
+                                                <p className="text-[13px] shrink-0">
+                                                    {salePct > 0 && product.compare_price && (
+                                                        <span className="text-muted-foreground/60 line-through mr-1.5">{formatPrice(product.compare_price, product.currency)}</span>
+                                                    )}
+                                                    <span className={salePct > 0 ? "text-signal font-medium" : "text-muted-foreground"}>{formatPrice(product.price, product.currency)}</span>
+                                                </p>
                                             </Link>
                                         </div>
                                     )

@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -26,7 +27,9 @@ func New(cfg *config.Config, db *database.Client) *Scraper {
 	}
 }
 
-// Run executes the scraping process for all configured regions
+// Run executes the scraping process for all configured regions.
+// Regions are independent Shopify stores, so they are scraped concurrently —
+// per-store politeness is preserved by the page delay inside each region.
 func (s *Scraper) Run(ctx context.Context) error {
 	regions := s.cfg.GetRegions()
 
@@ -34,7 +37,11 @@ func (s *Scraper) Run(ctx context.Context) error {
 		Strs("regions", regions).
 		Msg("Starting scraper")
 
-	var totalNew, totalRestock, totalPriceChanges int
+	var (
+		mu                                     sync.Mutex
+		wg                                     sync.WaitGroup
+		totalNew, totalRestock, totalPriceChanges int
+	)
 
 	for _, regionCode := range regions {
 		region := GetRegion(regionCode)
@@ -43,19 +50,25 @@ func (s *Scraper) Run(ctx context.Context) error {
 			continue
 		}
 
-		newCount, restockCount, priceChanges, err := s.scrapeRegion(ctx, *region)
-		if err != nil {
-			log.Error().Err(err).Str("region", regionCode).Msg("Failed to scrape region")
-			continue
-		}
+		wg.Add(1)
+		go func(region Region) {
+			defer wg.Done()
 
-		totalNew += newCount
-		totalRestock += restockCount
-		totalPriceChanges += priceChanges
+			newCount, restockCount, priceChanges, err := s.scrapeRegion(ctx, region)
+			if err != nil {
+				log.Error().Err(err).Str("region", region.Code).Msg("Failed to scrape region")
+				return
+			}
 
-		// Delay between regions
-		s.client.Sleep()
+			mu.Lock()
+			totalNew += newCount
+			totalRestock += restockCount
+			totalPriceChanges += priceChanges
+			mu.Unlock()
+		}(*region)
 	}
+
+	wg.Wait()
 
 	log.Info().
 		Int("new", totalNew).
@@ -133,14 +146,39 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		}
 	}
 
-	// Upsert products
+	// Write only what changed: unchanged rows (same hash) get a cheap batch
+	// last_seen_at touch instead of a full upsert.
+	var unchangedIDs []int64
+	var upserted, skipped int
 	for i := range newProducts {
-		if err := s.db.UpsertProduct(ctx, &newProducts[i]); err != nil {
+		p := &newProducts[i]
+		if old, exists := existingProducts[p.ShopifyID]; exists && old.LastHash == p.LastHash {
+			p.ID = old.ID // keep identity for downstream drop linkage
+			unchangedIDs = append(unchangedIDs, p.ShopifyID)
+			skipped++
+			continue
+		}
+
+		if err := s.db.UpsertProduct(ctx, p); err != nil {
 			log.Error().Err(err).
-				Int64("shopifyID", newProducts[i].ShopifyID).
+				Int64("shopifyID", p.ShopifyID).
 				Msg("Failed to upsert product")
+			continue
+		}
+		upserted++
+	}
+
+	if len(unchangedIDs) > 0 {
+		if err := s.db.TouchProducts(ctx, region.Code, unchangedIDs); err != nil {
+			log.Error().Err(err).Str("region", region.Code).Msg("Failed to touch unchanged products")
 		}
 	}
+
+	log.Debug().
+		Str("region", region.Code).
+		Int("upserted", upserted).
+		Int("skipped", skipped).
+		Msg("Product writes")
 
 	// Create drops
 	for i := range drops {

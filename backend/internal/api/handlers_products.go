@@ -33,6 +33,16 @@ func (s *Server) handleGetProducts(c *gin.Context) {
 		}
 	}
 
+	// Parse sort (whitelisted)
+	switch c.Query("sort") {
+	case models.SortNewest:
+		filter.Sort = models.SortNewest
+	case models.SortPriceAsc:
+		filter.Sort = models.SortPriceAsc
+	case models.SortPriceDesc:
+		filter.Sort = models.SortPriceDesc
+	}
+
 	// Parse limit
 	if limit := c.Query("limit"); limit != "" {
 		if l, err := strconv.Atoi(limit); err == nil && l > 0 && l <= 100 {

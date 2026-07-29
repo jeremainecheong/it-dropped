@@ -7,12 +7,30 @@ import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { LogoMark } from "@/components/ui/logo"
 
-const FEATURED_DROPS = [
+interface FeaturedDrop {
+  id?: string
+  title: string
+  price: string
+  image: string
+  region: string
+  isNew?: boolean
+  salePct?: number
+}
+
+// Shown until live drops load, and if the API is unreachable.
+const FALLBACK_DROPS: FeaturedDrop[] = [
   { title: "8 Ball Fleece Jacket", price: "$185", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/115690_BLAC_1.jpg", region: "US" },
   { title: "Stock Link Sweater", price: "$140", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/117752_NATU_1.jpg", region: "UK" },
   { title: "Basic Stüssy Tee", price: "$45", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/1904917_SAGE_1.jpg", region: "JP" },
   { title: "Stock Logo Hoodie", price: "$165", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/118572_CHAR_1.jpg", region: "EU" },
 ]
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$", GBP: "£", EUR: "€", JPY: "¥", AUD: "A$", SGD: "S$",
+}
+
+const formatPrice = (price: number, currency: string) =>
+  `${CURRENCY_SYMBOLS[currency] || currency}${price.toFixed(currency === "JPY" ? 0 : 2)}`
 
 const FEATURES = [
   {
@@ -40,9 +58,38 @@ const STATS = [
 
 export default function LandingPage() {
   const [isMounted, setIsMounted] = useState(false)
+  const [drops, setDrops] = useState<FeaturedDrop[]>(FALLBACK_DROPS)
 
   useEffect(() => {
     setIsMounted(true)
+
+    let cancelled = false
+    const loadLatestDrops = async () => {
+      try {
+        const res = await fetch("/api/dropradar/products?limit=4&sort=newest&available=true")
+        const json = await res.json()
+        if (cancelled || !json?.success || !Array.isArray(json.data) || json.data.length === 0) return
+
+        setDrops(
+          json.data.map((p: any): FeaturedDrop => ({
+            id: p.id,
+            title: p.title,
+            price: formatPrice(p.price, p.currency),
+            image: p.image_url,
+            region: String(p.region || "").toUpperCase(),
+            isNew: Date.now() - new Date(p.first_seen_at).getTime() < 48 * 3600 * 1000,
+            salePct: p.compare_price && p.compare_price > p.price
+              ? Math.round((1 - p.price / p.compare_price) * 100)
+              : 0,
+          }))
+        )
+      } catch {
+        // keep the curated fallback
+      }
+    }
+
+    loadLatestDrops()
+    return () => { cancelled = true }
   }, [])
 
   return (
@@ -110,10 +157,10 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {FEATURED_DROPS.map((drop, i) => (
+            {drops.map((drop, i) => (
               <Link
-                key={drop.title}
-                href="/shop"
+                key={drop.id ?? drop.title}
+                href={drop.id ? `/product/${drop.id}` : "/shop"}
                 className={`group ${isMounted ? "animate-rise" : "opacity-0"}`}
                 style={{ animationDelay: `${150 + i * 90}ms` }}
               >
@@ -123,9 +170,21 @@ export default function LandingPage() {
                     alt={drop.title}
                     className="w-full h-full object-cover product-image-zoom"
                   />
-                  <span className="absolute top-3 left-3 pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium">
-                    {drop.region}
-                  </span>
+                  <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+                    <span className="pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium">
+                      {drop.region}
+                    </span>
+                    {drop.isNew && (
+                      <span className="pill bg-foreground text-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">
+                        New
+                      </span>
+                    )}
+                    {!!drop.salePct && drop.salePct > 0 && (
+                      <span className="pill bg-signal text-signal-foreground px-2.5 py-1 text-[10px] font-semibold">
+                        −{drop.salePct}%
+                      </span>
+                    )}
+                  </div>
                   <span className="pill absolute bottom-3 right-3 bg-foreground text-background px-3 py-1.5 text-[12px] font-medium opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
                     {drop.price}
                   </span>

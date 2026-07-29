@@ -30,7 +30,7 @@ export default function WishlistPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">Loading...</div>
+        <div className="text-[13px] text-muted-foreground animate-pulse">Loading…</div>
       </div>
     )
   }

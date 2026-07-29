@@ -1,5 +1,7 @@
 package scraper
 
+import "fmt"
+
 // Region represents a Stüssy regional store
 type Region struct {
 	Code         string
@@ -52,7 +54,12 @@ var Regions = map[string]Region{
 
 // ProductsURL returns the products.json URL for this region
 func (r Region) ProductsURL() string {
-	return r.BaseURL + "/products.json?limit=250"
+	return r.ProductsPageURL(1)
+}
+
+// ProductsPageURL returns the products.json URL for a specific page
+func (r Region) ProductsPageURL(page int) string {
+	return fmt.Sprintf("%s/products.json?limit=250&page=%d", r.BaseURL, page)
 }
 
 // ProductURL returns the full product URL for a handle

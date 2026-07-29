@@ -29,10 +29,18 @@ type Product struct {
 	LastHash       string    `json:"last_hash" db:"last_hash"`
 }
 
+// Sort options for product listings
+const (
+	SortNewest    = "newest"     // first_seen_at DESC
+	SortPriceAsc  = "price_asc"  // price ASC
+	SortPriceDesc = "price_desc" // price DESC
+)
+
 type ProductFilter struct {
 	Region      string
 	Categories  []string // Multiple product_type values
 	IsAvailable *bool
+	Sort        string // one of the Sort* constants; default recency
 	Limit       int
 	Offset      int
 }

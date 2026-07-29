@@ -274,7 +274,7 @@ export default function DashboardPage() {
                                             <span className="text-muted-foreground">{cat.count} regions</span>
                                         </div>
                                     )) : (
-                                        <p className="text-xs text-muted-foreground">Loading...</p>
+                                        <p className="text-[13px] text-muted-foreground">Loading…</p>
                                     )}
                                 </div>
                             </div>

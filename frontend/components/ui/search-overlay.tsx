@@ -51,6 +51,9 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
             setQuery("")
             setResults([])
             setShowFilters(false)
+            // Reset filters too — otherwise they stay active but invisible next open
+            setRegion("all")
+            setAvailableOnly(false)
         }
     }, [isOpen])
 
@@ -74,6 +77,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
             return
         }
 
+        const controller = new AbortController()
         const timer = setTimeout(async () => {
             setIsSearching(true)
             try {
@@ -81,7 +85,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                 if (region !== "all") {
                     url += `&region=${region}`
                 }
-                const response = await fetch(url)
+                const response = await fetch(url, { signal: controller.signal })
                 const data = await response.json()
                 if (data.success) {
                     let filtered = data.data || []
@@ -91,13 +95,19 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                     setResults(filtered)
                 }
             } catch (error) {
-                console.error("Search error:", error)
+                // Aborted requests are expected as the user keeps typing
+                if ((error as Error).name !== "AbortError") {
+                    console.error("Search error:", error)
+                }
             } finally {
-                setIsSearching(false)
+                if (!controller.signal.aborted) setIsSearching(false)
             }
         }, 300)
 
-        return () => clearTimeout(timer)
+        return () => {
+            clearTimeout(timer)
+            controller.abort()
+        }
     }, [query, region, availableOnly])
 
     const formatPrice = (price: number, currency: string) => {
@@ -128,41 +138,46 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-[100] bg-background">
+        <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-xl animate-fade-in">
             <div className="border-b border-border">
-                <div className="flex items-center gap-4 px-4 lg:px-8 h-12">
-                    <Search className="w-4 h-4 text-muted-foreground" />
+                <div className="mx-auto max-w-6xl flex items-center gap-3 px-4 sm:px-6 h-14">
+                    <Search className="w-4 h-4 text-muted-foreground shrink-0" />
                     <input
                         ref={inputRef}
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="SEARCH"
-                        className="flex-1 bg-transparent text-sm uppercase tracking-widest outline-none placeholder:text-muted-foreground"
+                        placeholder="Search every region…"
+                        className="flex-1 min-w-0 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
                     />
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`p-2 transition-colors ${showFilters ? "bg-foreground text-background" : "hover:bg-muted"}`}
+                        aria-label="Filters"
+                        className={`pill flex items-center justify-center w-8 h-8 transition-colors ${showFilters ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     >
                         <Filter className="w-4 h-4" />
                     </button>
-                    <button onClick={onClose} className="p-2 hover:bg-muted transition-colors">
+                    <button
+                        onClick={onClose}
+                        aria-label="Close search"
+                        className="pill flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-foreground transition-colors"
+                    >
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {showFilters && (
-                    <div className="px-4 lg:px-8 py-3 border-t border-border flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs uppercase tracking-widest text-muted-foreground">Region:</span>
-                            <div className="flex gap-1">
+                    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3 border-t border-border flex flex-wrap items-center gap-x-6 gap-y-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="label">Region</span>
+                            <div className="flex gap-1.5 flex-wrap">
                                 {REGIONS.map((r) => (
                                     <button
                                         key={r.code}
                                         onClick={() => setRegion(r.code)}
-                                        className={`px-2 py-1 text-xs ${region === r.code
-                                                ? "bg-foreground text-background"
-                                                : "hover:bg-muted"
+                                        className={`pill px-3 py-1 text-xs transition-colors ${region === r.code
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-secondary text-muted-foreground hover:text-foreground"
                                             }`}
                                     >
                                         {r.name}
@@ -170,69 +185,78 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                                 ))}
                             </div>
                         </div>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={availableOnly}
-                                onChange={(e) => setAvailableOnly(e.target.checked)}
-                                className="w-4 h-4"
-                            />
-                            <span className="text-xs uppercase tracking-widest">In Stock Only</span>
-                        </label>
+                        <button
+                            onClick={() => setAvailableOnly(!availableOnly)}
+                            className={`pill px-3 py-1 text-xs transition-colors ${availableOnly
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-secondary text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            In stock only
+                        </button>
                     </div>
                 )}
             </div>
 
-            <div className="overflow-y-auto h-[calc(100vh-48px)] scrollbar-hide">
-                <div className="px-4 lg:px-8 py-8">
+            <div className="overflow-y-auto h-[calc(100vh-56px)] scrollbar-hide">
+                <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
                     {isSearching ? (
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground">Searching...</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="space-y-2">
+                                    <div className="aspect-[3/4] rounded-2xl image-loading" />
+                                    <div className="h-3 w-3/4 rounded image-loading" />
+                                </div>
+                            ))}
+                        </div>
                     ) : results.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 lg:gap-6">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                             {results.map((item) => (
                                 <div key={item.id} className="group relative">
-                                    <Link
-                                        href={`/product/${item.id}`}
-                                        onClick={onClose}
-                                    >
-                                        <div className="aspect-[3/4] bg-muted mb-2 overflow-hidden relative">
+                                    <Link href={`/product/${item.id}`} onClick={onClose}>
+                                        <div className="aspect-[3/4] bg-secondary rounded-2xl mb-2.5 overflow-hidden relative">
                                             <ImageWithLoading
                                                 src={item.image_url}
                                                 alt={item.title}
                                                 className="w-full h-full object-cover product-image-zoom"
                                             />
                                             {!item.is_available && (
-                                                <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
-                                                    <span className="text-xs uppercase tracking-widest">Sold Out</span>
+                                                <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] flex items-center justify-center">
+                                                    <span className="pill bg-background px-2.5 py-1 text-[11px] font-medium">Sold out</span>
                                                 </div>
                                             )}
                                         </div>
-                                        <h3 className="text-xs uppercase tracking-wide line-clamp-1 mb-0.5">{item.title}</h3>
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <h3 className="text-[13px] font-medium line-clamp-1 px-0.5">{item.title}</h3>
+                                        <div className="flex items-center justify-between text-[13px] text-muted-foreground px-0.5">
                                             <span>{formatPrice(item.price, item.currency)}</span>
-                                            <span className="uppercase">{item.region}</span>
+                                            <span className="uppercase text-[11px]">{item.region}</span>
                                         </div>
                                     </Link>
                                     <button
                                         onClick={(e) => handleWishlist(item, e)}
-                                        className={`absolute top-2 right-2 p-2 rounded transition-all opacity-0 group-hover:opacity-100 ${isWishlisted(item.id)
-                                                ? "bg-foreground text-background"
-                                                : "bg-background/80 hover:bg-foreground hover:text-background"
+                                        aria-label="Toggle wishlist"
+                                        className={`pill absolute top-3 right-3 w-8 h-8 flex items-center justify-center transition-all ${isWishlisted(item.id)
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-background/90 backdrop-blur text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
                                             }`}
                                     >
-                                        <Heart className={`w-4 h-4 ${isWishlisted(item.id) ? "fill-current" : ""}`} />
+                                        <Heart className={`w-3.5 h-3.5 ${isWishlisted(item.id) ? "fill-current" : ""}`} />
                                     </button>
                                 </div>
                             ))}
                         </div>
                     ) : query.trim() ? (
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                            No results found for "{query}"
-                        </p>
+                        <div className="text-center py-20">
+                            <Search className="w-9 h-9 mx-auto text-muted-foreground mb-4" strokeWidth={1.5} />
+                            <p className="text-[15px] font-semibold mb-1">No results for &ldquo;{query}&rdquo;</p>
+                            <p className="text-[13px] text-muted-foreground">Try a different term or widen the region filter.</p>
+                        </div>
                     ) : (
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                            Start typing to search
-                        </p>
+                        <div className="text-center py-20">
+                            <p className="text-[13px] text-muted-foreground">
+                                Search every Stüssy release across six regions.
+                            </p>
+                        </div>
                     )}
                 </div>
             </div>

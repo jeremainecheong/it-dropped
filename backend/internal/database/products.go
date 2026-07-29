@@ -43,6 +43,34 @@ func (c *Client) UpsertProduct(ctx context.Context, p *models.Product) error {
 	).Scan(&p.ID)
 }
 
+// priceUSDExpr normalises a regional price to approximate USD so price
+// sorting is meaningful across storefronts — ¥28000 is cheaper than £205,
+// but a raw `ORDER BY price` would rank it as the most expensive item.
+//
+// Keep these rates in sync with frontend/lib/currency.ts. They exist only to
+// order and compare listings, never to quote a checkout price.
+const priceUSDExpr = `(price * CASE currency
+		WHEN 'USD' THEN 1.0
+		WHEN 'GBP' THEN 1.27
+		WHEN 'EUR' THEN 1.08
+		WHEN 'JPY' THEN 0.0067
+		WHEN 'AUD' THEN 0.65
+		WHEN 'SGD' THEN 0.74
+		ELSE 1.0
+	END)`
+
+// TouchProducts bumps last_seen_at for unchanged products in one statement,
+// avoiding a full upsert per row when nothing else changed.
+func (c *Client) TouchProducts(ctx context.Context, region string, shopifyIDs []int64) error {
+	query := `
+		UPDATE products
+		SET last_seen_at = NOW()
+		WHERE region = $1 AND shopify_id = ANY($2)`
+
+	_, err := c.pool.Exec(ctx, query, region, shopifyIDs)
+	return err
+}
+
 // GetProductByShopifyID retrieves a product by Shopify ID and region
 func (c *Client) GetProductByShopifyID(ctx context.Context, shopifyID int64, region string) (*models.Product, error) {
 	query := `
@@ -130,7 +158,19 @@ func (c *Client) GetProducts(ctx context.Context, filter models.ProductFilter) (
 		argNum++
 	}
 
-	query += " ORDER BY last_seen_at DESC"
+	// Every ordering ends in `id` so paging is stable: the sort keys below are
+	// all non-unique, and LIMIT/OFFSET over a non-deterministic order can
+	// duplicate or skip rows between pages.
+	switch filter.Sort {
+	case models.SortNewest:
+		query += " ORDER BY first_seen_at DESC, id ASC"
+	case models.SortPriceAsc:
+		query += " ORDER BY " + priceUSDExpr + " ASC, id ASC"
+	case models.SortPriceDesc:
+		query += " ORDER BY " + priceUSDExpr + " DESC, id ASC"
+	default:
+		query += " ORDER BY last_seen_at DESC, id ASC"
+	}
 
 	if filter.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argNum)

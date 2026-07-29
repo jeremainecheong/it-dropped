@@ -1,15 +1,16 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { User, Heart, Home, ShoppingBag, Users, LayoutGrid } from "lucide-react"
+import { User, Heart, Home, ShoppingBag, Users, LayoutGrid, Search } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Logo } from "@/components/ui/logo"
+import { SearchOverlay } from "@/components/ui/search-overlay"
 
 interface HeaderProps {
-    /** Page-specific actions rendered before the default actions (e.g. search) */
+    /** Page-specific actions rendered before the default actions */
     actions?: ReactNode
 }
 
@@ -22,15 +23,45 @@ const NAV_LINKS = [
 /**
  * Fixed top navigation, shared by every page.
  * Height is 48px — offset page content with `pt-12` (plus breathing room).
+ * Owns the global search overlay, opened by the button or ⌘K / Ctrl+K.
  */
 export function Header({ actions }: HeaderProps) {
     const pathname = usePathname()
     const { user } = useAuth()
+    const [searchOpen, setSearchOpen] = useState(false)
 
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
+    useEffect(() => {
+        const isTypingTarget = (el: EventTarget | null) => {
+            const node = el as HTMLElement | null
+            if (!node) return false
+            const tag = node.tagName
+            return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable
+        }
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key.toLowerCase() !== "k") return
+            // Ctrl+K is "kill to end of line" on macOS text fields, and any
+            // shortcut should stay out of the way while the user is typing.
+            if (isTypingTarget(e.target)) return
+
+            const isMac = navigator.platform.toLowerCase().includes("mac")
+            const chord = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey
+            if (!chord) return
+
+            e.preventDefault()
+            setSearchOpen((open) => !open)
+        }
+
+        window.addEventListener("keydown", onKeyDown)
+        return () => window.removeEventListener("keydown", onKeyDown)
+    }, [])
+
     return (
         <>
+            <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
             <header className="fixed top-0 left-0 right-0 z-50 h-12 bg-background/80 backdrop-blur-xl border-b border-border">
                 <div className="mx-auto max-w-6xl h-full px-4 sm:px-6 flex items-center justify-between gap-4">
                     {/* Logo */}
@@ -56,6 +87,26 @@ export function Header({ actions }: HeaderProps) {
                     {/* Actions */}
                     <div className="flex items-center gap-1">
                         {actions}
+
+                        {/* Compact search trigger (mobile) */}
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            aria-label="Search"
+                            className="sm:hidden flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <Search className="w-4 h-4" />
+                        </button>
+
+                        {/* Search field affordance (desktop) */}
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            className="hidden sm:flex items-center gap-2 pl-3 pr-2 py-1.5 mr-1 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <Search className="w-3.5 h-3.5" />
+                            <span className="text-[13px]">Search</span>
+                            <kbd className="text-[10px] font-medium bg-background/80 rounded px-1.5 py-0.5 leading-none">⌘K</kbd>
+                        </button>
+
                         <ThemeToggle />
                         {user ? (
                             <>
