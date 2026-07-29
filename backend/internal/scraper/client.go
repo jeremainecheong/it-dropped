@@ -87,14 +87,23 @@ func (c *Client) FetchProducts(ctx context.Context, region Region) ([]models.Sho
 		c.Sleep()
 	}
 
-	// Optional vendor filter (e.g. DSM Singapore mixes vendors)
+	// Optional vendor filter (e.g. DSM Singapore stocks many brands).
+	// Matching is accent- and case-insensitive — see Region.MatchesVendor.
 	if region.VendorFilter != "" {
 		filtered := all[:0]
+		dropped := 0
 		for _, p := range all {
-			if p.Vendor == region.VendorFilter {
+			if region.MatchesVendor(p.Vendor) {
 				filtered = append(filtered, p)
+			} else {
+				dropped++
 			}
 		}
+		log.Debug().
+			Str("region", region.Code).
+			Int("kept", len(filtered)).
+			Int("dropped", dropped).
+			Msg("Vendor filter applied")
 		all = filtered
 	}
 
