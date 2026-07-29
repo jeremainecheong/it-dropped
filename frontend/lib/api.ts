@@ -8,17 +8,22 @@
  * handlers read and one hop shorter.
  */
 
+import { cache } from "react"
+
 import { PRODUCT_COLUMNS, catalogue } from "@/lib/catalogue"
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://itdropped.app").replace(/\/$/, "")
 
 export interface ApiProduct {
   id: string
+  shopify_id: number
   region: string
   handle: string
   title: string
   vendor: string
   product_type: string
+  tags: string[]
+  total_variants: number
   price: number
   compare_price: number | null
   currency: string
@@ -33,9 +38,15 @@ export interface ApiProduct {
   last_seen_at: string
 }
 
-/** A missing product must render a 404, not crash the route — every caller
- *  here already branches on null. */
-export async function getProduct(id: string): Promise<ApiProduct | null> {
+/**
+ * A missing product must render a 404, not crash the route — every caller here
+ * already branches on null.
+ *
+ * Wrapped in React's cache so generateMetadata and the page body share one
+ * query. Next dedupes fetch() automatically, but these go through supabase-js,
+ * which it cannot see, so the same product was being read twice per request.
+ */
+export const getProduct = cache(async function getProduct(id: string): Promise<ApiProduct | null> {
   const { data, error } = await catalogue
     .from("products")
     .select(PRODUCT_COLUMNS)
@@ -43,14 +54,14 @@ export async function getProduct(id: string): Promise<ApiProduct | null> {
     .maybeSingle()
   if (error) return null
   return (data as unknown as ApiProduct) ?? null
-}
+})
 
 /** Every regional listing of the same garment, for the compare grid. */
-export async function getProductsByHandle(handle: string): Promise<ApiProduct[] | null> {
+export const getProductsByHandle = cache(async function getProductsByHandle(handle: string): Promise<ApiProduct[] | null> {
   const { data, error } = await catalogue.rpc("products_by_handle", { h: handle })
   if (error) return null
   return (data as unknown as ApiProduct[]) ?? []
-}
+})
 
 /** Products for the sitemap. Capped — sitemaps have a 50k URL limit. */
 export async function getProductsForSitemap(limit = 5000): Promise<ApiProduct[] | null> {
