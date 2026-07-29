@@ -32,7 +32,7 @@ Two platforms, both free at hobby scale, and no server to run.
 
 - **Root Directory**: `frontend`  ← required, the repo is a monorepo
 - Framework preset: Next.js (auto-detected)
-- Build command / install command: defaults are fine (pnpm is detected from the lockfile)
+- Build command / install command: defaults are fine (npm, from `package-lock.json`)
 
 **Environment variables** (Project → Settings → Environment Variables)
 
