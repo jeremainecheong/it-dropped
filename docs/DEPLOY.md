@@ -75,6 +75,27 @@ Two consoles to configure. Do them in this order.
 Supabase rejects any `redirect_to` not on this allow-list, so a missing entry
 is the usual cause of "signed in with Google, bounced back to /login".
 
+### c) Confirm the provider is actually on
+
+`signInWithOAuth` only builds a URL, so it returns no error when the provider
+is disabled — the failure surfaces after the browser has already navigated
+away, as a bare 400 that names no provider:
+
+```json
+{"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}
+```
+
+Check before blaming the callback route. This needs only the publishable key,
+and lists every provider the project has enabled:
+
+```bash
+curl -s "https://<project-ref>.supabase.co/auth/v1/settings" \
+  -H "apikey: <publishable-key>" | jq '.external | with_entries(select(.value))'
+```
+
+A newly created project has `email` alone, so Google reads `false` until step
+(b) is saved.
+
 ### How the flow works in this codebase
 
 ```
