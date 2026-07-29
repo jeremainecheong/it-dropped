@@ -40,10 +40,11 @@ jobs:
       - name: Scrape all regions
         working-directory: backend
         env:
-          # Must be the SESSION POOLER connection string from the Supabase
-          # dashboard (Connect -> Session pooler), not the direct db.<ref>
-          # host. The direct host resolves to IPv6 only and GitHub's runners
-          # are IPv4, so it fails to connect at all.
+          # Must be a POOLER connection string from the Supabase dashboard
+          # (Connect -> Session pooler on :5432, or Transaction pooler on
+          # :6543 — the client handles either). Not the direct db.<ref> host:
+          # that resolves to IPv6 only and GitHub's runners are IPv4, so it
+          # cannot connect at all.
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # Optional. Absent, drops are still detected and stored, just not announced.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

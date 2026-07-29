@@ -60,13 +60,19 @@ triggered by hand from the Actions tab.
 
 | Secret | Where to get it |
 |---|---|
-| `DATABASE_URL` | Supabase → **Connect** → **Session pooler** |
+| `DATABASE_URL` | Supabase → **Connect** → **Session pooler** (or Transaction pooler) |
 | `TELEGRAM_BOT_TOKEN` | Optional. Absent, drops are stored but not announced |
 | `TELEGRAM_CHANNEL_ID` | Optional, with the token |
 
-Use the **session pooler** string, not the direct `db.<ref>.supabase.co` host.
-The direct host resolves to IPv6 only and GitHub's runners are IPv4, so it
-cannot connect at all.
+Use a **pooler** string, not the direct `db.<ref>.supabase.co` host: the direct
+host resolves to IPv6 only and GitHub's runners are IPv4, so it cannot connect
+at all.
+
+Either pooler works. pgx caches named prepared statements, which the
+transaction pooler on `:6543` cannot honour — the second query on a connection
+fails with *prepared statement already exists*. Rather than leave that as a trap
+(the dashboard offers the transaction pooler first), `database.New` detects
+`:6543` or `pgbouncer=true` and switches to unnamed statements.
 
 Two things to know about Actions as a scheduler: scheduled runs are queued and
 can be delayed by tens of minutes at busy times, which is harmless daily and
