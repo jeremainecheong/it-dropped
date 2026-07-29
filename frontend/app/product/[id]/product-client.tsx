@@ -13,6 +13,7 @@ import { formatPrice, toUSD } from "@/lib/currency"
 import { rankByLandedCost, estimateLandedCost, formatUSD } from "@/lib/landed-cost"
 import { useDestination } from "@/lib/use-destination"
 import { DestinationSelect } from "@/components/ui/destination-select"
+import { RegionAlertCard } from "@/components/product/region-alert-card"
 
 interface Product {
   id: string
@@ -33,6 +34,8 @@ interface Product {
   product_url: string
   first_seen_at: string
   last_seen_at: string
+  /** Cross-region garment identity; falls back to the handle server-side. */
+  style_code?: string
 }
 
 const REGION_FLAGS: Record<string, string> = {
@@ -67,6 +70,15 @@ function ProductDetailContent() {
 
   const best = rankedOffers.find((r) => r.offer.is_available !== false)
   const bestOffer = best?.offer
+
+  // Which regions carry this garment at all, and whether the shopper's own
+  // is among them. If it isn't, importing is the only option today — so
+  // offer to watch for a local release instead.
+  const stockedRegions = useMemo(
+    () => Array.from(new Set(rankedOffers.map((r) => r.offer.region))),
+    [rankedOffers]
+  )
+  const stockedLocally = stockedRegions.includes(destination.domesticRegion)
 
   const currentLanded = useMemo(
     () => (product ? estimateLandedCost(product.price, product.currency, product.region, destination) : null),
@@ -344,6 +356,19 @@ function ProductDetailContent() {
               <PriceHistoryChart productId={productId} currency={product.currency} />
             </div>
           </div>
+
+          {!stockedLocally && (
+            <div className="py-8 border-t border-border">
+              <RegionAlertCard
+                styleCode={product.style_code || product.handle}
+                region={destination.domesticRegion}
+                regionName={destination.name}
+                title={product.title}
+                imageUrl={product.image_url}
+                stockedIn={stockedRegions}
+              />
+            </div>
+          )}
 
           {rankedOffers.length > 1 && (
             <div className="py-8 border-t border-border">

@@ -119,6 +119,24 @@ psql "$DATABASE_URL" -f docs/schema.sql
 for m in docs/migrations/*.sql; do psql "$DATABASE_URL" -f "$m"; done
 ```
 
+Migration `008` is required for region alerts ("tell me when this drops in my
+country") and for `any_change` price alerts to record a rise. Without it the
+scraper logs an error every cycle that produces a `new` drop.
+
+### Running the alert integration tests
+
+The alert matcher is SQL that compiles fine while matching the wrong rows, so
+it has tests against a real Postgres. They skip unless a database is provided:
+
+```bash
+export TEST_DATABASE_URL="postgres://…/postgres?sslmode=disable"
+go test ./internal/database/ -run 'TestRegionAlert|TestPriceDrop|TestAnyChange' -v
+```
+
+The suite truncates the tables it seeds on start, so point it at a scratch
+database — never at production. Supabase's `auth.users` is referenced by the
+alert tables; a local database needs a stub with `id` and `raw_user_meta_data`.
+
 ### Scrape rate
 
 A full cycle is roughly 4 pages × 6 regions ≈ 24 upstream requests. At the

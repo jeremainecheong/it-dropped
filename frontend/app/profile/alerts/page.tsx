@@ -8,21 +8,45 @@ import { useAuth } from "@/lib/auth-context"
 import { AuthGuard } from "@/components/auth-guard"
 import { Header } from "@/components/layout/header"
 
+const REGION_NAMES: Record<string, string> = {
+    us: "the US",
+    uk: "the UK",
+    eu: "Europe",
+    jp: "Japan",
+    au: "Australia",
+    sg: "Singapore",
+}
+
+/**
+ * Alerts come from two tables with genuinely different shapes. Price and
+ * restock alerts point at a products row; region alerts deliberately do not,
+ * because the listing they wait for does not exist yet. They are normalised
+ * here so the list can render and manage both.
+ */
 interface Alert {
     id: string
-    product_id: string
-    target_price: number
-    alert_type: string
+    /** Which table this row lives in — decides where toggle/delete write. */
+    source: "price" | "region"
+    label: string
+    title: string
+    imageUrl?: string
+    /** Absent for region alerts: there is nothing to link to yet. */
+    productId?: string
+    detail: string
     is_active: boolean
     triggered: boolean
-    triggered_at: string | null
     created_at: string
-    product?: {
-        title: string
-        image_url: string
-        price: number
-        currency: string
-    }
+}
+
+const TABLE: Record<Alert["source"], string> = {
+    price: "price_alerts",
+    region: "region_alerts",
+}
+
+/** Region alerts have no listing to link to, so they render as plain text. */
+function MaybeLink({ productId, children }: { productId?: string; children: React.ReactNode }) {
+    if (!productId) return <>{children}</>
+    return <Link href={`/product/${productId}`}>{children}</Link>
 }
 
 function AlertsContent() {
@@ -34,58 +58,80 @@ function AlertsContent() {
         if (user) fetchAlerts()
     }, [user])
 
-    const fetchAlerts = async () => {
-        if (!user) return
-        setIsLoading(true)
-
-        const { data, error } = await supabase
-            .from("price_alerts")
-            .select(`
-                *,
-                product:products(title, image_url, price, currency)
-            `)
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-
-        if (!error && data) {
-            setAlerts(data)
-        }
-        setIsLoading(false)
-    }
-
-    const toggleAlert = async (id: string, isActive: boolean) => {
-        await supabase.from("price_alerts").update({ is_active: !isActive }).eq("id", id)
-        setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, is_active: !isActive } : a)))
-    }
-
-    const deleteAlert = async (id: string) => {
-        await supabase.from("price_alerts").delete().eq("id", id)
-        setAlerts((prev) => prev.filter((a) => a.id !== id))
-    }
-
     const formatPrice = (price: number, currency: string) => {
         const symbols: Record<string, string> = { USD: "$", GBP: "£", EUR: "€", JPY: "¥", AUD: "A$", SGD: "S$" }
         return `${symbols[currency] || currency}${price.toFixed(currency === "JPY" ? 0 : 2)}`
     }
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-        })
+    const formatDate = (dateString: string) =>
+        new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+
+    const fetchAlerts = async () => {
+        if (!user) return
+        setIsLoading(true)
+
+        const [priceRes, regionRes] = await Promise.all([
+            supabase
+                .from("price_alerts")
+                .select(`*, product:products(title, image_url, price, currency)`)
+                .eq("user_id", user.id),
+            supabase.from("region_alerts").select("*").eq("user_id", user.id),
+        ])
+
+        const priceAlerts: Alert[] = (priceRes.data ?? []).map((a: any) => ({
+            id: a.id,
+            source: "price",
+            label:
+                a.alert_type === "price_drop"
+                    ? "Price drop"
+                    : a.alert_type === "restock"
+                      ? "Restock"
+                      : "Any change",
+            title: a.product?.title || "Unknown product",
+            imageUrl: a.product?.image_url,
+            productId: a.product_id,
+            detail:
+                a.alert_type === "price_drop" && a.product
+                    ? `Target ${formatPrice(a.target_price, a.product.currency)} / now ${formatPrice(a.product.price, a.product.currency)}`
+                    : `Set ${formatDate(a.created_at)}`,
+            is_active: a.is_active,
+            triggered: a.triggered,
+            created_at: a.created_at,
+        }))
+
+        const regionAlerts: Alert[] = (regionRes.data ?? []).map((a: any) => ({
+            id: a.id,
+            source: "region",
+            label: "Region launch",
+            title: a.title || a.style_code,
+            imageUrl: a.image_url ?? undefined,
+            detail: `Waiting for a release in ${REGION_NAMES[a.region] || a.region.toUpperCase()}`,
+            is_active: a.is_active,
+            triggered: a.triggered,
+            created_at: a.created_at,
+        }))
+
+        setAlerts(
+            [...priceAlerts, ...regionAlerts].sort((a, b) =>
+                b.created_at.localeCompare(a.created_at)
+            )
+        )
+        setIsLoading(false)
     }
 
-    const getAlertTypeLabel = (type: string) => {
-        switch (type) {
-            case "price_drop":
-                return "Price Drop"
-            case "restock":
-                return "Restock"
-            case "any_change":
-                return "Any Change"
-            default:
-                return type
-        }
+    const toggleAlert = async (alert: Alert) => {
+        await supabase
+            .from(TABLE[alert.source])
+            .update({ is_active: !alert.is_active })
+            .eq("id", alert.id)
+        setAlerts((prev) =>
+            prev.map((a) => (a.id === alert.id ? { ...a, is_active: !a.is_active } : a))
+        )
+    }
+
+    const deleteAlert = async (alert: Alert) => {
+        await supabase.from(TABLE[alert.source]).delete().eq("id", alert.id)
+        setAlerts((prev) => prev.filter((a) => a.id !== alert.id))
     }
 
     return (
@@ -102,7 +148,7 @@ function AlertsContent() {
                 <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8">
                     <div className="flex items-center gap-3 mb-8">
                         <Bell className="w-6 h-6" />
-                        <h1 className="text-2xl font-medium">Price Alerts</h1>
+                        <h1 className="text-2xl font-medium">Alerts</h1>
                     </div>
 
                     {isLoading ? (
@@ -136,48 +182,36 @@ function AlertsContent() {
                                         }`}
                                 >
                                     <div className="flex gap-4">
-                                        {alert.product?.image_url && (
-                                            <Link href={`/product/${alert.product_id}`}>
+                                        {alert.imageUrl && (
+                                            <MaybeLink productId={alert.productId}>
                                                 <img
-                                                    src={alert.product.image_url}
+                                                    src={alert.imageUrl}
                                                     alt=""
                                                     className="w-16 h-20 object-cover bg-muted"
                                                 />
-                                            </Link>
+                                            </MaybeLink>
                                         )}
                                         <div className="flex-1 min-w-0">
-                                            <Link
-                                                href={`/product/${alert.product_id}`}
-                                                className="text-sm font-medium hover:underline line-clamp-1"
-                                            >
-                                                {alert.product?.title || "Unknown Product"}
-                                            </Link>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="px-2 py-0.5 bg-muted text-xs">
-                                                    {getAlertTypeLabel(alert.alert_type)}
+                                            <MaybeLink productId={alert.productId}>
+                                                <span
+                                                    className={`text-sm font-medium line-clamp-1 ${alert.productId ? "hover:underline" : ""}`}
+                                                >
+                                                    {alert.title}
                                                 </span>
+                                            </MaybeLink>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="px-2 py-0.5 bg-muted text-xs">{alert.label}</span>
                                                 {alert.triggered && (
                                                     <span className="px-2 py-0.5 bg-green-500/10 text-green-600 text-xs">
                                                         Triggered
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-muted-foreground mt-2">
-                                                {alert.alert_type === "price_drop" && alert.product && (
-                                                    <>
-                                                        Target: {formatPrice(alert.target_price, alert.product.currency)}
-                                                        {" / "}
-                                                        Current: {formatPrice(alert.product.price, alert.product.currency)}
-                                                    </>
-                                                )}
-                                                {alert.alert_type !== "price_drop" && (
-                                                    <>Set {formatDate(alert.created_at)}</>
-                                                )}
-                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-2">{alert.detail}</p>
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <button
-                                                onClick={() => toggleAlert(alert.id, alert.is_active)}
+                                                onClick={() => toggleAlert(alert)}
                                                 className={`px-3 py-1 text-xs border transition-colors ${alert.is_active
                                                         ? "border-foreground"
                                                         : "border-border hover:border-foreground"
@@ -186,7 +220,8 @@ function AlertsContent() {
                                                 {alert.is_active ? "Active" : "Paused"}
                                             </button>
                                             <button
-                                                onClick={() => deleteAlert(alert.id)}
+                                                onClick={() => deleteAlert(alert)}
+                                                aria-label="Delete alert"
                                                 className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded"
                                             >
                                                 <Trash2 className="w-4 h-4" />

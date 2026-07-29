@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createServerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -30,7 +30,26 @@ export async function GET(request: Request) {
     return NextResponse.redirect(failed)
   }
 
-  const supabase = createRouteHandlerClient({ cookies })
+  // auth-helpers-nextjs dropped createRouteHandlerClient in 0.9; 0.15 exposes
+  // the @supabase/ssr client, which needs the cookie store wired explicitly.
+  // Route handlers may write cookies, so setAll is safe here — omitting it
+  // would silently fail to persist the session.
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (toSet) => {
+          for (const { name, value, options } of toSet) {
+            cookieStore.set(name, value, options)
+          }
+        },
+      },
+    }
+  )
+
   const { error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {

@@ -27,7 +27,18 @@ func (c *Client) MatchAlerts(ctx context.Context, drops []models.Drop) (int, err
 		}
 
 		switch drop.ChangeType {
-		case models.ChangeTypePriceDrop:
+		case models.ChangeTypeNew:
+			// The listing just appeared in this region. This is the only
+			// event that can satisfy "tell me when it reaches my country".
+			n, err := c.matchRegionAlerts(ctx, drop)
+			if err != nil {
+				return created, err
+			}
+			created += n
+
+		case models.ChangeTypePriceDrop, models.ChangeTypePriceIncrease:
+			// Increases are included because alert_type 'any_change' promises
+			// both directions; matching only on price_drop made it a lie.
 			n, err := c.matchPriceAlerts(ctx, drop)
 			if err != nil {
 				return created, err
@@ -52,10 +63,57 @@ func (c *Client) MatchAlerts(ctx context.Context, drops []models.Drop) (int, err
 	return created, nil
 }
 
+// matchRegionAlerts fires "tell me when this reaches my country" alerts.
+//
+// These are the only alerts not bound to a products row, because the row the
+// user cares about does not exist when they subscribe. They are matched on
+// (style_code, region) instead — the garment, and where they buy from.
+func (c *Client) matchRegionAlerts(ctx context.Context, drop *models.Drop) (int, error) {
+	rows, err := c.pool.Query(ctx, `
+		WITH target AS (
+			SELECT style_code, region FROM products WHERE id = $1
+		), fired AS (
+			UPDATE region_alerts a
+			SET triggered = TRUE, triggered_at = NOW()
+			FROM target t
+			WHERE a.style_code = t.style_code
+			  AND a.region = t.region
+			  AND a.is_active = TRUE
+			  AND a.triggered = FALSE
+			RETURNING a.user_id
+		)
+		INSERT INTO notifications (user_id, type, title, body, link)
+		SELECT user_id, 'new_product', $2, $3, $4 FROM fired
+		RETURNING id`,
+		*drop.ProductID,
+		fmt.Sprintf("Now in %s: %s", upper(drop.Region), drop.Title),
+		fmt.Sprintf("Just listed at %s%.2f", currencySymbol(drop.Currency), drop.Price),
+		fmt.Sprintf("/product/%s", drop.ProductID.String()),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to match region alerts: %w", err)
+	}
+	defer rows.Close()
+
+	return countRows(rows), nil
+}
+
 // matchPriceAlerts fires alerts whose target price has been reached.
 func (c *Client) matchPriceAlerts(ctx context.Context, drop *models.Drop) (int, error) {
+	isDrop := drop.ChangeType == models.ChangeTypePriceDrop
+
+	notifType, heading := "price_increase", "Price up"
+	if isDrop {
+		notifType, heading = "price_drop", "Price drop"
+	}
+
 	// Insert straight from the select so the match and the write are atomic,
 	// then flip the alert so it can't fire repeatedly on every later cycle.
+	//
+	// alert_type is matched explicitly. The previous condition was
+	// `alert_type = 'any_change' OR price <= target_price`, which also caught
+	// RESTOCK alerts — the modal stores the current price as their
+	// target_price, so any later dip fired them with a "Price drop" body.
 	rows, err := c.pool.Query(ctx, `
 		WITH fired AS (
 			UPDATE price_alerts a
@@ -63,15 +121,20 @@ func (c *Client) matchPriceAlerts(ctx context.Context, drop *models.Drop) (int, 
 			WHERE a.product_id = $1
 			  AND a.is_active = TRUE
 			  AND a.triggered = FALSE
-			  AND (a.alert_type = 'any_change' OR ($2::numeric <= a.target_price))
+			  AND (
+			        a.alert_type = 'any_change'
+			     OR (a.alert_type = 'price_drop' AND $2::boolean AND $3::numeric <= a.target_price)
+			  )
 			RETURNING a.user_id
 		)
 		INSERT INTO notifications (user_id, type, title, body, link)
-		SELECT user_id, 'price_drop', $3, $4, $5 FROM fired
+		SELECT user_id, $4, $5, $6, $7 FROM fired
 		RETURNING id`,
 		*drop.ProductID,
+		isDrop,
 		drop.Price,
-		fmt.Sprintf("Price drop: %s", drop.Title),
+		notifType,
+		fmt.Sprintf("%s: %s", heading, drop.Title),
 		fmt.Sprintf("Now %s%.2f in %s (was %s)", currencySymbol(drop.Currency), drop.Price, upper(drop.Region), drop.OldValue),
 		fmt.Sprintf("/product/%s", drop.ProductID.String()),
 	)
