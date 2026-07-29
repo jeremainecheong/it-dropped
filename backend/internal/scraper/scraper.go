@@ -2,6 +2,9 @@ package scraper
 
 import (
 	"context"
+	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +35,12 @@ func New(cfg *config.Config, db *database.Client) *Scraper {
 // Run executes the scraping process for all configured regions.
 // Regions are independent Shopify stores, so they are scraped concurrently —
 // per-store politeness is preserved by the page delay inside each region.
+//
+// A region that fails is reported in the returned error rather than only
+// logged. The scraper runs unattended once a day from .github/workflows/
+// scrape.yml, and a job that exits 0 is a job nobody looks at: every failure
+// mode that mattered here — an unreachable store, a write that errored for
+// every product, a misspelt region code — used to leave a green run behind it.
 func (s *Scraper) Run(ctx context.Context) error {
 	regions := s.cfg.GetRegions()
 
@@ -43,12 +52,33 @@ func (s *Scraper) Run(ctx context.Context) error {
 		mu                                                      sync.Mutex
 		wg                                                      sync.WaitGroup
 		totalNew, totalRestock, totalPriceChanges, totalSoldOut int
+		failures                                                []string
+		attempted                                               int
 	)
 
+	recordFailure := func(code string, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		failures = append(failures, fmt.Sprintf("%s: %v", code, err))
+	}
+
 	for _, regionCode := range regions {
+		// REGIONS is a comma-separated env var, so "us, uk" is an easy thing
+		// to write and used to produce an unknown region for " uk".
+		regionCode = strings.TrimSpace(regionCode)
+		if regionCode == "" {
+			continue
+		}
+
+		attempted++
+
 		region := GetRegion(regionCode)
 		if region == nil {
-			log.Warn().Str("region", regionCode).Msg("Unknown region, skipping")
+			// Previously a warning that scrolled past. A region named in
+			// REGIONS that this binary cannot resolve scrapes nothing, which
+			// is the same outcome as a region that failed outright.
+			log.Error().Str("region", regionCode).Msg("Unknown region, skipping")
+			recordFailure(regionCode, fmt.Errorf("unknown region code"))
 			continue
 		}
 
@@ -59,6 +89,7 @@ func (s *Scraper) Run(ctx context.Context) error {
 			newCount, restockCount, priceChanges, soldOut, err := s.scrapeRegion(ctx, region)
 			if err != nil {
 				log.Error().Err(err).Str("region", region.Code).Msg("Failed to scrape region")
+				recordFailure(region.Code, err)
 				return
 			}
 
@@ -78,7 +109,21 @@ func (s *Scraper) Run(ctx context.Context) error {
 		Int("restocks", totalRestock).
 		Int("priceChanges", totalPriceChanges).
 		Int("soldOut", totalSoldOut).
+		Int("regions", attempted).
+		Int("failedRegions", len(failures)).
 		Msg("Scraping completed")
+
+	if attempted == 0 {
+		return fmt.Errorf("no regions configured: REGIONS resolved to nothing")
+	}
+
+	if len(failures) > 0 {
+		// Sorted so the message is stable across runs — the goroutines finish
+		// in whatever order the network allows.
+		sort.Strings(failures)
+		return fmt.Errorf("%d of %d region(s) failed: %s",
+			len(failures), attempted, strings.Join(failures, "; "))
+	}
 
 	return nil
 }
@@ -121,22 +166,91 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 
 	scrapeLog.ProductsFound = len(shopifyProducts)
 
-	// Get existing products from database
-	existingProducts, err := s.db.GetAllProductsByRegion(ctx, region.Code)
+	// A live storefront is never empty. Zero products with no error is what a
+	// moved products.json, a bot wall answering 200 with an empty list, or a
+	// vendor filter that stopped matching all look like — and every step below
+	// would then be a perfectly successful no-op over an empty slice.
+	if len(shopifyProducts) == 0 {
+		err = fmt.Errorf("store returned 0 products")
+		return 0, 0, 0, 0, err
+	}
+
+	// ---- phase 1: fingerprints only ------------------------------------
+	// All the diff needs to decide "did this product change?" is the stored
+	// hash. Reading the full row for all several-thousand products, of which
+	// a typical day changes a handful, is the expensive part of a cycle.
+	existingHashes, err := s.db.GetProductHashesByRegion(ctx, region.Code)
 	if err != nil {
 		return 0, 0, 0, 0, err
 	}
 
-	// Parse and process products
-	var newProducts []models.Product
+	// Parse and fingerprint everything the store gave us.
+	parsed := make([]models.Product, 0, len(shopifyProducts))
 	for _, sp := range shopifyProducts {
 		product := Parse(sp, region)
 		product.LastHash = GenerateHash(&product)
-		newProducts = append(newProducts, product)
+		parsed = append(parsed, product)
 	}
 
+	// Split on the fingerprint. Unchanged rows want nothing but a cheap batch
+	// last_seen_at touch; changed rows are the only ones worth reading in
+	// full, diffing, or upserting.
+	//
+	// Products whose hash is unchanged are deliberately not passed to
+	// DetectChanges: every field it compares — price, availability, the size
+	// run — is part of the hash, so an unchanged fingerprint cannot yield a
+	// drop. Nor can they be omitted from the map instead of the slice, since
+	// DetectChanges reads "not in the old map" as a brand new listing.
+	changed := make([]models.Product, 0, len(parsed))
+	var changedExistingIDs []int64
+	var unchangedIDs []int64
+	for i := range parsed {
+		p := &parsed[i]
+		old, exists := existingHashes[p.ShopifyID]
+		if exists {
+			// Keep identity for downstream drop linkage, on both branches.
+			p.ID = old.ID
+		}
+
+		if exists && old.LastHash == p.LastHash {
+			unchangedIDs = append(unchangedIDs, p.ShopifyID)
+			continue
+		}
+
+		changed = append(changed, *p)
+		if exists {
+			changedExistingIDs = append(changedExistingIDs, p.ShopifyID)
+		}
+	}
+
+	// ---- phase 2: full rows for the changed subset ----------------------
+	// DetectChanges needs the previous price and size run, which phase 1 did
+	// not read. Fetch those columns now, for these products only.
+	existingProducts, err := s.db.GetProductsByShopifyIDs(ctx, region.Code, changedExistingIDs)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+
+	// Phase 1 said these rows exist; if phase 2 cannot see them the two reads
+	// disagree and every missing product would be reported as a brand new
+	// listing — 6,000 spurious "new drop" notifications is a worse outcome
+	// than a failed cycle.
+	if len(existingProducts) != len(changedExistingIDs) {
+		err = fmt.Errorf("phase 2 read %d of %d changed products; refusing to treat the rest as new",
+			len(existingProducts), len(changedExistingIDs))
+		return 0, 0, 0, 0, err
+	}
+
+	log.Debug().
+		Str("region", region.Code).
+		Int("catalogue", len(parsed)).
+		Int("stored", len(existingHashes)).
+		Int("changed", len(changed)).
+		Int("unchanged", len(unchangedIDs)).
+		Msg("Two-phase diff")
+
 	// Detect changes
-	drops := DetectChanges(existingProducts, newProducts)
+	drops := DetectChanges(existingProducts, changed)
 
 	// Count changes by type
 	for _, drop := range drops {
@@ -154,19 +268,21 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 
 	// Write only what changed: unchanged rows (same hash) get a cheap batch
 	// last_seen_at touch instead of a full upsert.
-	var unchangedIDs []int64
-	var upserted, skipped int
-	for i := range newProducts {
-		p := &newProducts[i]
-		if old, exists := existingProducts[p.ShopifyID]; exists && old.LastHash == p.LastHash {
-			p.ID = old.ID // keep identity for downstream drop linkage
-			unchangedIDs = append(unchangedIDs, p.ShopifyID)
-			skipped++
-			continue
-		}
+	//
+	// `changed` must not be appended to from here on: the drop linkage below
+	// takes the address of its elements, and a reallocation would leave those
+	// pointers aimed at the old backing array.
+	var upserted, writeFailures int
+	var writeErr error
+	for i := range changed {
+		p := &changed[i]
 
-		if err := s.db.UpsertProduct(ctx, p); err != nil {
-			log.Error().Err(err).
+		if upsertErr := s.db.UpsertProduct(ctx, p); upsertErr != nil {
+			writeFailures++
+			if writeErr == nil {
+				writeErr = upsertErr
+			}
+			log.Error().Err(upsertErr).
 				Int64("shopifyID", p.ShopifyID).
 				Msg("Failed to upsert product")
 			continue
@@ -179,27 +295,65 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		// every point on the product-page chart.
 	}
 
+	touched := 0
 	if len(unchangedIDs) > 0 {
-		if err := s.db.TouchProducts(ctx, region.Code, unchangedIDs); err != nil {
-			log.Error().Err(err).Str("region", region.Code).Msg("Failed to touch unchanged products")
+		if touchErr := s.db.TouchProducts(ctx, region.Code, unchangedIDs); touchErr != nil {
+			log.Error().Err(touchErr).Str("region", region.Code).Msg("Failed to touch unchanged products")
+			if writeErr == nil {
+				writeErr = touchErr
+			}
+		} else {
+			touched = len(unchangedIDs)
 		}
+	}
+
+	// The catalogue once sat frozen for six months because every product write
+	// raised the same error, the error was logged per-product, and the cycle
+	// went on to report success. A region that fetched a catalogue and then
+	// persisted none of it has failed, however many individual log lines say so.
+	if upserted == 0 && touched == 0 && writeErr != nil {
+		err = fmt.Errorf("no product writes succeeded (%d failed): %w", writeFailures, writeErr)
+		return
+	}
+
+	if writeFailures > 0 {
+		log.Warn().
+			Str("region", region.Code).
+			Int("failed", writeFailures).
+			Int("upserted", upserted).
+			Err(writeErr).
+			Msg("Some product writes failed")
 	}
 
 	log.Debug().
 		Str("region", region.Code).
 		Int("upserted", upserted).
-		Int("skipped", skipped).
+		Int("skipped", len(unchangedIDs)).
 		Msg("Product writes")
 
 	// Create drops
+	byShopifyID := make(map[int64]*models.Product, len(changed))
+	for i := range changed {
+		byShopifyID[changed[i].ShopifyID] = &changed[i]
+	}
+
 	for i := range drops {
 		// Find the product ID for this drop
-		for j := range newProducts {
-			if newProducts[j].ShopifyID == drops[i].ShopifyID {
-				drops[i].ProductID = &newProducts[j].ID
-				break
-			}
+		p, ok := byShopifyID[drops[i].ShopifyID]
+		if !ok || p.ID == uuid.Nil {
+			// The upsert for this product failed above, so there is no row for
+			// the drop's product_id foreign key to point at. Dropping the link
+			// rather than writing a dangling one also keeps MatchAlerts from
+			// firing on a product that was never stored; the change is still
+			// pending in the catalogue and will be detected again next cycle.
+			drops[i].ProductID = nil
+			log.Warn().
+				Int64("shopifyID", drops[i].ShopifyID).
+				Str("type", string(drops[i].ChangeType)).
+				Msg("Skipping drop for a product that failed to write")
+			continue
 		}
+		drops[i].ProductID = &p.ID
 
 		if err := s.db.CreateDrop(ctx, &drops[i]); err != nil {
 			log.Error().Err(err).
@@ -222,8 +376,11 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 
 	// Re-arm restock alerts on anything that has gone out of stock, so a user
 	// keeps being told about future restocks rather than only the first.
-	for i := range newProducts {
-		p := &newProducts[i]
+	//
+	// Only `changed` is scanned: is_available is part of the hash, so a product
+	// that just went out of stock cannot be on the unchanged side of the split.
+	for i := range changed {
+		p := &changed[i]
 		if p.IsAvailable || p.ID == uuid.Nil {
 			continue
 		}
@@ -236,7 +393,7 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 
 	log.Info().
 		Str("region", region.Code).
-		Int("products", len(newProducts)).
+		Int("products", len(parsed)).
 		Int("new", newCount).
 		Int("restocks", restockCount).
 		Int("priceChanges", priceChanges).

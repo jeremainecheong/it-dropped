@@ -80,7 +80,16 @@ func main() {
 	// panicked in NewTicker before a single product was fetched.
 	if cfg.ScrapeInterval <= 0 {
 		log.Info().Msg("SCRAPE_INTERVAL not positive, running a single cycle")
-		runScraper(ctx, s, notifier)
+		if err := runScraper(ctx, s, notifier); err != nil {
+			// The one-shot path is the CI path (.github/workflows/scrape.yml
+			// sets SCRAPE_INTERVAL=0), so this exit code is the only thing
+			// standing between a region that scraped nothing and a green tick
+			// on the daily run. db.Close is deferred and would not run under
+			// os.Exit, so close explicitly first.
+			db.Close()
+			log.Error().Msg("Exiting non-zero so the scheduled run does not report success")
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -92,8 +101,10 @@ func main() {
 		Dur("interval", cfg.ScrapeInterval).
 		Msg("Starting scraper loop")
 
-	// Run immediately once
-	runScraper(ctx, s, notifier)
+	// Run immediately once. The loop deliberately ignores the cycle error:
+	// a long-running scraper should survive a bad cycle and try again on the
+	// next tick. Only the one-shot path above turns it into an exit status.
+	_ = runScraper(ctx, s, notifier)
 
 	for {
 		select {
@@ -101,24 +112,33 @@ func main() {
 			log.Info().Msg("Scraper shutting down")
 			return
 		case <-ticker.C:
-			runScraper(ctx, s, notifier)
+			_ = runScraper(ctx, s, notifier)
 		}
 	}
 }
 
-func runScraper(ctx context.Context, s *scraper.Scraper, notifier *telegram.Notifier) {
+// runScraper runs one cycle and reports whether it failed. A cycle fails when
+// a region fails entirely — see Scraper.Run. In loop mode the caller logs and
+// carries on to the next tick; in one-shot mode the caller turns it into a
+// non-zero exit status, which is what makes an unattended daily run visible.
+func runScraper(ctx context.Context, s *scraper.Scraper, notifier *telegram.Notifier) error {
 	log.Info().Msg("Starting scrape cycle")
-	if err := s.Run(ctx); err != nil {
+	err := s.Run(ctx)
+	if err != nil {
 		log.Error().Err(err).Msg("Scraper cycle failed")
-		return
+	} else {
+		log.Info().Msg("Scraper cycle completed")
 	}
-	log.Info().Msg("Scraper cycle completed")
 
 	// Announce what we just found. Failures here must not fail the cycle —
 	// the drops are already durably recorded and will be retried next pass.
+	// This still runs after a partial failure: the regions that did succeed
+	// have drops worth announcing.
 	if notifier != nil {
-		if err := notifier.NotifyDrops(ctx); err != nil {
-			log.Error().Err(err).Msg("Notification pass failed")
+		if notifyErr := notifier.NotifyDrops(ctx); notifyErr != nil {
+			log.Error().Err(notifyErr).Msg("Notification pass failed")
 		}
 	}
+
+	return err
 }
