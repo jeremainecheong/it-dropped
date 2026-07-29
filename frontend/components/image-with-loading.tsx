@@ -15,7 +15,10 @@ export function ImageWithLoading({
   src,
   alt,
   className,
-  placeholder = "/loading-screen-animation.png",
+  // Must name a file that actually ships in public/. The previous default
+  // pointed at an asset that does not exist, so a failed image fell back to a
+  // second 404 and still rendered as a broken icon.
+  placeholder = "/placeholder.svg",
   onLoad,
 }: ImageWithLoadingProps) {
   const [isLoading, setIsLoading] = useState(true)

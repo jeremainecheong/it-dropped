@@ -222,10 +222,19 @@ function ProductDetailContent() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 py-8">
             <div className="aspect-[3/4] bg-secondary rounded-3xl overflow-hidden">
+              {/* Hotlinked straight from the retailer's CDN, so a delisted or
+                  moved asset is normal wear rather than an exception. Degrade
+                  to the placeholder instead of a broken-image icon on what is
+                  the most prominent image in the app. */}
               <img
-                src={product.image_url}
+                src={product.image_url || "/placeholder.svg"}
                 alt={product.title}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  const img = e.currentTarget
+                  if (img.src.endsWith("/placeholder.svg")) return
+                  img.src = "/placeholder.svg"
+                }}
               />
             </div>
 
