@@ -48,6 +48,7 @@ export default function ThreadPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [hasLiked, setHasLiked] = useState(false)
+    const [commentError, setCommentError] = useState("")
 
     const isAdmin = user?.role === "admin"
 
@@ -98,7 +99,16 @@ export default function ThreadPage() {
             .eq("is_deleted", false)
             .order("created_at", { ascending: true })
 
-        if (!error && data) {
+        // A read that fails here used to leave the list exactly as it was,
+        // with nothing logged — so a comment that posted fine looked like it
+        // had vanished. Say so instead of silently keeping stale state.
+        if (error) {
+            console.error("Failed to load comments:", error.message)
+            setCommentError("Couldn't refresh comments. Reload the page.")
+            return
+        }
+
+        if (data) {
             // Organize into nested structure
             const topLevel = data.filter((c) => !c.parent_id)
             const replies = data.filter((c) => c.parent_id)
@@ -136,16 +146,27 @@ export default function ThreadPage() {
         if (!user || !newComment.trim() || thread?.is_locked) return
 
         setIsSubmitting(true)
+        setCommentError("")
         const { error } = await supabase.from("forum_comments").insert({
             thread_id: threadId,
             user_id: user.id,
             content: newComment.trim(),
         })
 
-        if (!error) {
-            setNewComment("")
-            fetchComments()
+        if (error) {
+            // Previously this branch did nothing at all: the box kept its text
+            // and no comment appeared, with no way to tell whether the post had
+            // failed or the list had simply not refreshed.
+            setCommentError(error.message)
+            setIsSubmitting(false)
+            return
         }
+
+        // Await it. Firing this without waiting meant the submit button
+        // re-enabled before the list had been rebuilt, so a quick second post
+        // could race the first one's read.
+        setNewComment("")
+        await fetchComments()
         setIsSubmitting(false)
     }
 
@@ -160,11 +181,15 @@ export default function ThreadPage() {
             content: replyContent.trim(),
         })
 
-        if (!error) {
-            setReplyContent("")
-            setReplyingTo(null)
-            fetchComments()
+        if (error) {
+            setCommentError(error.message)
+            setIsSubmitting(false)
+            return
         }
+
+        setReplyContent("")
+        setReplyingTo(null)
+        await fetchComments()
         setIsSubmitting(false)
     }
 
@@ -323,6 +348,12 @@ export default function ThreadPage() {
                     ) : (
                         <div className="p-4 border border-border text-sm text-center mb-8">
                             <Link href="/login" className="text-foreground underline">Sign in</Link> to comment
+                        </div>
+                    )}
+
+                    {commentError && (
+                        <div className="mb-6 p-3 border border-border text-sm text-muted-foreground">
+                            {commentError}
                         </div>
                     )}
 
