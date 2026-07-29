@@ -10,7 +10,7 @@ import { Header } from "@/components/layout/header"
 import { PriceHistoryChart } from "@/components/product/price-history-chart"
 import { PriceAlertModal } from "@/components/product/price-alert-modal"
 import { formatPrice, toUSD } from "@/lib/currency"
-import { rankByLandedCost, estimateLandedCost, formatUSD } from "@/lib/landed-cost"
+import { bestOfferPerRegion, estimateLandedCost, formatUSD } from "@/lib/landed-cost"
 import { useDestination } from "@/lib/use-destination"
 import { DestinationSelect } from "@/components/ui/destination-select"
 import { RegionAlertCard } from "@/components/product/region-alert-card"
@@ -34,6 +34,7 @@ interface Product {
   product_url: string
   first_seen_at: string
   last_seen_at: string
+  color?: string
   /** Cross-region garment identity; falls back to the handle server-side. */
   style_code?: string
 }
@@ -64,7 +65,10 @@ function ProductDetailContent() {
   // Regional offers ranked by ESTIMATED DELIVERED cost, not sticker price:
   // the cheapest tag can land dearer once shipping and duty are added.
   const rankedOffers = useMemo(
-    () => (product ? rankByLandedCost([product, ...relatedProducts], destination) : []),
+    () =>
+      product
+        ? bestOfferPerRegion([product, ...relatedProducts], destination, product.color)
+        : [],
     [product, relatedProducts, destination]
   )
 

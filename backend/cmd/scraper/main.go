@@ -74,6 +74,16 @@ func main() {
 		log.Warn().Msg("TELEGRAM_BOT_TOKEN unset — drops will be detected but not announced")
 	}
 
+	// One-shot mode. DEPLOY.md offers a CronJob deployment as an alternative
+	// to the internal loop; without this the binary looped forever inside the
+	// CronJob, and SCRAPE_INTERVAL=0 — the obvious way to ask for one cycle —
+	// panicked in NewTicker before a single product was fetched.
+	if cfg.ScrapeInterval <= 0 {
+		log.Info().Msg("SCRAPE_INTERVAL not positive, running a single cycle")
+		runScraper(ctx, s, notifier)
+		return
+	}
+
 	// Scraper loop
 	ticker := time.NewTicker(cfg.ScrapeInterval)
 	defer ticker.Stop()

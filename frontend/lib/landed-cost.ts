@@ -158,6 +158,53 @@ export function rankByLandedCost<
     })
 }
 
+/**
+ * Collapse a garment's listings to one offer per region.
+ *
+ * style_code identifies a GARMENT, not a listing, so a single cap legitimately
+ * returns ~50 rows across six regions — one per colourway, several per region.
+ * The compare grid answers "where is this cheapest", so it wants six tiles, not
+ * fifty. Within a region the pick is: same colour as the listing being viewed,
+ * then in stock, then cheapest delivered.
+ */
+export function bestOfferPerRegion<
+  T extends {
+    price: number
+    currency: string
+    region: string
+    is_available?: boolean
+    color?: string
+  },
+>(offers: T[], destination: Destination, preferColor?: string): RankedOffer<T>[] {
+  const wanted = preferColor?.trim().toLowerCase()
+
+  const ranked = rankByLandedCost(offers, destination).sort((a, b) => {
+    if (wanted) {
+      const aMatch = a.offer.color?.trim().toLowerCase() === wanted
+      const bMatch = b.offer.color?.trim().toLowerCase() === wanted
+      if (aMatch !== bMatch) return aMatch ? -1 : 1
+    }
+    const aOut = a.offer.is_available === false
+    const bOut = b.offer.is_available === false
+    if (aOut !== bOut) return aOut ? 1 : -1
+    return a.landed.totalUSD - b.landed.totalUSD
+  })
+
+  const bestByRegion = new Map<string, RankedOffer<T>>()
+  for (const entry of ranked) {
+    if (!bestByRegion.has(entry.offer.region)) bestByRegion.set(entry.offer.region, entry)
+  }
+
+  // Re-sort the survivors by cost, since the colour preference above is only
+  // meant to decide WHICH listing represents a region, not their ordering.
+  return [...bestByRegion.values()].sort((a, b) => {
+    const aOut = a.offer.is_available === false
+    const bOut = b.offer.is_available === false
+    if (aOut !== bOut) return aOut ? 1 : -1
+    return a.landed.totalUSD - b.landed.totalUSD
+  })
+}
+
 /** Format a USD figure for display as an approximation. */
 export function formatUSD(value: number): string {
   return `$${Math.round(value).toLocaleString()}`

@@ -85,3 +85,84 @@ func equalStrings(a, b []string) bool {
 	}
 	return true
 }
+
+// Style code resolution across both storefront conventions. The SG cases are
+// the ones that mattered: DSM's own SKU encodes colour and size, so trusting
+// it gave every SG product an identity that joined with nothing.
+func TestStyleCodeResolution(t *testing.T) {
+	cases := []struct {
+		name   string
+		sku    string
+		handle string
+		want   string
+	}{
+		{"stussy segmented sku", "1140364-OLIV-XS", "1140364-garment-dyed-ss-tee-olive", "1140364"},
+		{"stussy alpha suffix", "1915000GD-SKYB-S", "1915000gd-basic-stussy-crew-garment-dyed-sky-blue", "1915000GD"},
+		{"stussy collab code", "OM0335-MOLV-S", "om0335-stussy-mountain-hardwear-tee-mission-olive", "OM0335"},
+
+		{"dsm retailer sku falls through to handle tail", "800011633GRY00S",
+			"stussy-mens-varsity-zip-hood-grey-heather-ss26-118589", "118589"},
+		{"dsm with no sku at all", "",
+			"stussy-mens-varsity-fleece-pant-navy-ss26-116811", "116811"},
+
+		// A new listing with no SKU still recovers its real code from the slug.
+		{"no sku, stussy handle", "", "1140364-garment-dyed-ss-tee-olive", "1140364"},
+
+		// Nothing code-shaped anywhere: the handle is the last resort.
+		{"nothing usable", "", "mystery-item", "mystery-item"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sp := models.ShopifyProduct{
+				Handle:   tc.handle,
+				Variants: []models.ShopifyVariant{{SKU: tc.sku, Price: "10.00", Available: true}},
+			}
+			if got := Parse(sp, Regions["us"]).StyleCode; got != tc.want {
+				t.Errorf("StyleCode = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// A season marker sits mid-handle and is never the trailing segment, but it is
+// the closest thing to a false positive, so pin the rule that excludes it.
+func TestLooksLikeStyleCodeRejectsSeasonMarkers(t *testing.T) {
+	for _, s := range []string{"SS26", "AW25", "TEE", "OLIVE", "", "A1", "TOOLONGCODE12"} {
+		if looksLikeStyleCode(s) {
+			t.Errorf("looksLikeStyleCode(%q) = true, want false", s)
+		}
+	}
+	for _, s := range []string{"118589", "1140364", "1915000GD", "OM0335"} {
+		if !looksLikeStyleCode(s) {
+			t.Errorf("looksLikeStyleCode(%q) = false, want true", s)
+		}
+	}
+}
+
+// The hasher's contract is that it covers every persisted column. style_code
+// was missing, so a corrected code could never reach an existing row.
+func TestHashCoversIdentityColumns(t *testing.T) {
+	base := models.Product{
+		Handle: "h", Title: "t", Price: 10, Currency: "USD",
+		StyleCode: "1140364", Color: "Olive",
+		AllSizes: []string{"S", "M"}, AvailableVariants: 2,
+	}
+
+	mutations := map[string]func(*models.Product){
+		"style_code":         func(p *models.Product) { p.StyleCode = "9999999" },
+		"color":              func(p *models.Product) { p.Color = "Black" },
+		"all_sizes":          func(p *models.Product) { p.AllSizes = []string{"S", "M", "L"} },
+		"available_variants": func(p *models.Product) { p.AvailableVariants = 1 },
+	}
+
+	original := GenerateHash(&base)
+	for name, mutate := range mutations {
+		changed := base
+		changed.AllSizes = append([]string(nil), base.AllSizes...)
+		mutate(&changed)
+		if GenerateHash(&changed) == original {
+			t.Errorf("hash unchanged after mutating %s — hash-skip would freeze it", name)
+		}
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/yourusername/dropradar/internal/models"
 )
@@ -21,8 +22,16 @@ func GenerateHash(p *models.Product) string {
 	sizes := append([]string(nil), p.AvailableSizes...)
 	sort.Strings(sizes)
 
+	allSizes := append([]string(nil), p.AllSizes...)
+	sort.Strings(allSizes)
+
 	tags := append([]string(nil), p.Tags...)
 	sort.Strings(tags)
+
+	publishedAt := ""
+	if p.PublishedAt != nil {
+		publishedAt = p.PublishedAt.UTC().Format(time.RFC3339)
+	}
 
 	// compare_price participates so sale starts/ends invalidate the hash
 	comparePrice := 0.0
@@ -44,6 +53,14 @@ func GenerateHash(p *models.Product) string {
 		fmt.Sprintf("%d", p.TotalVariants),
 		p.ImageURL,
 		p.ProductURL,
+		// Added in 007 and originally missed here, which broke the invariant
+		// above: a corrected style_code could never reach an existing row,
+		// because an otherwise-unchanged product never gets upserted.
+		p.StyleCode,
+		p.Color,
+		strings.Join(allSizes, ","),
+		fmt.Sprintf("%d", p.AvailableVariants),
+		publishedAt,
 	}, "|")
 
 	hash := md5.Sum([]byte(input))

@@ -91,8 +91,13 @@ func Parse(sp models.ShopifyProduct, region Region) models.Product {
 		}
 	}
 
-	// Fall back to the handle so cross-region joins still work for storefronts
-	// that don't publish structured SKUs (e.g. the DSM Singapore shop).
+	// No usable SKU: recover the code from the slug. This covers DSM Singapore
+	// (retailer SKUs) and brand-new listings published before their SKUs are
+	// populated. The handle itself is the last resort — unique, but it only
+	// ever joins against itself.
+	if p.StyleCode == "" {
+		p.StyleCode = styleCodeFromHandle(sp.Handle)
+	}
 	if p.StyleCode == "" {
 		p.StyleCode = sp.Handle
 	}
@@ -142,15 +147,69 @@ func variantSize(v models.ShopifyVariant, sizePos int) string {
 // styleCodeFromSKU pulls the style portion out of a Stussy SKU.
 // SKUs look like "1140364-OLIV-XS" — the leading segment identifies the
 // garment across every regional storefront.
+//
+// An UNSEGMENTED SKU is rejected on purpose. Every Stussy-operated store
+// (US/UK/EU/JP/AU) publishes segmented SKUs; Dover Street Market Singapore
+// publishes its own ("800011633GRY00S"), which encodes colour and size and
+// belongs to DSM's numbering, not Stussy's. Treating it as a style code gave
+// all 250 SG products an identity that matched nothing — a 0% cross-region
+// join. The handle is the better source there; see styleCodeFromHandle.
 func styleCodeFromSKU(sku string) string {
 	sku = strings.TrimSpace(sku)
-	if sku == "" {
+	if i := strings.Index(sku, "-"); i > 0 {
+		if code := strings.ToUpper(sku[:i]); looksLikeStyleCode(code) {
+			return code
+		}
+	}
+	return ""
+}
+
+// styleCodeFromHandle recovers the style code from a product URL slug.
+//
+// Both storefront conventions carry it, at opposite ends:
+//
+//	Stussy    1140364-garment-dyed-ss-tee-olive          -> leading
+//	DSM SG    stussy-mens-varsity-zip-hood-navy-ss26-118589 -> trailing
+//
+// Leading is tried first: it is the authoritative position on Stussy's own
+// stores, and it is what rescues a newly-published item whose variants have
+// no SKU yet.
+func styleCodeFromHandle(handle string) string {
+	parts := strings.Split(strings.TrimSpace(handle), "-")
+	if len(parts) < 2 {
 		return ""
 	}
-	if i := strings.Index(sku, "-"); i > 0 {
-		return strings.ToUpper(sku[:i])
+
+	if code := strings.ToUpper(parts[0]); looksLikeStyleCode(code) {
+		return code
 	}
-	return strings.ToUpper(sku)
+	if code := strings.ToUpper(parts[len(parts)-1]); looksLikeStyleCode(code) {
+		return code
+	}
+	return ""
+}
+
+// looksLikeStyleCode guards against reading an ordinary slug word as an
+// identity. Real codes are short alphanumerics carrying most of their length
+// in digits ("118589", "1915000GD", "OM0335"). Requiring four digits is what
+// separates them from season markers like "ss26", which sit mid-handle and
+// would otherwise qualify.
+func looksLikeStyleCode(s string) bool {
+	if len(s) < 4 || len(s) > 12 {
+		return false
+	}
+
+	digits := 0
+	for _, r := range s {
+		switch {
+		case r >= '0' && r <= '9':
+			digits++
+		case r >= 'A' && r <= 'Z':
+		default:
+			return false
+		}
+	}
+	return digits >= 4
 }
 
 // parseShopifyTime parses Shopify's ISO-8601 timestamps, returning nil for
