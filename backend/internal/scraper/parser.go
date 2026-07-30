@@ -107,7 +107,137 @@ func Parse(sp models.ShopifyProduct, region Region) models.Product {
 	p.AllSizes = allSizes
 	p.AvailableVariants = availableCount
 
+	// The raw tokens above stay exactly as the storefront published them; the
+	// shared vocabulary goes in its own pair of fields. See normaliseSize.
+	p.AllSizesNormalised = normaliseSizes(allSizes)
+	p.AvailableSizesNormalised = normaliseSizes(availableSizes)
+
 	return p
+}
+
+// sizeAliases maps a size label onto the vocabulary the Stussy-operated stores
+// already use. Keys are the output of sizeLookupKey: upper-cased, with hyphens,
+// underscores and slashes flattened to single spaces, so "X-Large", "X Large"
+// and "x large" all arrive here as "X LARGE".
+//
+// Only labels with an unambiguous equivalent appear. Anything absent is passed
+// through untouched, which is what keeps "EA", "US 5.5" and "7 1/8" intact.
+var sizeAliases = map[string]string{
+	"XX SMALL":    "XXS",
+	"XXSMALL":     "XXS",
+	"X SMALL":     "XS",
+	"XSMALL":      "XS",
+	"EXTRA SMALL": "XS",
+	"SMALL":       "S",
+	"MEDIUM":      "M",
+	"LARGE":       "L",
+	"X LARGE":     "XL",
+	"XLARGE":      "XL",
+	"EXTRA LARGE": "XL",
+	"XX LARGE":    "XXL",
+	"XXLARGE":     "XXL",
+	"2XL":         "XXL",
+	"XXX LARGE":   "XXXL",
+	"3XL":         "XXXL",
+	"ONE SIZE":    "OS",
+	"O S":         "OS",
+	"OSFA":        "OS",
+}
+
+// normaliseSize maps one storefront's size label onto a vocabulary shared with
+// the other storefronts.
+//
+// Measured against the live catalogue, Dover Street Market Singapore and the
+// six Stussy-operated stores had ZERO size tokens in common: DSM publishes
+// "Size Medium", "Size 30", "Size One Size" where Stussy publishes "M", "30",
+// "ONE SIZE". A garment sold in both therefore produced two disjoint sets of
+// rows in the size-availability matrix — an "M" row blank for SG and a
+// "Size Medium" row blank for everywhere else — and no size alert could ever
+// match across regions.
+//
+// The rule is deliberately conservative: strip the "Size " value prefix, then
+// substitute only from sizeAliases. Sizes that are not garment sizes at all —
+// "EA" (a belt sold each), "US 5.5" (shoes), "7 1/8" (fitted caps) — hit no
+// alias and come back unchanged apart from case. Split runs like "S/M" and
+// "L/XL" are mapped side by side, so DSM's "Size Large/X-Large" meets Stussy's
+// "L/XL" without the slash being read as anything but a separator.
+func normaliseSize(raw string) string {
+	s := collapseSpaces(raw)
+	if s == "" {
+		return ""
+	}
+
+	// DSM puts the axis name on the VALUE, not just the option — every one of
+	// its 16 tokens begins "Size ". "One Size" must survive, so only a leading
+	// occurrence is stripped.
+	if trimmed := trimSizeWordPrefix(s); trimmed != "" {
+		s = trimmed
+	}
+
+	if canon, ok := sizeAliases[sizeLookupKey(s)]; ok {
+		return canon
+	}
+
+	// A run covering two sizes. Each side is resolved independently and the
+	// slash is preserved, so "Large/X-Large" becomes "L/XL" while "7 1/8" —
+	// where the slash is a fraction, not a separator — matches no alias on
+	// either side and survives verbatim.
+	if strings.Contains(s, "/") {
+		parts := strings.Split(s, "/")
+		for i, part := range parts {
+			part = strings.TrimSpace(part)
+			if canon, ok := sizeAliases[sizeLookupKey(part)]; ok {
+				parts[i] = canon
+				continue
+			}
+			parts[i] = strings.ToUpper(part)
+		}
+		return strings.Join(parts, "/")
+	}
+
+	return strings.ToUpper(s)
+}
+
+// normaliseSizes normalises a size run, dropping empties and collapsing
+// duplicates. Normalisation can merge two raw tokens into one — a store listing
+// both "ONE SIZE" and "OS" yields a single "OS" — so the result is deduped
+// again rather than assumed distinct because the input was.
+func normaliseSizes(sizes []string) []string {
+	out := make([]string, 0, len(sizes))
+	seen := make(map[string]bool, len(sizes))
+	for _, s := range sizes {
+		n := normaliseSize(s)
+		if n == "" || seen[n] {
+			continue
+		}
+		seen[n] = true
+		out = append(out, n)
+	}
+	return out
+}
+
+// trimSizeWordPrefix removes a leading "Size " from a value, returning "" when
+// there is nothing to strip or nothing would be left.
+func trimSizeWordPrefix(s string) string {
+	const prefix = "size "
+	if len(s) <= len(prefix) || !strings.EqualFold(s[:len(prefix)], prefix) {
+		return ""
+	}
+	return strings.TrimSpace(s[len(prefix):])
+}
+
+// sizeLookupKey canonicalises a label for the sizeAliases lookup. Hyphens,
+// underscores and slashes are separators rather than content here, so "X-Large"
+// and "X Large" resolve identically and "O/S" reaches the "O S" entry.
+func sizeLookupKey(s string) string {
+	return collapseSpaces(strings.ToUpper(sizeSeparators.Replace(s)))
+}
+
+var sizeSeparators = strings.NewReplacer("-", " ", "_", " ", "/", " ")
+
+// collapseSpaces trims and reduces internal whitespace runs to one space.
+func collapseSpaces(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // optionPosition finds the 1-based position of a named option axis.

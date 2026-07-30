@@ -28,6 +28,16 @@ func GenerateHash(p *models.Product) string {
 	tags := append([]string(nil), p.Tags...)
 	sort.Strings(tags)
 
+	// Derived from the two above, but persisted in their own columns, so the
+	// invariant applies to them too — and it is precisely a change to the
+	// normalisation rules, with the raw runs untouched, that would otherwise
+	// never reach a single existing row.
+	allSizesNorm := append([]string(nil), p.AllSizesNormalised...)
+	sort.Strings(allSizesNorm)
+
+	availableSizesNorm := append([]string(nil), p.AvailableSizesNormalised...)
+	sort.Strings(availableSizesNorm)
+
 	publishedAt := ""
 	if p.PublishedAt != nil {
 		publishedAt = p.PublishedAt.UTC().Format(time.RFC3339)
@@ -61,6 +71,9 @@ func GenerateHash(p *models.Product) string {
 		strings.Join(allSizes, ","),
 		fmt.Sprintf("%d", p.AvailableVariants),
 		publishedAt,
+		// Added in 021.
+		strings.Join(allSizesNorm, ","),
+		strings.Join(availableSizesNorm, ","),
 	}, "|")
 
 	hash := md5.Sum([]byte(input))

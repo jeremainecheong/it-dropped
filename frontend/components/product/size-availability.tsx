@@ -16,6 +16,15 @@ import type { Deliverability } from "@/lib/landed-cost"
  * might, and a restock alert is only worth setting on the second. `all_sizes`
  * is the full run the listing was published with and `available_sizes` is what
  * is left, so the distinction is already in the data.
+ *
+ * Rows are keyed on the NORMALISED size run, not the raw one. Dover Street
+ * Market Singapore publishes "Size Medium" where every Stussy store publishes
+ * "M" — the measured overlap between the two vocabularies was exactly zero
+ * tokens — so grouping on the raw values gave a garment sold in both an "M" row
+ * blank for SG and a "Size Medium" row blank for everywhere else. The scraper
+ * writes the normalised run alongside the raw one (migration 021); an offer
+ * scraped before that has none and falls back to its raw run, which is no worse
+ * than the previous behaviour.
  */
 
 export interface SizeOffer {
@@ -23,6 +32,9 @@ export interface SizeOffer {
   region: string
   all_sizes?: string[]
   available_sizes?: string[]
+  /** Cross-region size vocabulary; see migration 021. Absent until rescraped. */
+  all_sizes_normalised?: string[]
+  available_sizes_normalised?: string[]
   is_available?: boolean
   deliverability: Deliverability
 }
@@ -63,12 +75,26 @@ function compareSizes(a: string, b: string): number {
 
 const norm = (s: string) => s.trim().toUpperCase()
 
+/**
+ * The size run to group this offer's rows by, preferring the normalised column
+ * so Singapore's "Size Medium" lands in the same row as everyone else's "M".
+ * Falls back to the raw run for offers written before migration 021.
+ */
+const carriedRun = (o: SizeOffer): string[] =>
+  o.all_sizes_normalised?.length ? o.all_sizes_normalised : (o.all_sizes ?? [])
+
+const stockedRun = (o: SizeOffer): string[] =>
+  o.available_sizes_normalised?.length ? o.available_sizes_normalised : (o.available_sizes ?? [])
+
 export function SizeAvailability({ offers, destination, currentRegion }: Props) {
   // The full size run across every region, so a size only one region carries
   // still gets a row — that row is the interesting one.
   const sizes = Array.from(
     new Set(
-      offers.flatMap((o) => (o.all_sizes?.length ? o.all_sizes : (o.available_sizes ?? [])).map(norm))
+      offers.flatMap((o) => {
+        const carried = carriedRun(o)
+        return (carried.length ? carried : stockedRun(o)).map(norm)
+      })
     )
   ).sort(compareSizes)
 
@@ -78,8 +104,8 @@ export function SizeAvailability({ offers, destination, currentRegion }: Props) 
   if (offers.length < 2 || sizes.length === 0 || !looksLikeSizes) return null
 
   const stateFor = (offer: SizeOffer, size: string): "in" | "out" | "absent" => {
-    const carried = new Set((offer.all_sizes ?? []).map(norm))
-    const have = new Set((offer.available_sizes ?? []).map(norm))
+    const carried = new Set(carriedRun(offer).map(norm))
+    const have = new Set(stockedRun(offer).map(norm))
     if (have.has(size)) return "in"
     if (carried.has(size)) return "out"
     return "absent"
