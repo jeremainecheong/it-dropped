@@ -1,5 +1,8 @@
 /**
- * GET /api/_diag/store-reachability — can this host reach the storefronts?
+ * GET /api/diag/store-reachability — can this host reach the storefronts?
+ *
+ * Not under `_diag`: the App Router treats an underscore-prefixed folder as
+ * private and opts it out of routing entirely, so that path 404s by design.
  *
  * TEMPORARY. The daily scrape runs from a GitHub Actions runner, whose address
  * the stores answer `429` with a `Retry-After` of a minute or more — on the
