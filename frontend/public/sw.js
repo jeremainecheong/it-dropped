@@ -1,4 +1,4 @@
-const CACHE_NAME = 'itdropped-v3';
+const CACHE_NAME = 'itdropped-v4';
 // Only assets that are safe to serve from cache indefinitely. HTML documents
 // are deliberately NOT here: a cached page references build-hashed chunk URLs
 // that stop existing at the next deploy, and serving it then produces a
@@ -29,7 +29,8 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static
+// Fetch: network-first everywhere; the cache is a fallback, never a source
+// of first resort
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
@@ -47,43 +48,34 @@ self.addEventListener('fetch', (event) => {
     // regardless.
     if (url.origin !== self.location.origin) return;
 
-    // Navigations: network-first. A cached document outlives the build whose
-    // chunks it names, so serving it stale is how a deploy turns into a blank
-    // page for anyone who had visited before.
-    if (request.mode === 'navigate') {
-        event.respondWith(fetch(request).catch(() => caches.match(request)));
-        return;
-    }
+    // Navigations: documents are never cached (see STATIC_ASSETS note), so
+    // intercepting them could only ever replay the fetch we'd be replacing.
+    // The old code did exactly that, then fell back to caches.match — which
+    // could not hit, resolved undefined, and respondWith(undefined) is a
+    // TypeError: offline navigations got the browser's *error* page instead
+    // of its offline page. Don't intercept; let the browser own the request.
+    if (request.mode === 'navigate') return;
 
-    // API requests: network-first
-    if (url.pathname.startsWith('/api')) {
-        event.respondWith(
-            fetch(request)
-                .then((response) => {
-                    // Clone and cache successful responses
-                    if (response.ok) {
-                        const clone = response.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-                    }
-                    return response;
-                })
-                .catch(() => caches.match(request))
-        );
-        return;
-    }
-
-    // Static assets: stale-while-revalidate
+    // Everything else (API + static): network-first, cache successes, and
+    // fall back to cache only when there is actually something cached. On a
+    // cache miss rethrow the fetch error so the outcome is byte-for-byte what
+    // the browser would have shown with no service worker at all —
+    // resolving undefined here throws inside respondWith and replaces a
+    // plain failed request with an error page.
     event.respondWith(
-        caches.match(request).then((cached) => {
-            const fetchPromise = fetch(request).then((response) => {
+        fetch(request)
+            .then((response) => {
                 if (response.ok) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
                 }
                 return response;
-            });
-            return cached || fetchPromise;
-        })
+            })
+            .catch(async (err) => {
+                const cached = await caches.match(request);
+                if (cached) return cached;
+                throw err;
+            })
     );
 });
 
