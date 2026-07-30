@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -33,8 +34,11 @@ func New(cfg *config.Config, db *database.Client) *Scraper {
 }
 
 // Run executes the scraping process for all configured regions.
-// Regions are independent Shopify stores, so they are scraped concurrently —
-// per-store politeness is preserved by the page delay inside each region.
+//
+// Regions are independent Shopify stores and are scraped concurrently, but
+// they are not independent to the stores: the rate limit is on our address, so
+// six regions at full tilt is one client at six times the rate. The shared
+// Client paces and backs off across all of them — see scraper.Client.
 //
 // A region that fails is reported in the returned error rather than only
 // logged. The scraper runs unattended once a day from .github/workflows/
@@ -158,10 +162,21 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 
 	log.Info().Str("region", region.Code).Msg("Scraping region")
 
-	// Fetch products from API
+	// Fetch products from API.
+	//
+	// A partial catalogue is kept and written: those listings are real, and the
+	// diff never reads a product's absence as a sold-out, so half a region is
+	// strictly better than none of it. The error is held back and returned at
+	// the end, which marks the region failed without discarding the work — a
+	// truncated region that reports success is how a store silently stops being
+	// covered.
 	shopifyProducts, err := s.client.FetchProducts(ctx, region)
+	var partial *PartialCatalogError
 	if err != nil {
-		return 0, 0, 0, 0, err
+		if !errors.As(err, &partial) {
+			return 0, 0, 0, 0, err
+		}
+		err = nil
 	}
 
 	scrapeLog.ProductsFound = len(shopifyProducts)
@@ -398,7 +413,16 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		Int("restocks", restockCount).
 		Int("priceChanges", priceChanges).
 		Int("soldOut", soldOutCount).
+		Bool("partial", partial != nil).
 		Msg("Region scrape completed")
+
+	// Assigned through the typed variable rather than returned directly: a nil
+	// *PartialCatalogError returned as an error is not a nil error, and would
+	// fail every region.
+	if partial != nil {
+		err = partial
+		return newCount, restockCount, priceChanges, soldOutCount, err
+	}
 
 	return newCount, restockCount, priceChanges, soldOutCount, nil
 }
