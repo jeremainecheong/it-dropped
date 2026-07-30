@@ -42,7 +42,7 @@ export default function WishlistPage() {
       <Header />
 
       <main className="pt-12">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-nav">
           <div className="flex items-end justify-between mb-6">
             <div>
               <h1 className="display text-2xl md:text-3xl">Saved</h1>
@@ -82,7 +82,7 @@ export default function WishlistPage() {
                     <button
                       onClick={() => removeItem(item.id)}
                       aria-label="Remove from wishlist"
-                      className="pill absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center bg-background/90 backdrop-blur text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-all"
+                      className="pill absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center bg-background/90 backdrop-blur text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-foreground transition-all"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

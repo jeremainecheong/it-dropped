@@ -237,7 +237,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                                         aria-label="Toggle wishlist"
                                         className={`pill absolute top-3 right-3 w-8 h-8 flex items-center justify-center transition-all ${isWishlisted(item.id)
                                             ? "bg-primary text-primary-foreground"
-                                            : "bg-background/90 backdrop-blur text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+                                            : "bg-background/90 backdrop-blur text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-foreground"
                                             }`}
                                     >
                                         <Heart className={`w-3.5 h-3.5 ${isWishlisted(item.id) ? "fill-current" : ""}`} />

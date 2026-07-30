@@ -312,7 +312,7 @@ export default function DashboardPage() {
                     </section>
 
                     {/* Region Cards */}
-                    <section className="pb-10">
+                    <section className="pb-nav">
                         <h2 className="label mb-4">By Region</h2>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {stats.map((region) => (

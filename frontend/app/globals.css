@@ -228,3 +228,44 @@
 .link-underline:hover {
   color: var(--foreground);
 }
+
+/* Safe-area helpers.
+ *
+ * `pb-safe` was already in use on the mobile bottom navigation and had never
+ * been defined anywhere — not here, not in a Tailwind config, nowhere. It
+ * compiled to nothing, so on every iPhone with a home indicator the nav's
+ * labels sat underneath the gesture bar.
+ *
+ * env() only resolves when the viewport opts in with viewport-fit=cover, which
+ * app/layout.tsx now sets. Both halves are required; either alone does nothing.
+ */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Page bottom padding that clears the 56px fixed mobile nav *and* the home
+ * indicator. Several pages hardcoded pb-20 and several more forgot entirely,
+ * which is how the Sign Out button and the new-thread submit button ended up
+ * underneath it. */
+.pb-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .pb-nav {
+    padding-bottom: 2rem;
+  }
+}
+
+/* Honour a reduced-motion preference. The design leans on transforms —
+ * card-lift, animate-rise, image zoom, two infinite shimmers — all of which
+ * were unconditional. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

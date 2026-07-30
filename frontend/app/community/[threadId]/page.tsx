@@ -266,7 +266,7 @@ export default function ThreadPage() {
                 }
             />
 
-            <main className="pt-12 max-w-3xl mx-auto px-4 sm:px-6 py-8">
+            <main className="pt-12 max-w-3xl mx-auto px-4 sm:px-6 pb-nav">
                 <Link href="/community" className="inline-flex items-center gap-1.5 mb-6 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
                     <ArrowLeft className="w-3.5 h-3.5" />
                     Back to community

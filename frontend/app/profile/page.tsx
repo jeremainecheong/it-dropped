@@ -79,7 +79,7 @@ function ProfileContent() {
             {/* Header */}
             <Header />
 
-            <main className="pt-14 max-w-4xl mx-auto px-4 lg:px-8 py-8">
+            <main className="pt-14 max-w-4xl mx-auto px-4 lg:px-8 pb-nav">
                 {/* Profile Header */}
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-6 pb-8 border-b border-border">
                     {/* Avatar */}

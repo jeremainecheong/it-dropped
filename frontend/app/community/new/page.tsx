@@ -114,7 +114,7 @@ export default function NewThreadPage() {
             {/* Header */}
             <Header />
 
-            <main className="pt-12 max-w-2xl mx-auto px-4 sm:px-6 py-8">
+            <main className="pt-12 max-w-2xl mx-auto px-4 sm:px-6 pb-nav">
                 <div className="flex items-center justify-between mb-6">
                     <Link href="/community" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
                         <ArrowLeft className="w-3.5 h-3.5" />

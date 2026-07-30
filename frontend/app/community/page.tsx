@@ -110,7 +110,7 @@ function CommunityContent() {
                         </Link>
                     </div>
 
-                    <div className="grid lg:grid-cols-4 gap-8 py-8">
+                    <div className="grid lg:grid-cols-4 gap-8 pt-8 pb-nav">
                         {/* Sidebar */}
                         <aside className="lg:col-span-1 space-y-6">
                             {/* Categories */}

@@ -8,7 +8,6 @@ import { ImageWithLoading } from "@/components/image-with-loading"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { Header } from "@/components/layout/header"
-import { NotificationBell } from "@/components/ui/notification-bell"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { usePriceStatsBulk, priceVerdict } from "@/lib/use-price-stats"
 import { scarcity } from "@/lib/scarcity"
@@ -250,7 +249,7 @@ function ShopPageContent() {
                         >
                             <Menu className="w-4 h-4" />
                         </button>
-                        {user && <NotificationBell />}
+                        
                     </>
                 }
             />
@@ -433,7 +432,7 @@ function ShopPageContent() {
                                                 <button
                                                     onClick={() => handleWishlist(product)}
                                                     aria-label="Toggle wishlist"
-                                                    className={`pill absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center transition-all ${inWishlist ? "bg-primary text-primary-foreground" : "bg-background/90 backdrop-blur text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"}`}
+                                                    className={`pill absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center transition-all ${inWishlist ? "bg-primary text-primary-foreground" : "bg-background/90 backdrop-blur text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-foreground"}`}
                                                 >
                                                     <Heart className={`w-3.5 h-3.5 ${inWishlist ? "fill-current" : ""}`} />
                                                 </button>
