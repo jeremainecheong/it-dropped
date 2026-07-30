@@ -165,8 +165,9 @@ Scraper environment:
 DATABASE_URL=postgres://…            # Supabase SESSION POOLER string
 REGIONS=us,uk,eu,jp,au,sg
 SCRAPE_INTERVAL=0                    # one cycle, then exit
-SCRAPE_TIMEOUT=30s
-REQUEST_DELAY=500ms
+SCRAPE_CYCLE_TIMEOUT=10m              # hard bound on one cycle
+SCRAPE_TIMEOUT=30s                    # per-request
+REQUEST_DELAY=1s                      # spacing between requests, all regions
 
 # Telegram announcements (optional)
 TELEGRAM_BOT_TOKEN=…
@@ -200,9 +201,28 @@ alert tables; a local database needs a stub with `id` and `raw_user_meta_data`.
 ### Scrape rate
 
 A full cycle is roughly 4 pages × 6 regions ≈ 24 upstream requests and takes
-about 20 seconds. Once a day that is nothing to the stores; keep `REQUEST_DELAY`
-in place regardless, since it spaces out the pages within a region so no one
-store sees a burst.
+about 25 seconds.
+
+`REQUEST_DELAY` is the minimum spacing between **any** two requests, across all
+regions, not within one. That distinction is the whole point: the stores rate
+limit on the client address, so six regions each politely pacing themselves
+still arrives as one client at six times the rate. Left unpaced, all six first
+pages leave inside the same second and are answered `429`. From a CI runner —
+a datacentre address, shared with everything else on it — that is reliably what
+happens.
+
+The client handles the rest: it honours `Retry-After`, retries a rate limit six
+times with jittered exponential backoff, and on a `429` holds *every* region
+back rather than only the one that received it.
+
+If runs still come back rate limited, raise `REQUEST_DELAY` before anything
+else — 2s costs the cycle about a minute and is far more likely to help than a
+longer retry budget.
+
+`SCRAPE_CYCLE_TIMEOUT` bounds one cycle. It exists so the scraper deadlines
+itself and exits with a readable error, rather than being killed partway
+through a write by whatever is scheduling it. Keep it below the scheduler's own
+timeout (the workflow allows 20 minutes for a 10 minute cycle).
 
 `SCRAPE_INTERVAL=0` runs one cycle and exits, which is what CI wants. Any
 positive value runs an internal loop instead — useful locally, wrong under a
