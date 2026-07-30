@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { X, Bell, Check } from "lucide-react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { X, Bell, Check, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 
@@ -16,6 +17,19 @@ interface PriceAlertModalProps {
 
 type AlertType = "price_drop" | "any_change" | "restock"
 
+interface ExistingAlert {
+    target_price: number
+    is_active: boolean
+}
+
+const ALERT_OPTIONS: { type: AlertType; label: string }[] = [
+    { type: "price_drop", label: "Price drop" },
+    { type: "restock", label: "Restock" },
+    { type: "any_change", label: "Any change" },
+]
+
+const defaultTarget = (currentPrice: number) => Math.max(1, Math.floor(currentPrice * 0.9))
+
 export function PriceAlertModal({
     isOpen,
     onClose,
@@ -26,10 +40,74 @@ export function PriceAlertModal({
 }: PriceAlertModalProps) {
     const { user } = useAuth()
     const [alertType, setAlertType] = useState<AlertType>("price_drop")
-    const [targetPrice, setTargetPrice] = useState(Math.floor(currentPrice * 0.9))
+    const [targetPrice, setTargetPrice] = useState(defaultTarget(currentPrice))
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState("")
+    /** Alerts already saved for this product, keyed by alert_type. */
+    const [existing, setExisting] = useState<Partial<Record<AlertType, ExistingAlert>>>({})
+    const [isLoadingExisting, setIsLoadingExisting] = useState(false)
+
+    // The product page keeps this component mounted and only flips isOpen, so
+    // nothing resets on its own: a second open used to show the previous
+    // submission's success panel, and the form always defaulted to 90% of the
+    // current price even when an alert with a different target already existed
+    // — the upsert then overwrote that target without ever showing it.
+    useEffect(() => {
+        if (!isOpen) return
+
+        setSuccess(false)
+        setError("")
+        setIsSubmitting(false)
+        setAlertType("price_drop")
+        setTargetPrice(defaultTarget(currentPrice))
+        setExisting({})
+
+        if (!user) return
+
+        let cancelled = false
+        setIsLoadingExisting(true)
+
+        supabase
+            .from("price_alerts")
+            .select("alert_type, target_price, is_active")
+            .eq("user_id", user.id)
+            .eq("product_id", productId)
+            .then(({ data, error: loadError }) => {
+                if (cancelled) return
+                setIsLoadingExisting(false)
+                if (loadError || !data) return
+
+                const found: Partial<Record<AlertType, ExistingAlert>> = {}
+                for (const row of data as any[]) {
+                    found[row.alert_type as AlertType] = {
+                        target_price: Number(row.target_price),
+                        is_active: Boolean(row.is_active),
+                    }
+                }
+                setExisting(found)
+
+                // Open on an alert the user already has rather than on the
+                // default tab, so an existing target is visible before it can
+                // be replaced.
+                const preselect = ALERT_OPTIONS.find((o) => found[o.type])
+                if (preselect) {
+                    setAlertType(preselect.type)
+                    setTargetPrice(
+                        found[preselect.type]?.target_price ?? defaultTarget(currentPrice)
+                    )
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [isOpen, user, productId, currentPrice])
+
+    const selectType = (type: AlertType) => {
+        setAlertType(type)
+        setTargetPrice(existing[type]?.target_price ?? defaultTarget(currentPrice))
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -46,17 +124,28 @@ export function PriceAlertModal({
                     target_price: alertType === "price_drop" ? targetPrice : currentPrice,
                     alert_type: alertType,
                     is_active: true,
+                    // The matcher only considers alerts with triggered = false,
+                    // and it sets the flag when it fires. Without clearing it
+                    // here, re-saving an alert that has already fired writes a
+                    // new target onto a row the matcher will never look at
+                    // again — the panel below promises "saving replaces it" and
+                    // "saving re-activates it", and neither was true.
+                    triggered: false,
+                    triggered_at: null,
                 },
                 { onConflict: "user_id,product_id,alert_type" }
             )
 
             if (dbError) throw dbError
 
+            setExisting((prev) => ({
+                ...prev,
+                [alertType]: {
+                    target_price: alertType === "price_drop" ? targetPrice : currentPrice,
+                    is_active: true,
+                },
+            }))
             setSuccess(true)
-            setTimeout(() => {
-                onClose()
-                setSuccess(false)
-            }, 1500)
         } catch (err: any) {
             setError(err.message || "Failed to set alert")
         } finally {
@@ -70,6 +159,8 @@ export function PriceAlertModal({
     }
 
     if (!isOpen) return null
+
+    const current = existing[alertType]
 
     return (
         <>
@@ -99,11 +190,44 @@ export function PriceAlertModal({
                         </div>
                     )}
 
-                    {success ? (
-                        <div className="py-8 text-center">
+                    {!user ? (
+                        // Submitting used to `return` silently for signed-out users,
+                        // leaving the form looking functional. Match the sign-in
+                        // prompt region-alert-card.tsx already shows.
+                        <div className="py-6 text-center">
+                            <p className="text-[13px] text-muted-foreground mb-4">
+                                Alerts are tied to your account.
+                            </p>
+                            <Link
+                                href="/login"
+                                className="pill inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold"
+                            >
+                                Sign in to get notified
+                            </Link>
+                        </div>
+                    ) : success ? (
+                        <div className="py-6 text-center">
                             <Check className="w-10 h-10 mx-auto mb-4" strokeWidth={1.5} />
                             <p className="text-[15px] font-semibold">Alert set</p>
-                            <p className="text-[13px] text-muted-foreground mt-1">We&apos;ll notify you the moment it happens.</p>
+                            <p className="text-[13px] text-muted-foreground mt-1">
+                                We&apos;ll notify you the moment it happens.
+                            </p>
+                            <div className="mt-5 flex items-center justify-center gap-2">
+                                <Link
+                                    href="/profile/alerts"
+                                    onClick={onClose}
+                                    className="pill inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold"
+                                >
+                                    View your alerts
+                                </Link>
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="pill px-4 py-2 text-xs font-semibold bg-secondary text-muted-foreground hover:text-foreground"
+                                >
+                                    Done
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <>
@@ -112,25 +236,55 @@ export function PriceAlertModal({
                                     Alert Type
                                 </label>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                        { type: "price_drop" as AlertType, label: "Price drop" },
-                                        { type: "restock" as AlertType, label: "Restock" },
-                                        { type: "any_change" as AlertType, label: "Any change" },
-                                    ].map((option) => (
+                                    {ALERT_OPTIONS.map((option) => (
                                         <button
                                             key={option.type}
                                             type="button"
-                                            onClick={() => setAlertType(option.type)}
+                                            onClick={() => selectType(option.type)}
+                                            aria-label={
+                                                existing[option.type]
+                                                    ? `${option.label} (alert already set)`
+                                                    : option.label
+                                            }
                                             className={`pill py-2 text-xs font-medium transition-colors ${alertType === option.type
                                                     ? "bg-primary text-primary-foreground"
                                                     : "bg-secondary text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             {option.label}
+                                            {existing[option.type] && (
+                                                <span aria-hidden className="ml-1 text-[10px] align-middle">
+                                                    ●
+                                                </span>
+                                            )}
                                         </button>
                                     ))}
                                 </div>
                             </div>
+
+                            {isLoadingExisting && (
+                                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    Checking your existing alerts…
+                                </p>
+                            )}
+
+                            {current && (
+                                <div className="rounded-xl bg-secondary px-4 py-3 text-[13px]">
+                                    <p className="font-medium">
+                                        You already have this alert
+                                        {current.is_active ? "" : " (paused)"}.
+                                    </p>
+                                    <p className="text-muted-foreground mt-1">
+                                        {alertType === "price_drop"
+                                            ? `Current target ${formatPrice(current.target_price)}. Saving replaces it.`
+                                            : "Saving re-activates it."}{" "}
+                                        <Link href="/profile/alerts" className="underline hover:no-underline">
+                                            Manage alerts
+                                        </Link>
+                                    </p>
+                                </div>
+                            )}
 
                             {alertType === "price_drop" && (
                                 <div>
@@ -154,10 +308,14 @@ export function PriceAlertModal({
 
                             <button
                                 type="submit"
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || isLoadingExisting}
                                 className="pill w-full py-3 bg-primary text-primary-foreground text-sm font-medium hover:opacity-85 disabled:opacity-50"
                             >
-                                {isSubmitting ? "Setting..." : "Set Alert"}
+                                {isSubmitting
+                                    ? "Saving..."
+                                    : current
+                                      ? "Update Alert"
+                                      : "Set Alert"}
                             </button>
                         </>
                     )}

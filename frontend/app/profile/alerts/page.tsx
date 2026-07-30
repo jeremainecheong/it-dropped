@@ -144,7 +144,7 @@ function AlertsContent() {
                 }
             />
 
-            <main className="pt-14 pb-20 md:pb-8">
+            <main className="pt-14 pb-nav">
                 <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8">
                     <div className="flex items-center gap-3 mb-8">
                         <Bell className="w-6 h-6" />
