@@ -62,9 +62,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProductPage({ params }: Props) {
   const product = await getProduct(params.id)
 
-  // A real 404 rather than a 200 carrying a "Product not found" card. A failed
-  // read now throws inside getProduct and is caught by app/error.tsx, so
-  // reaching here with null genuinely means the listing is gone.
+  // The branded not-found page rather than a "Product not found" card inside a
+  // working layout. A failed read throws inside getProduct and is caught by
+  // app/error.tsx, so reaching here with null genuinely means the listing is
+  // gone — the two are distinguishable now, which they were not.
+  //
+  // The response is still HTTP 200; see the note on getProduct in lib/api.ts
+  // for what was measured and why nothing here can change it.
   if (!product) notFound()
 
   const siblings = await getProductsByHandle(product.handle)
