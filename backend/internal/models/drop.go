@@ -23,6 +23,18 @@ const (
 	// ChangeTypeSizeSoldOut fires when specific sizes disappear while the
 	// product itself is still buyable.
 	ChangeTypeSizeSoldOut ChangeType = "size_sold_out"
+	// ChangeTypeDelisted is a product the store has stopped publishing
+	// altogether — archived, unpublished, or pulled from this region — as
+	// opposed to one still listed with nothing buyable, which is
+	// ChangeTypeSoldOut.
+	//
+	// The two are kept apart because migration 019 builds sell-out velocity
+	// from `sold_out` drops alone. A sold_out drop is an observed available ->
+	// unavailable edge on a listing we can still see; a delisting is only ever
+	// observed as an absence, at an unknown moment between two fetches, and may
+	// not have sold a single unit. Recording it as sold_out would feed a
+	// made-up timestamp into "this went in four hours in Japan".
+	ChangeTypeDelisted ChangeType = "delisted"
 )
 
 // Drop represents a detected product change

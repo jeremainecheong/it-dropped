@@ -96,6 +96,14 @@ func DropNotificationMessage(drop *models.Drop) string {
 	case models.ChangeTypePriceIncrease:
 		icon = "📈"
 		typeLabel = "PRICE INCREASE"
+	case models.ChangeTypeSoldOut, models.ChangeTypeSizeSoldOut:
+		icon = "⛔"
+		typeLabel = "SOLD OUT"
+	case models.ChangeTypeDelisted:
+		// "Sold out" would be a claim we cannot make: all we observed is that
+		// the listing is no longer in the feed.
+		icon = "🗑"
+		typeLabel = "PULLED"
 	default:
 		icon = "📢"
 		typeLabel = "UPDATE"
