@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { User, Heart, MessageCircle, Settings, LogOut, ArrowLeft, Edit2, Bell, Shield, Moon, Sun } from "lucide-react"
+import { User, Heart, Settings, LogOut, Bell, Shield } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
@@ -11,18 +11,11 @@ import { supabase } from "@/lib/supabase"
 import { AuthGuard } from "@/components/auth-guard"
 import { Header } from "@/components/layout/header"
 
-interface UserActivity {
-    type: "thread" | "comment" | "like"
-    title: string
-    created_at: string
-}
-
 /**
  * Keys of user_profiles.notifications (migration 004). Only the two that a
  * producer actually exists for are exposed as controls — backend/internal/
  * database/alerts.go writes new_product notifications for drops and
- * price_drop/price_increase for price changes. The column's third key,
- * thread_replies, has no producer, so it is described rather than offered.
+ * price_drop/price_increase for price changes.
  */
 type NotificationPrefs = Record<string, boolean>
 
@@ -32,6 +25,8 @@ const DEFAULT_PREFS: NotificationPrefs = {
     // has to match the column default — with the two disagreeing, the switch
     // showed off while the matcher sent, or the reverse.
     price_changes: true,
+    // Vestigial: the forum this key was for is deleted, but the column default
+    // (024) still carries it, and the fallback must keep matching the default.
     thread_replies: true,
 }
 
@@ -44,10 +39,7 @@ function ProfileContent() {
     const router = useRouter()
     const { user, logout } = useAuth()
     const { items: wishlistItems } = useWishlist()
-    const [activeTab, setActiveTab] = useState<"activity" | "wishlist" | "settings">("activity")
-    const [threads, setThreads] = useState<any[]>([])
-    const [comments, setComments] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState(true)
+    const [activeTab, setActiveTab] = useState<"wishlist" | "settings">("wishlist")
     const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
     const [prefsLoaded, setPrefsLoaded] = useState(false)
     const [savingPref, setSavingPref] = useState<string | null>(null)
@@ -60,23 +52,17 @@ function ProfileContent() {
 
     const fetchUserData = async () => {
         if (!user) return
-        setIsLoading(true)
         try {
-            const [threadsRes, commentsRes, profileRes] = await Promise.all([
-                supabase.from("forum_threads").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
-                supabase.from("forum_comments").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
-                supabase.from("user_profiles").select("notifications").eq("id", user.id).maybeSingle(),
-            ])
-            setThreads(threadsRes.data || [])
-            setComments(commentsRes.data || [])
+            const profileRes = await supabase
+                .from("user_profiles")
+                .select("notifications")
+                .eq("id", user.id)
+                .maybeSingle()
             // supabase-js resolves on a PostgREST error rather than rejecting,
             // so a failed read here used to silently become DEFAULT_PREFS —
             // switches shown in the wrong position, and the next toggle writing
             // that wrong position back over the real row.
             if (profileRes.error) throw profileRes.error
-            // The checkboxes were defaultChecked with no state and no writer, so
-            // the column they mirror had zero readers repo-wide and every toggle
-            // was lost on navigation.
             setPrefs({ ...DEFAULT_PREFS, ...(profileRes.data?.notifications ?? {}) })
             setPrefsLoaded(true)
         } catch (error) {
@@ -84,8 +70,6 @@ function ProfileContent() {
             // prefsLoaded stays false, so the switches render disabled rather
             // than claiming a state we failed to read.
             toast.error("Couldn't load your notification settings.")
-        } finally {
-            setIsLoading(false)
         }
     }
 
@@ -127,21 +111,8 @@ function ProfileContent() {
         return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     }
 
-    const formatTimeAgo = (dateString: string) => {
-        const date = new Date(dateString)
-        const now = new Date()
-        const diff = Math.floor((now.getTime() - date.getTime()) / 1000)
-        if (diff < 60) return "just now"
-        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-        return `${Math.floor(diff / 86400)}d ago`
-    }
-
     const stats = {
-        threads: threads.length,
-        comments: comments.length,
         wishlist: wishlistItems.length,
-        likes: threads.reduce((acc, t) => acc + (t.like_count || 0), 0),
     }
 
     return (
@@ -152,17 +123,24 @@ function ProfileContent() {
             <main className="pt-14 max-w-4xl mx-auto px-4 lg:px-8 pb-nav">
                 {/* Profile Header */}
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-6 pb-8 border-b border-border">
-                    {/* Avatar */}
-                    <div className="relative">
+                    {/* Avatar. Initials rendered locally — the old fallback
+                        fetched a generated avatar from dicebear.com seeded with
+                        the account email, sending it to a third party on every
+                        visit for a picture nobody chose. */}
+                    {user?.avatar ? (
                         <img
-                            src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`}
+                            src={user.avatar}
                             alt="Avatar"
                             className="w-24 h-24 lg:w-32 lg:h-32 rounded-full bg-muted"
                         />
-                        <button className="absolute bottom-0 right-0 p-2 bg-foreground text-background rounded-full hover:bg-foreground/90 transition-colors">
-                            <Edit2 className="w-4 h-4" />
-                        </button>
-                    </div>
+                    ) : (
+                        <div
+                            aria-hidden
+                            className="w-24 h-24 lg:w-32 lg:h-32 rounded-full bg-secondary flex items-center justify-center text-3xl lg:text-4xl font-medium text-muted-foreground"
+                        >
+                            {(user?.name || user?.email || "?").slice(0, 1).toUpperCase()}
+                        </div>
+                    )}
 
                     {/* Info */}
                     <div className="flex-1">
@@ -170,20 +148,8 @@ function ProfileContent() {
                         <p className="text-muted-foreground mb-4">{user?.email}</p>
                         <div className="flex flex-wrap gap-6 text-sm">
                             <div>
-                                <span className="text-2xl font-medium">{stats.threads}</span>
-                                <span className="text-muted-foreground ml-2">Threads</span>
-                            </div>
-                            <div>
-                                <span className="text-2xl font-medium">{stats.comments}</span>
-                                <span className="text-muted-foreground ml-2">Comments</span>
-                            </div>
-                            <div>
                                 <span className="text-2xl font-medium">{stats.wishlist}</span>
                                 <span className="text-muted-foreground ml-2">Saved</span>
-                            </div>
-                            <div>
-                                <span className="text-2xl font-medium">{stats.likes}</span>
-                                <span className="text-muted-foreground ml-2">Likes</span>
                             </div>
                         </div>
                     </div>
@@ -192,7 +158,6 @@ function ProfileContent() {
                 {/* Tabs */}
                 <div className="flex items-center gap-1 py-4 border-b border-border overflow-x-auto">
                     {[
-                        { id: "activity", label: "Activity", icon: MessageCircle },
                         { id: "wishlist", label: "Wishlist", icon: Heart },
                         { id: "settings", label: "Settings", icon: Settings },
                     ].map((tab) => (
@@ -212,80 +177,6 @@ function ProfileContent() {
 
                 {/* Tab Content */}
                 <div className="py-6">
-                    {/* Activity Tab */}
-                    {activeTab === "activity" && (
-                        <div className="space-y-6">
-                            {isLoading ? (
-                                <div className="space-y-4">
-                                    {[1, 2, 3].map((i) => (
-                                        <div key={i} className="p-4 border border-border animate-pulse">
-                                            <div className="h-4 bg-muted w-3/4 mb-2" />
-                                            <div className="h-3 bg-muted w-1/2" />
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Threads */}
-                                    {threads.length > 0 && (
-                                        <div>
-                                            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Your Threads</h3>
-                                            <div className="space-y-3">
-                                                {threads.map((thread) => (
-                                                    <Link
-                                                        key={thread.id}
-                                                        href={`/community/${thread.id}`}
-                                                        className="block p-4 border border-border hover:border-foreground/50 transition-colors"
-                                                    >
-                                                        <h4 className="font-medium mb-1">{thread.title}</h4>
-                                                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                                            <span>{formatTimeAgo(thread.created_at)}</span>
-                                                            <span className="flex items-center gap-1">
-                                                                <MessageCircle className="w-3 h-3" /> {thread.comment_count}
-                                                            </span>
-                                                            <span className="flex items-center gap-1">
-                                                                <Heart className="w-3 h-3" /> {thread.like_count}
-                                                            </span>
-                                                        </div>
-                                                    </Link>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Comments */}
-                                    {comments.length > 0 && (
-                                        <div>
-                                            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Your Comments</h3>
-                                            <div className="space-y-3">
-                                                {comments.map((comment) => (
-                                                    <Link
-                                                        key={comment.id}
-                                                        href={`/community/${comment.thread_id}`}
-                                                        className="block p-4 border border-border hover:border-foreground/50 transition-colors"
-                                                    >
-                                                        <p className="text-sm line-clamp-2 mb-2">{comment.content}</p>
-                                                        <span className="text-xs text-muted-foreground">{formatTimeAgo(comment.created_at)}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {threads.length === 0 && comments.length === 0 && (
-                                        <div className="text-center py-12">
-                                            <MessageCircle className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                                            <p className="text-muted-foreground">No activity yet</p>
-                                            <Link href="/community/new" className="inline-block mt-4 px-6 py-2 bg-foreground text-background text-sm">
-                                                Start a Thread
-                                            </Link>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    )}
-
                     {/* Wishlist Tab */}
                     {activeTab === "wishlist" && (
                         <div>
@@ -359,11 +250,6 @@ function ProfileContent() {
                                             />
                                         </label>
                                     ))}
-                                    {/* Thread replies is the one key in the JSONB column with no
-                                        producer in the backend, so it gets no control. */}
-                                    <p className="text-xs text-muted-foreground pt-1 border-t border-border">
-                                        Thread reply notifications are not implemented yet.
-                                    </p>
                                 </div>
 
                                 {/* /profile/alerts had no inbound link anywhere in the app. */}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Globe, LineChart, Users } from "lucide-react"
+import { ArrowRight, Globe, LineChart, Timer } from "lucide-react"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { LogoMark } from "@/components/ui/logo"
@@ -44,26 +44,58 @@ const FEATURES = [
     body: "Full price history and cross-region comparison. Know the floor before you check out — never overpay again.",
   },
   {
-    icon: Users,
-    title: "Community radar",
-    body: "See what collectors are tracking in real time, share finds, and get alerts the moment something restocks.",
+    icon: Timer,
+    title: "Sell-out velocity",
+    body: "How fast each style went last time, region by region — measured from observed sell-outs, so you know which pieces won't wait.",
   },
 ]
 
-const STATS = [
-  { value: "12.4K", label: "Active users" },
-  { value: "847K", label: "Drops tracked" },
+/**
+ * Placeholders until the real numbers load. Every figure shown here comes from
+ * the tracker's own database — the previous version claimed "12.4K active
+ * users" and "847K drops tracked", both fabricated, on a product whose entire
+ * pitch is data you can trust.
+ */
+const STATS_FALLBACK = [
+  { value: "—", label: "Products tracked" },
+  { value: "—", label: "Changes witnessed" },
   { value: "6", label: "Regions" },
 ]
 
 export default function LandingPage() {
   const [isMounted, setIsMounted] = useState(false)
   const [drops, setDrops] = useState<FeaturedDrop[]>(FALLBACK_DROPS)
+  const [stats, setStats] = useState(STATS_FALLBACK)
 
   useEffect(() => {
     setIsMounted(true)
 
     let cancelled = false
+
+    // Real numbers from the same API the rest of the app reads. If either
+    // request fails the placeholders stay — a dash is more honest than a
+    // made-up figure.
+    const loadStats = async () => {
+      try {
+        const [statsRes, dropsRes] = await Promise.all([
+          fetch("/api/dropradar/stats").then((r) => r.json()),
+          fetch("/api/dropradar/drops?limit=1").then((r) => r.json()),
+        ])
+        if (cancelled) return
+        const regions: any[] = Array.isArray(statsRes?.data) ? statsRes.data : []
+        const tracked = regions.reduce((acc, r) => acc + (r.total_tracked_items || 0), 0)
+        const witnessed = dropsRes?.meta?.total
+        setStats([
+          { value: tracked ? tracked.toLocaleString() : "—", label: "Products tracked" },
+          { value: typeof witnessed === "number" ? witnessed.toLocaleString() : "—", label: "Changes witnessed" },
+          { value: String(regions.length || 6), label: "Regions" },
+        ])
+      } catch {
+        // placeholders stay
+      }
+    }
+    loadStats()
+
     const loadLatestDrops = async () => {
       try {
         const res = await fetch("/api/dropradar/products?limit=4&sort=newest&available=true")
@@ -219,7 +251,7 @@ export default function LandingPage() {
         {/* Stats */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
           <div className="flex flex-wrap justify-center gap-x-24 gap-y-8 py-2">
-            {STATS.map((stat) => (
+            {stats.map((stat) => (
               <div key={stat.label} className="text-center">
                 <p className="display text-4xl sm:text-5xl">{stat.value}</p>
                 <p className="text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
@@ -240,7 +272,7 @@ export default function LandingPage() {
             </span>
             <h2 className="display text-4xl sm:text-5xl mt-6">Ready when you are.</h2>
             <p className="text-primary-foreground/60 mt-3.5 max-w-md mx-auto">
-              Free to start. Track drops, compare prices, join the community.
+              Free to start. Track drops, compare landed prices, get alerted before it&apos;s gone.
             </p>
             <Link
               href="/signup"

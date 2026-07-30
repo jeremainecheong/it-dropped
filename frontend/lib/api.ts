@@ -65,8 +65,7 @@ export interface ApiProduct {
  *     at the top, before anything can have suspended.
  *   - The Suspense boundary `app/loading.tsx` puts above every route. Removing
  *     it does not change the status, and it cannot be removed anyway: the build
- *     depends on it for the `useSearchParams` boundaries on /compare and
- *     /login.
+ *     depends on it for the `useSearchParams` boundary on /login.
  *   - The custom `app/not-found.tsx`. Removing it: still 200.
  *
  * So `notFound()` on a dynamic route in this version returns 200 whatever the
@@ -90,7 +89,8 @@ export const getProduct = cache(async function getProduct(id: string): Promise<A
   return (data as unknown as ApiProduct) ?? null
 })
 
-/** Every regional listing of the same garment, for the compare grid. */
+/** Every regional listing of the same garment — the product page's region
+ *  comparison, size matrix and JSON-LD offers all read from this. */
 export const getProductsByHandle = cache(async function getProductsByHandle(handle: string): Promise<ApiProduct[] | null> {
   const { data, error } = await catalogue.rpc("products_by_handle", { h: handle })
   if (error) return null
