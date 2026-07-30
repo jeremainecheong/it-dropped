@@ -7,8 +7,11 @@ import { Heart, ArrowLeft, Trash2, ExternalLink } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { asProductId, useWishlist } from "@/lib/wishlist-context"
 import { supabase } from "@/lib/supabase"
+import { toUSD } from "@/lib/currency"
+import { useDisplayPrice } from "@/lib/display-price"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { Header } from "@/components/layout/header"
+import { CategoryWatchPanel } from "@/components/watches/category-watch-panel"
 
 interface CurrentPrice {
   price: number
@@ -72,6 +75,76 @@ function useCurrentPrices(productIds: string[]) {
   return prices
 }
 
+type AlertType = "price_drop" | "any_change" | "restock"
+
+interface SavedAlert {
+  alert_type: AlertType
+  triggered: boolean
+}
+
+// Same vocabulary as price-alert-modal.tsx, lowercased to sit inside a chip.
+const ALERT_LABELS: Record<AlertType, string> = {
+  price_drop: "price drop",
+  restock: "restock",
+  any_change: "any change",
+}
+
+/**
+ * The signed-in user's active alerts across the saved set, keyed by product
+ * id. One bulk read, same shape as useCurrentPrices above — a page of twenty
+ * saves must not be twenty alert lookups.
+ *
+ * The chips these feed are a hint, not the alert system: a failed read leaves
+ * the map empty and the cards render without chips, nothing worse.
+ */
+function useSavedAlerts(userId: string | undefined, productIds: string[]) {
+  const [alerts, setAlerts] = useState<Record<string, SavedAlert[]>>({})
+
+  const key = productIds.join(",")
+
+  useEffect(() => {
+    // price_alerts.product_id is UUID; legacy handle-keyed saves can't have
+    // alerts and would 400 the whole filter (same trap as useCurrentPrices).
+    const ids = productIds.filter((id) => asProductId(id) !== null)
+    if (!userId || !ids.length) {
+      setAlerts({})
+      return
+    }
+    let cancelled = false
+
+    supabase
+      .from("price_alerts")
+      .select("product_id, alert_type, is_active, triggered")
+      .eq("user_id", userId)
+      .in("product_id", ids)
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !Array.isArray(data)) {
+          if (error) console.error("Error loading alert chips:", error)
+          return
+        }
+        const next: Record<string, SavedAlert[]> = {}
+        for (const row of data as Array<{ product_id: string; alert_type: AlertType; is_active: boolean; triggered: boolean }>) {
+          // A paused alert isn't watching anything; "(fired)" on an active one
+          // is, though — the matcher won't look at it again until it's re-set.
+          if (!row.is_active) continue
+          ;(next[row.product_id] ??= []).push({
+            alert_type: row.alert_type,
+            triggered: Boolean(row.triggered),
+          })
+        }
+        setAlerts(next)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, key])
+
+  return alerts
+}
+
 /**
  * The card's main target, which is not always a link.
  *
@@ -111,7 +184,11 @@ export default function WishlistPage() {
   const { user, isLoading: authLoading } = useAuth()
   const { items, removeItem } = useWishlist()
   const [isPageLoaded, setIsPageLoaded] = useState(false)
-  const currentPrices = useCurrentPrices(useMemo(() => items.map((i) => i.id), [items]))
+  const [sortMode, setSortMode] = useState<"recent" | "movers">("recent")
+  const productIds = useMemo(() => items.map((i) => i.id), [items])
+  const currentPrices = useCurrentPrices(productIds)
+  const alerts = useSavedAlerts(user?.id, productIds)
+  const fmt = useDisplayPrice()
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -120,10 +197,21 @@ export default function WishlistPage() {
     setIsPageLoaded(true)
   }, [user, authLoading, router])
 
-  const formatPrice = (price: number, currency: string) => {
-    const symbols: Record<string, string> = { USD: "$", GBP: "£", EUR: "€", JPY: "¥", AUD: "A$", SGD: "S$" }
-    return `${symbols[currency] || currency}${price.toFixed(currency === "JPY" ? 0 : 2)}`
-  }
+  // "Recent" is the context's own order (created_at desc). "Movers" ranks by
+  // how far each price has travelled since the save — through USD, because a
+  // raw |¥3000| would bury every $20 move on the page (see lib/currency.ts).
+  // No current price means no known movement, which sorts last, not wrongly.
+  const sortedItems = useMemo(() => {
+    if (sortMode === "recent") return items
+    return items
+      .map((item) => {
+        const current = currentPrices[item.id]
+        const delta = current ? current.price - item.price : 0
+        return { item, moved: Math.abs(toUSD(delta, current?.currency || item.currency)) }
+      })
+      .sort((a, b) => b.moved - a.moved)
+      .map((entry) => entry.item)
+  }, [items, sortMode, currentPrices])
 
   if (authLoading) {
     return (
@@ -151,6 +239,8 @@ export default function WishlistPage() {
             </Link>
           </div>
 
+          <CategoryWatchPanel />
+
           {items.length === 0 ? (
             <div
               className={`min-h-[55vh] flex flex-col items-center justify-center text-center transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"
@@ -169,9 +259,31 @@ export default function WishlistPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-8">
-              {items.map((item, index) => {
+            <>
+              <div className="flex items-center gap-1.5 mb-4" role="group" aria-label="Sort saved items">
+                {([
+                  ["recent", "Recent"],
+                  ["movers", "Movers"],
+                ] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setSortMode(mode)}
+                    aria-pressed={sortMode === mode}
+                    className={`pill px-3 py-1.5 text-xs font-medium transition-colors ${sortMode === mode
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-8">
+              {sortedItems.map((item, index) => {
                 const current = currentPrices[item.id]
+                const cardAlerts = alerts[item.id] ?? []
                 // Prices are decimals off the wire; a cent of tolerance so
                 // rounding is not reported as a price change.
                 const delta = current ? current.price - item.price : 0
@@ -243,24 +355,45 @@ export default function WishlistPage() {
                       </h3>
                       <div className="flex items-center justify-between text-[13px]">
                         <span className={changed && delta < 0 ? "text-signal font-medium" : "text-muted-foreground"}>
-                          {formatPrice(current ? current.price : item.price, current?.currency || item.currency)}
+                          {fmt(current ? current.price : item.price, current?.currency || item.currency)}
                         </span>
                         <span className="text-muted-foreground uppercase text-[11px]">{item.region}</span>
                       </div>
                       {changed && (
                         <p className="text-[11px] mt-0.5 text-muted-foreground">
-                          <span className="line-through">{formatPrice(item.price, item.currency)}</span>{" "}
+                          <span className="line-through">{fmt(item.price, item.currency)}</span>{" "}
                           <span className={delta < 0 ? "text-signal" : undefined}>
-                            {delta < 0 ? "↓" : "↑"} {formatPrice(Math.abs(delta), current?.currency || item.currency)}
+                            {delta < 0 ? "↓" : "↑"} {fmt(Math.abs(delta), current?.currency || item.currency)}
                           </span>{" "}
                           since you saved it
                         </p>
                       )}
                     </CardLink>
+
+                    {/* Outside CardLink — nesting this <Link> inside it would
+                        be an anchor in an anchor. */}
+                    {cardAlerts.length > 0 && (
+                      <Link
+                        href="/profile/alerts"
+                        className="flex flex-wrap items-center gap-1 px-1 mt-1.5 group/alerts"
+                      >
+                        <span className="text-[10px] text-muted-foreground">watching:</span>
+                        {cardAlerts.map((alert) => (
+                          <span
+                            key={alert.alert_type}
+                            className="pill bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground group-hover/alerts:text-foreground transition-colors"
+                          >
+                            {ALERT_LABELS[alert.alert_type]}
+                            {alert.triggered ? " (fired)" : ""}
+                          </span>
+                        ))}
+                      </Link>
+                    )}
                   </div>
                 )
               })}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </main>
