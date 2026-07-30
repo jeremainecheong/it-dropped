@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scraper
+  namespace: dropradar
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: dropradar
+            component: scraper
+        spec:
+          containers:
+          - name: scraper
+            image: dropradar/scraper:latest
+            envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+            env:
+            # The schedule above is the loop. Without this the binary runs its
+            # own internal ticker and never exits, so activeDeadlineSeconds
+            # kills it mid-scrape every five minutes and Forbid blocks the
+            # next run. Zero means one cycle, then exit.
+            - name: SCRAPE_INTERVAL
+              value: "0"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "500m"
+          restartPolicy: OnFailure
+      backoffLimit: 2
