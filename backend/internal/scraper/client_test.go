@@ -177,8 +177,11 @@ func TestGateSpacesConcurrentRequests(t *testing.T) {
 	if len(times) != regions {
 		t.Fatalf("saw %d requests, want %d", len(times), regions)
 	}
-	// Slowest-to-first spread must cover the reserved slots, which it cannot if
-	// the requests all left together.
+	// The spread must cover the reserved slots, which it cannot if the requests
+	// all left together. Asserted at 80% of the exact span: the timestamps are
+	// taken inside the handler, so a few milliseconds of scheduler slop either
+	// way is normal, and the distinction being drawn here is against a burst
+	// that spans approximately nothing.
 	first, last := times[0], times[0]
 	for _, ts := range times {
 		if ts.Before(first) {
@@ -188,7 +191,7 @@ func TestGateSpacesConcurrentRequests(t *testing.T) {
 			last = ts
 		}
 	}
-	if want := time.Duration(regions-1) * delay; last.Sub(first) < want {
+	if want := time.Duration(regions-1) * delay * 8 / 10; last.Sub(first) < want {
 		t.Fatalf("requests spanned %v, want at least %v", last.Sub(first), want)
 	}
 }
