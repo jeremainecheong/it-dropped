@@ -393,3 +393,50 @@ func TestErrorBodyIsBounded(t *testing.T) {
 		t.Fatalf("error spans lines: %q", err)
 	}
 }
+
+// Pagination that stops early must SAY so, whatever stopped it. Delisting
+// detection marks every product it did not see as gone, gated only on this
+// signal — so a truncation reported as a complete catalogue would flip a whole
+// region to unavailable.
+func TestSilentTruncationsReportPartial(t *testing.T) {
+	t.Run("store ignores ?page", func(t *testing.T) {
+		// Always returns the same full page: `added == 0` on the second request.
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, productsJSON(1, pageLimit))
+		}))
+		defer srv.Close()
+
+		c, region := testClient(srv, 0)
+		products, err := c.FetchProducts(context.Background(), region)
+
+		var partial *PartialCatalogError
+		if !errors.As(err, &partial) {
+			t.Fatalf("got error %v, want *PartialCatalogError — a repeated page is a truncation", err)
+		}
+		if len(products) != pageLimit {
+			t.Fatalf("got %d products, want the %d actually read", len(products), pageLimit)
+		}
+	})
+
+	t.Run("pagination cap reached", func(t *testing.T) {
+		// Every page full and every page distinct, so the walk only ends when
+		// it runs out of page budget.
+		var page int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			n := atomic.AddInt32(&page, 1)
+			fmt.Fprint(w, productsJSON(int64(n)*10_000, pageLimit))
+		}))
+		defer srv.Close()
+
+		c, region := testClient(srv, 0)
+		products, err := c.FetchProducts(context.Background(), region)
+
+		var partial *PartialCatalogError
+		if !errors.As(err, &partial) {
+			t.Fatalf("got error %v, want *PartialCatalogError at the page cap", err)
+		}
+		if len(products) != maxPages*pageLimit {
+			t.Fatalf("got %d products, want %d", len(products), maxPages*pageLimit)
+		}
+	})
+}
