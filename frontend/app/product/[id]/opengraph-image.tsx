@@ -16,26 +16,40 @@ const FX: Record<string, number> = {
 //  2. Glyphs outside the bundled font trigger a Google Fonts fetch that can
 //     fail; stick to Latin-1 (no "≈", no em-dash).
 
-export default async function Image({ params }: { params: { id: string } }) {
-  const product = await getProduct(params.id)
+/** Brand-only card: what a scraper gets when there is no product to describe. */
+function genericCard() {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%", height: "100%", display: "flex",
+          alignItems: "center", justifyContent: "center",
+          background: "#ffffff", color: "#1d1d1f",
+          fontSize: 64, fontWeight: 600,
+        }}
+      >
+        It Dropped
+      </div>
+    ),
+    size
+  )
+}
 
-  if (!product) {
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            width: "100%", height: "100%", display: "flex",
-            alignItems: "center", justifyContent: "center",
-            background: "#ffffff", color: "#1d1d1f",
-            fontSize: 64, fontWeight: 600,
-          }}
-        >
-          It Dropped
-        </div>
-      ),
-      size
-    )
+export default async function Image({ params }: { params: { id: string } }) {
+  // `getProduct` throws on a query error rather than returning null, and image
+  // routes have no error boundary above them — `app/error.tsx` only covers page
+  // renders. Uncaught, a transient Supabase failure would turn a working OG
+  // image into a 500, which link unfurlers cache as a broken preview. Degrade
+  // to the brand card instead; `revalidate` above means a later crawl can still
+  // pick up the real one.
+  let product: Awaited<ReturnType<typeof getProduct>>
+  try {
+    product = await getProduct(params.id)
+  } catch {
+    return genericCard()
   }
+
+  if (!product) return genericCard()
 
   const siblings = (await getProductsByHandle(product.handle)) || [product]
   const priced = siblings

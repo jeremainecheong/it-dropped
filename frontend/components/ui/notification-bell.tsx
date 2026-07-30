@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Bell, X, ExternalLink, Check } from "lucide-react"
+import { Bell, ExternalLink, Check } from "lucide-react"
+import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 
@@ -64,23 +65,56 @@ export function NotificationBell() {
         }
     }
 
+    // Both mark-read paths discarded the Supabase result, so a rejected write
+    // (expired session, RLS) left the row grey and the badge decremented for
+    // the rest of the session while the database still had is_read = false.
+    // Roll the optimistic change back and say so instead.
     const markAsRead = async (id: string) => {
-        await supabase.from("notifications").update({ is_read: true }).eq("id", id)
-        setNotifications((prev) =>
-            prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-        )
+        const target = notifications.find((n) => n.id === id)
+        if (!target || target.is_read) return
+
+        setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
         setUnreadCount((prev) => Math.max(0, prev - 1))
+
+        const { error } = await supabase
+            .from("notifications")
+            .update({ is_read: true })
+            .eq("id", id)
+
+        if (error) {
+            setNotifications((prev) =>
+                prev.map((n) => (n.id === id ? { ...n, is_read: false } : n))
+            )
+            setUnreadCount((prev) => prev + 1)
+            toast.error("Couldn't mark that notification as read")
+        }
     }
 
     const markAllAsRead = async () => {
         if (!user) return
-        await supabase
+
+        // Revert by id rather than by snapshot: a realtime INSERT can land
+        // while the update is in flight, and restoring a whole snapshot would
+        // drop that new notification.
+        const unreadIds = new Set(notifications.filter((n) => !n.is_read).map((n) => n.id))
+        if (unreadIds.size === 0) return
+
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+        setUnreadCount((prev) => Math.max(0, prev - unreadIds.size))
+
+        const { error } = await supabase
             .from("notifications")
             .update({ is_read: true })
             .eq("user_id", user.id)
             .eq("is_read", false)
-        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-        setUnreadCount(0)
+
+        if (error) {
+            setNotifications((prev) =>
+                prev.map((n) => (unreadIds.has(n.id) ? { ...n, is_read: false } : n))
+            )
+            setUnreadCount((prev) => prev + unreadIds.size)
+            toast.error("Couldn't mark notifications as read")
+        }
     }
 
     const formatTime = (dateString: string) => {
@@ -99,11 +133,20 @@ export function NotificationBell() {
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
+                aria-label={
+                    unreadCount > 0
+                        ? `Notifications, ${unreadCount} unread`
+                        : "Notifications"
+                }
+                aria-expanded={isOpen}
                 className="relative p-2 hover:bg-muted rounded transition-colors"
             >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[10px] flex items-center justify-center rounded-full">
+                    <span
+                        aria-hidden
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[10px] flex items-center justify-center rounded-full"
+                    >
                         {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                 )}
@@ -121,6 +164,7 @@ export function NotificationBell() {
                             {unreadCount > 0 && (
                                 <button
                                     onClick={markAllAsRead}
+                                    aria-label="Mark all notifications as read"
                                     className="text-xs text-muted-foreground hover:text-foreground"
                                 >
                                     Mark all read
@@ -134,51 +178,72 @@ export function NotificationBell() {
                             </div>
                         ) : (
                             <div className="divide-y divide-border">
-                                {notifications.map((notification) => (
-                                    <div
-                                        key={notification.id}
-                                        className={`p-3 hover:bg-muted/50 transition-colors ${!notification.is_read ? "bg-foreground/5" : ""
-                                            }`}
-                                    >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">
-                                                    {notification.title}
-                                                </p>
-                                                {notification.body && (
-                                                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                                                        {notification.body}
-                                                    </p>
-                                                )}
-                                                <p className="text-[10px] text-muted-foreground mt-1">
-                                                    {formatTime(notification.created_at)}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-1">
+                                {notifications.map((notification) => {
+                                    const body = (
+                                        <>
+                                            <p className="text-sm font-medium truncate">
+                                                {notification.title}
                                                 {notification.link && (
+                                                    <ExternalLink
+                                                        aria-hidden
+                                                        className="inline-block w-3 h-3 ml-1 align-[-1px] text-muted-foreground"
+                                                    />
+                                                )}
+                                            </p>
+                                            {notification.body && (
+                                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                                                    {notification.body}
+                                                </p>
+                                            )}
+                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                                {formatTime(notification.created_at)}
+                                            </p>
+                                        </>
+                                    )
+
+                                    return (
+                                        <div
+                                            key={notification.id}
+                                            className={`p-3 hover:bg-muted/50 transition-colors ${!notification.is_read ? "bg-foreground/5" : ""
+                                                }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                {/* The whole body is the target now. It used to be inert
+                                                    text with only a 12px icon carrying the link, which
+                                                    is why notifications read as unclickable. */}
+                                                {notification.link ? (
                                                     <Link
                                                         href={notification.link}
                                                         onClick={() => {
                                                             markAsRead(notification.id)
                                                             setIsOpen(false)
                                                         }}
-                                                        className="p-1 hover:bg-muted rounded"
+                                                        className="flex-1 min-w-0 text-left"
                                                     >
-                                                        <ExternalLink className="w-3 h-3" />
+                                                        {body}
                                                     </Link>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => markAsRead(notification.id)}
+                                                        className="flex-1 min-w-0 text-left"
+                                                    >
+                                                        {body}
+                                                    </button>
                                                 )}
                                                 {!notification.is_read && (
                                                     <button
                                                         onClick={() => markAsRead(notification.id)}
-                                                        className="p-1 hover:bg-muted rounded"
+                                                        aria-label={`Mark "${notification.title}" as read`}
+                                                        className="p-1 hover:bg-muted rounded shrink-0"
                                                     >
                                                         <Check className="w-3 h-3" />
                                                     </button>
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         )}
                     </div>

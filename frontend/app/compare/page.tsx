@@ -87,7 +87,7 @@ function CompareContent() {
         <div className="min-h-screen bg-background text-foreground">
             <Header />
 
-            <main className="pt-12 pb-20 md:pb-8">
+            <main className="pt-12 pb-nav">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
                     {isLoading ? (
                         <div className="flex items-center justify-center py-20">
