@@ -478,6 +478,15 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		} else if n > 0 {
 			log.Info().Str("region", region.Code).Int("notifications", n).Msg("User alerts fired")
 		}
+
+		// Category watches ride the same drops: anything that just appeared
+		// may satisfy a "tell me when new Tops land" watch, delivered as one
+		// digest per (user, category, region) rather than per product.
+		if n, err := s.db.MatchCategoryWatches(ctx, drops); err != nil {
+			log.Error().Err(err).Str("region", region.Code).Msg("Failed to match category watches")
+		} else if n > 0 {
+			log.Info().Str("region", region.Code).Int("notifications", n).Msg("Category watch digests fired")
+		}
 	}
 
 	// Re-arm restock alerts on anything that has gone out of stock, so a user
