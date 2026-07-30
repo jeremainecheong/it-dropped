@@ -5,21 +5,51 @@
 # written and adds no hosting account: the frontend is on Vercel, the data is in
 # Supabase, and this is the only other moving part.
 #
-# Cost: this repository is private, so Actions bills against the 2,000
-# minutes/month free allowance. One run a day at ~1 minute is ~30 minutes.
+# Cost: nothing. This repository is public, and Actions on standard runners is
+# free for public repositories with no minute allowance to spend. It was private
+# when this file was written, which is why the schedule below is still frugal —
+# four runs a week plus one a day, at ~1 minute each.
 
 name: scrape
 
 on:
   schedule:
-    # 02:15 UTC = 10:15 Singapore. Deliberately not on the hour: GitHub queues
-    # scheduled workflows and the top of the hour is the most contended slot,
-    # where delays of 30+ minutes are common.
+    # Stüssy drops on Friday at 10:00 UTC — 18:00 Singapore.
+    #
+    # Measured over 500 live products: 322 of them were published on a Friday,
+    # and 315 of the 500 at exactly 10:00 UTC. This is not a guess about the
+    # brand's habits, it is what the published_at column says.
+    #
+    # The daily 02:15 run alone found every drop about sixteen hours late, by
+    # which point the pieces worth having are gone — which is the entire thing
+    # this project exists to prevent. The three Friday runs below cover the
+    # window: just after the drop, once more while the first wave sells, and
+    # again an hour and a half in for anything published late or restocked.
+    #
+    # No slot is on the hour, and none is on a five-minute boundary either:
+    # GitHub queues scheduled workflows and those are the contended moments,
+    # where delays of 30+ minutes are routine — the delay would land the
+    # "just after the drop" run well after it.
+    - cron: "7 10 * * 5"
+    - cron: "37 10 * * 5"
+    - cron: "25 11 * * 5"
+    # The daily baseline, kept: drops outside the Friday window happen, and it
+    # is also what catches up anything a Friday run missed. 02:15 UTC = 10:15
+    # Singapore.
     - cron: "15 2 * * *"
   # Lets you run it by hand from the Actions tab without waiting for the schedule.
   workflow_dispatch:
 
-# A run that overlaps the previous one would double-write; skip instead.
+# A run that overlaps the previous one would double-write; queue instead of
+# cancelling, so a run that is mid-write is never killed.
+#
+# The Friday slots are close together, which makes the group's failure mode
+# worth stating: with cancel-in-progress false, a queued run waits while one is
+# in progress, and if a SECOND run queues behind it the first pending one is
+# cancelled — silently, with no failed run to notice. That needs three runs
+# alive at once, which the timings above rule out: the closest two slots are 30
+# minutes apart (10:07 and 10:37) and timeout-minutes below hard-caps a run at
+# 20, so at most one run can ever be waiting.
 concurrency:
   group: scrape
   cancel-in-progress: false
@@ -29,7 +59,8 @@ jobs:
     runs-on: ubuntu-latest
     # Comfortably above SCRAPE_CYCLE_TIMEOUT below, so the scraper always
     # deadlines itself first and exits with an error to read, rather than being
-    # killed here mid-write.
+    # killed here mid-write. Also the cap the concurrency note above relies on:
+    # keep it under the 30 minutes between the two closest Friday slots.
     timeout-minutes: 20
 
     steps:
