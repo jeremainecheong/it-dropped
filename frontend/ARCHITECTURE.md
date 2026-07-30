@@ -51,7 +51,8 @@ reading the catalogue.
 | `trending` | most recently touched listings |
 | `stats` | the `region_stats` view |
 | `analytics` | the `analytics_summary` function |
-| `status` | catalogue freshness |
+| `status` | catalogue freshness — the one route that must never be cached |
+| `fx` | ECB reference rates, cached 6h, static table as fallback |
 
 Sorting by price is sorting by `price_usd`, a stored generated column, because
 PostgREST can order by columns but not by an expression. Ranked search and the
@@ -91,6 +92,24 @@ cannot be used as an open redirect.
   them meant a freshly posted comment came back without itself. Navigations are
   network-first, because a cached document names build-hashed chunks that stop
   existing at the next deploy.
+
+## Landed cost
+
+Shipping is not modelled, it is read: each Stüssy storefront embeds an
+`internationalMessaging` map giving the carrier, price and free-shipping
+threshold per destination country, and `lib/shipping.ts` is that data.
+
+The destination lists are the important part. Each store serves its own
+territory and little else, so most cross-region pairs cannot be bought at all —
+a corridor with no service yields no delivered price, and the tile says so
+instead of ranking a number nobody can pay. Deliverability outranks price
+everywhere, on the same principle that already put sold-out listings last.
+
+Everything is computed in USD, because that is the only unit six storefronts
+share and because de-minimis thresholds are published in it, then converted
+into the destination's currency for display. A breakdown is rendered from
+`toDisplayCost`, which rounds each row and sums the rounded rows — a column
+that disagrees with its own total reads as broken arithmetic.
 
 ## Design system
 

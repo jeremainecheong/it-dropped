@@ -30,7 +30,8 @@ Worse, the stores don't agree on how to identify a product. Stüssy's own sites 
 
 - **Six storefronts** — US, UK, EU, JP, AU, and Dover Street Market Singapore, which carries pieces the brand's own stores don't
 - **Cross-region identity** — resolves a `style_code` per garment, so the same hoodie is recognisable across five currencies
-- **Landed cost** — shipping and duty estimated per corridor, so the ranking reflects reality rather than the price tag
+- **Landed cost** — shipping taken from what each store publishes per destination, duty estimated per corridor, so the ranking reflects reality rather than the price tag
+- **Deliverability** — most stores only serve their own region, so a listing that cannot be shipped to you is marked, not priced
 - **Drop feed** — new listings, restocks, price cuts and sell-outs, found by diffing each scrape against the last
 - **Alerts** — watch a price, a size, or a garment that isn't stocked in your country yet
 - **Full-text search** — Postgres `tsvector` with weighted ranking over title, vendor, type and tags
@@ -138,7 +139,13 @@ Deployment, including Google OAuth and the CI secret, is in [`docs/DEPLOY.md`](d
 
 ## Notes on the data
 
-Prices are what each storefront published at the last scrape. Shipping and duty are **estimates from typical rates for the corridor** — not a quote, and customs assesses the final amount. Currency conversion exists to make listings comparable on one axis, never to quote a checkout price.
+Prices are what each storefront published at the last scrape.
+
+**Shipping is the store's own published rate** for that destination, read from the `internationalMessaging` map each Stüssy storefront embeds. That data also carries the destination list, and the lists are short: the US store serves 33 countries but not the UK, the EU, Japan or Australia; the UK, Japanese and Australian stores serve only their own market. Stüssy runs a store per region and each serves its own territory, so most cross-region pairs cannot be bought at any price and are marked rather than ranked. Dover Street Market Singapore publishes its rates behind a client-rendered page, so its shipping is an estimate and its other destinations are marked unknown — which is not the same as unavailable.
+
+**Duty and tax are estimates** — a single blended rate per destination, not a quote, and customs assesses the final amount. Where a store states it collects duty at checkout, none is added on top.
+
+**Exchange rates** are the ECB's daily reference rates, refreshed every six hours, falling back to a static table if the feed is unreachable. They exist to make listings comparable on one axis, never to quote a checkout price.
 
 ## Licence
 
