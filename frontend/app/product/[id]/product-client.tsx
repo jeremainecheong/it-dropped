@@ -10,7 +10,7 @@ import { Header } from "@/components/layout/header"
 import { PriceHistoryChart } from "@/components/product/price-history-chart"
 import { PriceAlertModal } from "@/components/product/price-alert-modal"
 import { formatPrice, toUSD } from "@/lib/currency"
-import { bestOfferPerRegion, estimateLandedCost, formatUSD } from "@/lib/landed-cost"
+import { bestOfferPerRegion, estimateLandedCost, formatDisplay, formatLanded, toDisplayCost } from "@/lib/landed-cost"
 import { useDestination } from "@/lib/use-destination"
 import { DestinationSelect } from "@/components/ui/destination-select"
 import { RegionAlertCard } from "@/components/product/region-alert-card"
@@ -286,7 +286,8 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 >
                   <Globe className="w-3.5 h-3.5" />
                   Cheaper from {REGION_FLAGS[bestOffer.region] || bestOffer.region.toUpperCase()} —{" "}
-                  ~{formatUSD(best!.landed.totalUSD)} delivered (save ≈ {formatUSD(savingsUSD)})
+                  ~{formatLanded(best!.landed.totalUSD, destination)} delivered (save ≈{" "}
+                  {formatLanded(savingsUSD, destination)})
                 </Link>
               )}
 
@@ -411,6 +412,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 {rankedOffers.map(({ offer: p, landed }) => {
                   const isCurrent = p.id === product.id
                   const isBest = bestOffer && p.id === bestOffer.id
+                  const cost = toDisplayCost(landed, destination)
                   return (
                     <Link
                       key={p.id}
@@ -433,29 +435,40 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                         />
                       </div>
 
-                      <p className="text-[15px] font-semibold">~{formatUSD(landed.totalUSD)}</p>
+                      <p className="text-[15px] font-semibold">~{formatDisplay(cost.total, cost)}</p>
                       <p className={`text-[11px] ${isBest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                         delivered{isCurrent ? " · viewing" : ""}
                       </p>
 
+                      {/* Every row here is in the destination's currency, so the
+                          column adds up to the total above it. The store's own
+                          price is a separate line rather than the Item row: it
+                          is what gets charged at checkout, which is worth
+                          knowing, but it is not a term in this sum. */}
                       <div className={`mt-2.5 pt-2.5 space-y-0.5 text-[11px] border-t ${isBest ? "border-primary-foreground/15 text-primary-foreground/60" : "border-border text-muted-foreground"}`}>
                         <div className="flex justify-between gap-2">
                           <span>Item</span>
-                          <span>{formatPrice(p.price, p.currency)}</span>
+                          <span>~{formatDisplay(cost.item, cost)}</span>
                         </div>
-                        {landed.shippingUSD > 0 && (
+                        {cost.shipping > 0 && (
                           <div className="flex justify-between gap-2">
                             <span>Shipping</span>
-                            <span>~{formatUSD(landed.shippingUSD)}</span>
+                            <span>~{formatDisplay(cost.shipping, cost)}</span>
                           </div>
                         )}
-                        {landed.importUSD > 0 && (
+                        {cost.duty > 0 && (
                           <div className="flex justify-between gap-2">
                             <span>Duty &amp; tax</span>
-                            <span>~{formatUSD(landed.importUSD)}</span>
+                            <span>~{formatDisplay(cost.duty, cost)}</span>
                           </div>
                         )}
                         {landed.isDomestic && <div>Domestic</div>}
+                        {p.currency !== destination.currency && (
+                          <div className={`flex justify-between gap-2 pt-1 mt-1 border-t ${isBest ? "border-primary-foreground/15" : "border-border"}`}>
+                            <span>Pay at store</span>
+                            <span>{formatPrice(p.price, p.currency)}</span>
+                          </div>
+                        )}
                       </div>
                     </Link>
                   )

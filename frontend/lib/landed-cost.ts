@@ -15,7 +15,7 @@
  * clearly-labelled estimate beats a confident wrong ranking.
  */
 
-import { toUSD } from "./currency"
+import { formatApprox, fromUSD, toUSD } from "./currency"
 
 export interface Destination {
   code: string
@@ -35,16 +35,22 @@ export interface Destination {
    * The US de-minimis exemption was repealed in 2025, so it is 0 there.
    */
   deMinimisUSD: number
-  currencySymbol: string
+  /**
+   * What a shopper here pays in. Everything below is computed in USD — the
+   * de-minimis thresholds are published in USD and the FX table is anchored
+   * there — and converted back out for display. Someone buying to Singapore
+   * does not think in dollars.
+   */
+  currency: string
 }
 
 export const DESTINATIONS: Destination[] = [
-  { code: "US", name: "United States", domesticRegion: "us", domesticTaxIncluded: false, importRate: 0.20, deMinimisUSD: 0, currencySymbol: "$" },
-  { code: "GB", name: "United Kingdom", domesticRegion: "uk", domesticTaxIncluded: true, importRate: 0.28, deMinimisUSD: 0, currencySymbol: "£" },
-  { code: "EU", name: "Europe", domesticRegion: "eu", domesticTaxIncluded: true, importRate: 0.33, deMinimisUSD: 0, currencySymbol: "€" },
-  { code: "JP", name: "Japan", domesticRegion: "jp", domesticTaxIncluded: true, importRate: 0.20, deMinimisUSD: 65, currencySymbol: "¥" },
-  { code: "AU", name: "Australia", domesticRegion: "au", domesticTaxIncluded: true, importRate: 0.10, deMinimisUSD: 660, currencySymbol: "A$" },
-  { code: "SG", name: "Singapore", domesticRegion: "sg", domesticTaxIncluded: true, importRate: 0.09, deMinimisUSD: 0, currencySymbol: "S$" },
+  { code: "US", name: "United States", domesticRegion: "us", domesticTaxIncluded: false, importRate: 0.20, deMinimisUSD: 0, currency: "USD" },
+  { code: "GB", name: "United Kingdom", domesticRegion: "uk", domesticTaxIncluded: true, importRate: 0.28, deMinimisUSD: 0, currency: "GBP" },
+  { code: "EU", name: "Europe", domesticRegion: "eu", domesticTaxIncluded: true, importRate: 0.33, deMinimisUSD: 0, currency: "EUR" },
+  { code: "JP", name: "Japan", domesticRegion: "jp", domesticTaxIncluded: true, importRate: 0.20, deMinimisUSD: 65, currency: "JPY" },
+  { code: "AU", name: "Australia", domesticRegion: "au", domesticTaxIncluded: true, importRate: 0.10, deMinimisUSD: 660, currency: "AUD" },
+  { code: "SG", name: "Singapore", domesticRegion: "sg", domesticTaxIncluded: true, importRate: 0.09, deMinimisUSD: 0, currency: "SGD" },
 ]
 
 export const DEFAULT_DESTINATION = "US"
@@ -205,7 +211,51 @@ export function bestOfferPerRegion<
   })
 }
 
-/** Format a USD figure for display as an approximation. */
-export function formatUSD(value: number): string {
-  return `$${Math.round(value).toLocaleString()}`
+/** Format a single USD figure in the destination's currency. */
+export function formatLanded(usd: number, destination: Destination): string {
+  return formatApprox(fromUSD(usd, destination.currency), destination.currency)
+}
+
+/** A landed cost as it should be displayed: one currency, whole units. */
+export interface DisplayCost {
+  item: number
+  shipping: number
+  duty: number
+  total: number
+  currency: string
+}
+
+/**
+ * Convert a landed cost into displayable figures in the destination's currency.
+ *
+ * Two rules, both learned from the same bug report.
+ *
+ * One currency. The breakdown used to show the item in the store's currency
+ * and everything else in USD, so a column read `€50 + ~$25 + ~$7 = ~$86`.
+ * That is arithmetically correct — the €50 is $54 by the time it reaches the
+ * total — and it reads as broken, because three of the four numbers are in
+ * units the reader was not told about. And none of them were in the currency
+ * the shopper actually picked.
+ *
+ * The total is the sum of the rounded rows, not the rounded sum. Rounding each
+ * line independently leaves the column off by one often enough to notice, and
+ * a breakdown that visibly disagrees with its own total is the same defect
+ * wearing a different hat. At an estimate's precision the difference is noise;
+ * being internally consistent is not.
+ *
+ * Ranking still uses the unrounded `totalUSD` — this is presentation only.
+ */
+export function toDisplayCost(landed: LandedCost, destination: Destination): DisplayCost {
+  const inDest = (usd: number) => Math.round(fromUSD(usd, destination.currency))
+
+  const item = inDest(landed.itemUSD)
+  const shipping = inDest(landed.shippingUSD)
+  const duty = inDest(landed.importUSD)
+
+  return { item, shipping, duty, total: item + shipping + duty, currency: destination.currency }
+}
+
+/** Format one figure from a DisplayCost. */
+export function formatDisplay(value: number, cost: DisplayCost): string {
+  return formatApprox(value, cost.currency)
 }

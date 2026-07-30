@@ -6,7 +6,7 @@ import Link from "next/link"
 import { ArrowLeft, ExternalLink, Check, X } from "lucide-react"
 import { Header } from "@/components/layout/header"
 import { formatPrice } from "@/lib/currency"
-import { rankByLandedCost, formatUSD } from "@/lib/landed-cost"
+import { rankByLandedCost, formatDisplay, toDisplayCost } from "@/lib/landed-cost"
 import { useDestination } from "@/lib/use-destination"
 import { DestinationSelect } from "@/components/ui/destination-select"
 
@@ -110,6 +110,7 @@ function CompareContent() {
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {ranked.map(({ offer: product, landed }) => {
                                     const isCheapest = cheapest && product.id === cheapest.id
+                                    const cost = toDisplayCost(landed, destination)
                                     return (
                                         <div
                                             key={product.id}
@@ -132,21 +133,31 @@ function CompareContent() {
                                             </div>
 
                                             <div className="mb-4">
-                                                <div className="display text-3xl">~{formatUSD(landed.totalUSD)}</div>
+                                                <div className="display text-3xl">~{formatDisplay(cost.total, cost)}</div>
                                                 <div className={`text-xs mt-1 ${isCheapest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                                                    delivered · {formatPrice(product.price, product.currency)} item
+                                                    delivered to {destination.name}
                                                 </div>
                                             </div>
 
+                                            {/* One currency per column of figures: the item line used to be the
+                                                store's own, so the breakdown did not sum to the total above it. */}
                                             <div className={`mb-4 space-y-0.5 text-xs ${isCheapest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                                                {landed.shippingUSD > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span>Item</span><span>~{formatDisplay(cost.item, cost)}</span>
+                                                </div>
+                                                {cost.shipping > 0 && (
                                                     <div className="flex justify-between">
-                                                        <span>Shipping</span><span>~{formatUSD(landed.shippingUSD)}</span>
+                                                        <span>Shipping</span><span>~{formatDisplay(cost.shipping, cost)}</span>
                                                     </div>
                                                 )}
-                                                {landed.importUSD > 0 && (
+                                                {cost.duty > 0 && (
                                                     <div className="flex justify-between">
-                                                        <span>Duty &amp; tax</span><span>~{formatUSD(landed.importUSD)}</span>
+                                                        <span>Duty &amp; tax</span><span>~{formatDisplay(cost.duty, cost)}</span>
+                                                    </div>
+                                                )}
+                                                {product.currency !== destination.currency && (
+                                                    <div className="flex justify-between">
+                                                        <span>Pay at store</span><span>{formatPrice(product.price, product.currency)}</span>
                                                     </div>
                                                 )}
                                                 <div>{landed.notes}</div>

@@ -33,6 +33,27 @@ export function toUSD(price: number, currency: string): number {
   return price * (FX_TO_USD[currency] ?? 1)
 }
 
+/**
+ * Convert approximate USD back out into a currency, for display.
+ *
+ * Comparison happens in USD because that is the only unit every storefront can
+ * be ranked in. Nobody shopping to Singapore thinks in USD, though, so what
+ * gets shown has to come back out.
+ */
+export function fromUSD(usd: number, currency: string): number {
+  return usd / (FX_TO_USD[currency] ?? 1)
+}
+
+/**
+ * Format an estimate, rounded to whole units. Deliberately not `formatPrice`:
+ * these numbers carry a `~`, and centimes on a figure that is an approximation
+ * of a duty rate is false precision.
+ */
+export function formatApprox(value: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOLS[currency] || currency
+  return `${symbol}${Math.round(value).toLocaleString()}`
+}
+
 /** Format a price in its own currency (JPY has no decimals). */
 export function formatPrice(price: number, currency: string): string {
   const symbol = CURRENCY_SYMBOLS[currency] || currency
