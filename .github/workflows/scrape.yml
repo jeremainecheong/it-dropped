@@ -1,0 +1,56 @@
+# Daily catalogue scrape.
+#
+# The scraper is a short batch job — about 20 seconds for six regions — so it
+# wants a scheduler, not a server. Running it here keeps the Go code exactly as
+# written and adds no hosting account: the frontend is on Vercel, the data is in
+# Supabase, and this is the only other moving part.
+#
+# Cost: this repository is private, so Actions bills against the 2,000
+# minutes/month free allowance. One run a day at ~1 minute is ~30 minutes.
+
+name: scrape
+
+on:
+  schedule:
+    # 02:15 UTC = 10:15 Singapore. Deliberately not on the hour: GitHub queues
+    # scheduled workflows and the top of the hour is the most contended slot,
+    # where delays of 30+ minutes are common.
+    - cron: "15 2 * * *"
+  # Lets you run it by hand from the Actions tab without waiting for the schedule.
+  workflow_dispatch:
+
+# A run that overlaps the previous one would double-write; skip instead.
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Scrape all regions
+        working-directory: backend
+        env:
+          # Must be a POOLER connection string from the Supabase dashboard
+          # (Connect -> Session pooler on :5432, or Transaction pooler on
+          # :6543 — the client handles either). Not the direct db.<ref> host:
+          # that resolves to IPv6 only and GitHub's runners are IPv4, so it
+          # cannot connect at all.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Optional. Absent, drops are still detected and stored, just not announced.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          REGIONS: us,uk,eu,jp,au,sg
+          # One cycle, then exit — the cron above is the loop.
+          SCRAPE_INTERVAL: "0"
+          LOG_LEVEL: info
+        run: go run ./cmd/scraper
