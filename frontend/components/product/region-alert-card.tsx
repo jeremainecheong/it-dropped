@@ -108,10 +108,20 @@ export function RegionAlertCard({
               Sign in to get notified
             </Link>
           ) : state === "watching" ? (
-            <p className="inline-flex items-center gap-2 text-xs font-semibold text-green-600">
-              <Check className="w-3.5 h-3.5" />
-              We&apos;ll tell you when it lands in {regionName}
-            </p>
+            // The alert list at /profile/alerts had no inbound link anywhere in
+            // the app, so a watch set here could never be found again.
+            <div className="space-y-1">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold text-green-600">
+                <Check className="w-3.5 h-3.5" />
+                We&apos;ll tell you when it lands in {regionName}
+              </p>
+              <Link
+                href="/profile/alerts"
+                className="block text-xs text-muted-foreground underline hover:text-foreground"
+              >
+                View your alerts
+              </Link>
+            </div>
           ) : (
             <button
               onClick={handleWatch}
