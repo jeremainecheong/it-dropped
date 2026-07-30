@@ -26,18 +26,25 @@ export function PriceHistoryChart({ productId, currency }: PriceHistoryChartProp
 
     const fetchPriceHistory = async () => {
         try {
+            // Newest first, then reversed for the chart. Ascending with a LIMIT
+            // returns the thirty OLDEST points, so a listing with six months of
+            // history charted January and stopped — the current price, the one
+            // thing the chart exists to put in context, was off the right edge.
             const { data: history, error } = await supabase
                 .from("price_history")
                 .select("price, recorded_at")
                 .eq("product_id", productId)
-                .order("recorded_at", { ascending: true })
-                .limit(30)
+                .order("recorded_at", { ascending: false })
+                .limit(60)
 
             if (!error && history) {
-                const formatted = history.map((h) => ({
-                    date: new Date(h.recorded_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-                    price: h.price,
-                }))
+                const formatted = history
+                    .slice()
+                    .reverse()
+                    .map((h) => ({
+                        date: new Date(h.recorded_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                        price: Number(h.price),
+                    }))
                 setData(formatted)
             }
         } catch (error) {

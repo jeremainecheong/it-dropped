@@ -13,6 +13,8 @@ import { formatPrice, toUSD } from "@/lib/currency"
 import { bestOfferPerRegion, estimateLandedCost, formatDisplay, formatLanded, toDisplayCost } from "@/lib/landed-cost"
 import { useDestination } from "@/lib/use-destination"
 import { useFx } from "@/lib/use-fx"
+import { usePriceStats, priceVerdict } from "@/lib/use-price-stats"
+import { scarcity } from "@/lib/scarcity"
 import { DestinationSelect } from "@/components/ui/destination-select"
 import { RegionAlertCard } from "@/components/product/region-alert-card"
 
@@ -31,6 +33,7 @@ interface Product {
   is_available: boolean
   available_sizes: string[]
   total_variants: number
+  available_variants?: number
   image_url: string
   product_url: string
   first_seen_at: string
@@ -70,6 +73,11 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
   const [alertModalOpen, setAlertModalOpen] = useState(false)
   const { destination, setDestination } = useDestination()
   const { rates: fx } = useFx()
+  const priceStats = usePriceStats(product?.id)
+  const verdict = product
+    ? priceVerdict(product.price, priceStats)
+    : { label: null, isLow: false }
+  const left = product ? scarcity(product.available_variants, product.total_variants) : null
 
   const isWishlisted = wishlist.some((item) => item.id === productId)
 
@@ -272,9 +280,18 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 <span className="display text-2xl">
                   {formatPrice(product.price, product.currency)}
                 </span>
-                {product.compare_price && product.compare_price > product.price && (
+                {/* The struck-through figure is the highest price we have
+                    recorded for this listing, not the retailer's compare_price
+                    — that number is theirs to set and routinely describes a
+                    price the garment never sold at. */}
+                {verdict.isLow && priceStats && (
                   <span className="text-muted-foreground line-through">
-                    {formatPrice(product.compare_price, product.currency)}
+                    {formatPrice(priceStats.high, product.currency)}
+                  </span>
+                )}
+                {verdict.label && (
+                  <span className={`pill px-2.5 py-1 text-xs font-medium ${verdict.isLow ? "bg-signal text-signal-foreground" : "bg-secondary text-foreground"}`}>
+                    {verdict.label}
                   </span>
                 )}
                 <span
@@ -285,6 +302,11 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 >
                   {product.is_available ? "In stock" : "Sold out"}
                 </span>
+                {left && product.is_available && (
+                  <span className={`text-[13px] ${left.isLow ? "text-signal font-medium" : "text-muted-foreground"}`}>
+                    {left.label}
+                  </span>
+                )}
               </div>
 
               {/* Cheapest-region callout — only worth showing if it's buyable */}

@@ -24,6 +24,7 @@ export interface ApiProduct {
   product_type: string
   tags: string[]
   total_variants: number
+  available_variants?: number
   price: number
   compare_price: number | null
   currency: string

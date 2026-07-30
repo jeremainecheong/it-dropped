@@ -10,6 +10,8 @@ import { useWishlist } from "@/lib/wishlist-context"
 import { Header } from "@/components/layout/header"
 import { NotificationBell } from "@/components/ui/notification-bell"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { usePriceStatsBulk, priceVerdict } from "@/lib/use-price-stats"
+import { scarcity } from "@/lib/scarcity"
 
 interface Product {
     id: string
@@ -26,6 +28,7 @@ interface Product {
     is_available: boolean
     available_sizes: string[]
     total_variants: number
+    available_variants: number
     image_url: string
     product_url: string
     first_seen_at: string
@@ -85,6 +88,9 @@ function ShopPageContent() {
     const { addItem, removeItem, isInWishlist } = useWishlist()
 
     const [products, setProducts] = useState<Product[]>([])
+    // What each listing has actually cost, for the whole grid in one call.
+    // Per-card would be one request per badge, which is a poor trade for a badge.
+    const priceStats = usePriceStatsBulk(useMemo(() => products.map((p) => p.id), [products]))
     const [selectedRegion, setSelectedRegion] = useState(searchParams.get("region") || "all")
     const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>([])
     const [selectedCategoryLabel, setSelectedCategoryLabel] = useState<string | null>(null)
@@ -404,16 +410,25 @@ function ShopPageContent() {
                                 {products.map((product, index) => {
                                     const inWishlist = isInWishlist(product.id)
                                     const isNew = Date.now() - new Date(product.first_seen_at).getTime() < 48 * 3600 * 1000
-                                    const salePct = product.compare_price && product.compare_price > product.price
-                                        ? Math.round((1 - product.price / product.compare_price) * 100)
-                                        : 0
+                                    // compare_price is the retailer's claim about its own
+                                    // past; the verdict is ours, from what we recorded the
+                                    // listing costing. Where we have no record, no claim.
+                                    const verdict = priceVerdict(product.price, priceStats[product.id] ?? null)
+                                    const left = scarcity(product.available_variants, product.total_variants)
                                     return (
                                         <div key={product.id} className={`group transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`} style={{ transitionDelay: `${Math.min(index * 15, 150)}ms` }}>
                                             <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
                                                 <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5">
                                                     <span className="pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium uppercase">{product.region}</span>
                                                     {isNew && <span className="pill bg-foreground text-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">New</span>}
-                                                    {salePct > 0 && <span className="pill bg-signal text-signal-foreground px-2.5 py-1 text-[10px] font-semibold">−{salePct}%</span>}
+                                                    {verdict.label && (
+                                                        <span className={`pill px-2.5 py-1 text-[10px] font-semibold ${verdict.isLow ? "bg-signal text-signal-foreground" : "bg-background/90 backdrop-blur"}`}>
+                                                            {verdict.label}
+                                                        </span>
+                                                    )}
+                                                    {left?.isLow && (
+                                                        <span className="pill bg-background/90 backdrop-blur px-2.5 py-1 text-[10px] font-medium">{left.label}</span>
+                                                    )}
                                                 </div>
                                                 <button
                                                     onClick={() => handleWishlist(product)}
@@ -434,10 +449,10 @@ function ShopPageContent() {
                                             <Link href={`/product/${product.id}`} className="flex items-baseline justify-between gap-3 mt-3 px-1">
                                                 <h3 className="text-[13px] font-medium leading-snug line-clamp-1">{product.title}</h3>
                                                 <p className="text-[13px] shrink-0">
-                                                    {salePct > 0 && product.compare_price && (
-                                                        <span className="text-muted-foreground/60 line-through mr-1.5">{formatPrice(product.compare_price, product.currency)}</span>
+                                                    {verdict.isLow && (
+                                                        <span className="text-muted-foreground/60 line-through mr-1.5">{formatPrice(priceStats[product.id]!.high, product.currency)}</span>
                                                     )}
-                                                    <span className={salePct > 0 ? "text-signal font-medium" : "text-muted-foreground"}>{formatPrice(product.price, product.currency)}</span>
+                                                    <span className={verdict.isLow ? "text-signal font-medium" : "text-muted-foreground"}>{formatPrice(product.price, product.currency)}</span>
                                                 </p>
                                             </Link>
                                         </div>
