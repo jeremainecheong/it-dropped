@@ -18,8 +18,7 @@ interface HeaderProps {
 const NAV_LINKS = [
     { href: "/drops", label: "Drops" },
     { href: "/shop", label: "Shop" },
-    { href: "/community", label: "Community" },
-    { href: "/dashboard", label: "Dashboard" },
+    { href: "/wishlist", label: "Saved" },
 ]
 
 /**

@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Heart, ChevronDown, ChevronRight, X, Menu, Clock, Package, Globe, Filter } from "lucide-react"
+import { Heart, ChevronDown, ChevronRight, X, Menu, Package, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { useAuth } from "@/lib/auth-context"
@@ -97,7 +97,6 @@ function ShopPageContent() {
     const [selectedSize, setSelectedSize] = useState<string | null>(null)
     const [inStockOnly, setInStockOnly] = useState(false)
     const [sortBy, setSortBy] = useState<"newest" | "price_asc" | "price_desc">("newest")
-    const [compareMode, setCompareMode] = useState(false)
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["Tops"]))
 
     const [isLoading, setIsLoading] = useState(false)
@@ -116,7 +115,8 @@ function ShopPageContent() {
 
     useEffect(() => {
         setIsPageLoaded(true)
-        fetchProducts(0, true)
+        // No fetch here: the filter effect below also runs on mount, and the
+        // two together issued the same request twice on every visit.
     }, [])
 
     useEffect(() => {
@@ -237,18 +237,6 @@ function ShopPageContent() {
 
     const hasActiveFilters = selectedRegion !== "all" || selectedProductTypes.length > 0 || !!selectedSize || inStockOnly
 
-    // Group products by handle for price comparison
-    const groupedByHandle = useMemo(() => {
-        if (!compareMode) return null
-        const groups = new Map<string, Product[]>()
-        products.forEach((p) => {
-            const existing = groups.get(p.handle) || []
-            existing.push(p)
-            groups.set(p.handle, existing)
-        })
-        return groups
-    }, [products, compareMode])
-
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Shared fixed header with page-specific actions (search lives in the header) */}
@@ -279,9 +267,6 @@ function ShopPageContent() {
                             <div className="space-y-1">
                                 <button onClick={() => setInStockOnly(!inStockOnly)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${inStockOnly ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
                                     <Package className="w-4 h-4" strokeWidth={1.8} />In stock only
-                                </button>
-                                <button onClick={() => setCompareMode(!compareMode)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${compareMode ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
-                                    <Globe className="w-4 h-4" strokeWidth={1.8} />Compare prices
                                 </button>
                             </div>
                         </div>
@@ -391,31 +376,6 @@ function ShopPageContent() {
                                 <p className="text-sm text-muted-foreground">No products found</p>
                                 <button onClick={clearFilters} className="pill mt-5 px-5 py-2 bg-secondary text-[13px] font-medium hover:bg-border transition-colors">Clear filters</button>
                             </div>
-                        ) : compareMode && groupedByHandle ? (
-                            // Price Comparison View
-                            <div className="space-y-4">
-                                {Array.from(groupedByHandle.entries()).slice(0, 20).map(([handle, variants]) => (
-                                    <div key={handle} className="rounded-2xl bg-secondary p-4">
-                                        <div className="flex gap-4">
-                                            <div className="w-20 h-28 rounded-xl overflow-hidden bg-background flex-shrink-0">
-                                                <ImageWithLoading src={variants[0].image_url} alt={variants[0].title} className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-[13px] font-medium mb-3 truncate">{variants[0].title}</h3>
-                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                                                    {variants.sort((a, b) => a.price - b.price).map((v) => (
-                                                        <a key={v.id} href={v.product_url} target="_blank" rel="noopener noreferrer" className={`rounded-xl bg-background p-2.5 text-center transition-opacity ${v.is_available ? "hover:opacity-70" : "opacity-40"}`}>
-                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{v.region}</p>
-                                                            <p className="text-[13px] font-medium mt-0.5">{formatPrice(v.price, v.currency)}</p>
-                                                            {!v.is_available && <p className="text-[10px] text-muted-foreground">Sold out</p>}
-                                                        </a>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
                         ) : (
                             // Grid View
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
@@ -473,7 +433,7 @@ function ShopPageContent() {
                             </div>
                         )}
 
-                        {hasMore && products.length > 0 && !compareMode && (
+                        {hasMore && products.length > 0 && (
                             <div ref={scrollRef} className="mt-8 flex flex-col items-center gap-4">
                                 {isLoadingMore ? (
                                     <div className="text-[13px] text-muted-foreground">Loading…</div>

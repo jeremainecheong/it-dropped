@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         // Personal and transient surfaces carry no search value and, in the
         // case of search, would let a crawler generate unbounded URLs.
-        disallow: ["/api/", "/auth/", "/profile", "/wishlist", "/compare?"],
+        disallow: ["/api/", "/auth/", "/profile", "/wishlist"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

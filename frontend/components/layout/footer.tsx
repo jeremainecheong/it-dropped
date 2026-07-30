@@ -19,16 +19,16 @@ export function Footer() {
               <p className="label">Browse</p>
               <ul className="space-y-2 text-[13px] text-muted-foreground">
                 <li><Link href="/shop" className="hover:text-foreground transition-colors">Shop</Link></li>
-                <li><Link href="/community" className="hover:text-foreground transition-colors">Community</Link></li>
-                <li><Link href="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link></li>
+                <li><Link href="/drops" className="hover:text-foreground transition-colors">Drops</Link></li>
+                <li><Link href="/wishlist" className="hover:text-foreground transition-colors">Saved</Link></li>
               </ul>
             </div>
             <div className="space-y-2.5">
               <p className="label">Account</p>
               <ul className="space-y-2 text-[13px] text-muted-foreground">
                 <li><Link href="/login" className="hover:text-foreground transition-colors">Sign in</Link></li>
-                <li><Link href="/signup" className="hover:text-foreground transition-colors">Create account</Link></li>
-                <li><Link href="/wishlist" className="hover:text-foreground transition-colors">Wishlist</Link></li>
+                <li><Link href="/profile/alerts" className="hover:text-foreground transition-colors">Alerts</Link></li>
+                <li><Link href="/profile" className="hover:text-foreground transition-colors">Profile</Link></li>
               </ul>
             </div>
           </div>
