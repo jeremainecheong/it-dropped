@@ -18,6 +18,7 @@ import { scarcity } from "@/lib/scarcity"
 import { DestinationSelect } from "@/components/ui/destination-select"
 import { RegionAlertCard } from "@/components/product/region-alert-card"
 import { SizeAvailability } from "@/components/product/size-availability"
+import { SelloutVelocity } from "@/components/product/sellout-velocity"
 
 interface Product {
   id: string
@@ -437,6 +438,8 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
 
           {rankedOffers.length > 1 && (
             <>
+            <SelloutVelocity styleCode={product.style_code || product.handle} />
+
             <SizeAvailability
               offers={rankedOffers.map(({ offer, landed }) => ({
                 id: offer.id,
