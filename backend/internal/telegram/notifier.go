@@ -172,6 +172,12 @@ func (n *Notifier) shouldNotify(sub *models.Subscriber, changeType models.Change
 		// Sell-outs ride the restock preference: someone who cares that an
 		// item came back also cares that it went.
 		return sub.NotifyRestock
+	case models.ChangeTypeDelisted:
+		// Same preference again: a listing pulled from the store is the same
+		// news as one selling out, and it is never coming back in that region.
+		// Without this case it fell through to the default below and reached
+		// subscribers who had turned every category off.
+		return sub.NotifyRestock
 	default:
 		return true
 	}

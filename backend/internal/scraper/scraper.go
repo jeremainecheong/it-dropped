@@ -267,6 +267,66 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 	// Detect changes
 	drops := DetectChanges(existingProducts, changed)
 
+	// ---- delistings ------------------------------------------------------
+	// DetectChanges can only see products the store returned, so a listing
+	// pulled from the feed entirely was never diffed and kept is_available =
+	// true indefinitely. Everything stored for this region that the fetch did
+	// not return is a candidate; DetectDelistings decides what to write.
+	//
+	// Gated on a COMPLETE fetch. `partial` non-nil means pagination stopped
+	// early, so every product past the stopping point is missing from `parsed`
+	// while being perfectly present in the store — flipping those would mark
+	// most of a region unavailable in one cycle, which is a far worse failure
+	// than the one being fixed here.
+	var delisted []models.Product
+	if partial != nil {
+		log.Info().
+			Str("region", region.Code).
+			Int("stored", len(existingHashes)).
+			Int("fetched", len(parsed)).
+			Msg("Partial catalogue: skipping the delisting check for this region")
+	} else {
+		fetchedIDs := make(map[int64]bool, len(parsed))
+		for i := range parsed {
+			fetchedIDs[parsed[i].ShopifyID] = true
+		}
+
+		var missingIDs []int64
+		for shopifyID := range existingHashes {
+			if !fetchedIDs[shopifyID] {
+				missingIDs = append(missingIDs, shopifyID)
+			}
+		}
+
+		if len(missingIDs) > 0 {
+			// Phase 1 read hashes only; the drop needs title, price and image,
+			// and DetectDelistings needs last_seen_at to tell a fresh
+			// disappearance from the seeding-era backlog.
+			//
+			// Failing the region on a read error rather than carrying on
+			// costs nothing permanent: every drop this cycle would have
+			// emitted is re-derived from stored state next cycle, because the
+			// diff is always stored-versus-fetched and nothing has been
+			// written yet at this point.
+			var stale map[int64]*models.Product
+			stale, err = s.db.GetProductsByShopifyIDs(ctx, region.Code, missingIDs)
+			if err != nil {
+				return 0, 0, 0, 0, err
+			}
+
+			var delistedDrops []models.Drop
+			delisted, delistedDrops = DetectDelistings(stale, time.Now())
+			drops = append(drops, delistedDrops...)
+
+			log.Info().
+				Str("region", region.Code).
+				Int("missing", len(missingIDs)).
+				Int("delisted", len(delisted)).
+				Int("announced", len(delistedDrops)).
+				Msg("Products no longer published by the store")
+		}
+	}
+
 	// Count changes by type
 	for _, drop := range drops {
 		switch drop.ChangeType {
@@ -278,6 +338,10 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 			priceChanges++
 		case models.ChangeTypeSoldOut, models.ChangeTypeSizeSoldOut:
 			soldOutCount++
+		case ChangeTypeDelisted:
+			// Deliberately not folded into soldOutCount: the two are different
+			// events, and only sold_out feeds migration 019's velocity figures.
+			// Delistings are reported by the log line below instead.
 		}
 	}
 
@@ -308,6 +372,30 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		// on_product_price_change on the products table, so the upsert above
 		// has already appended a row. Recording it again from Go would double
 		// every point on the product-page chart.
+	}
+
+	// Delisted rows go through the same upsert so is_available actually lands
+	// in the database — the correction is the whole point, the drop is only how
+	// it becomes visible. `delisted` must not be appended to from here on, for
+	// the same reason as `changed` above: the drop linkage takes element
+	// addresses.
+	//
+	// Their shopify_ids cannot collide with `changed`: one set is what the fetch
+	// returned, the other is what it did not.
+	for i := range delisted {
+		p := &delisted[i]
+
+		if upsertErr := s.db.UpsertProduct(ctx, p); upsertErr != nil {
+			writeFailures++
+			if writeErr == nil {
+				writeErr = upsertErr
+			}
+			log.Error().Err(upsertErr).
+				Int64("shopifyID", p.ShopifyID).
+				Msg("Failed to mark delisted product unavailable")
+			continue
+		}
+		upserted++
 	}
 
 	touched := 0
@@ -347,9 +435,12 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		Msg("Product writes")
 
 	// Create drops
-	byShopifyID := make(map[int64]*models.Product, len(changed))
+	byShopifyID := make(map[int64]*models.Product, len(changed)+len(delisted))
 	for i := range changed {
 		byShopifyID[changed[i].ShopifyID] = &changed[i]
+	}
+	for i := range delisted {
+		byShopifyID[delisted[i].ShopifyID] = &delisted[i]
 	}
 
 	for i := range drops {
@@ -406,6 +497,21 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		}
 	}
 
+	// A delisted product is unavailable for the same reason a sold-out one is,
+	// so a user watching it for a restock gets their alert put back on watch
+	// rather than left spent from the last time it came back. The loop above
+	// cannot cover these: it scans `changed`, and these products are precisely
+	// the ones the fetch did not return.
+	for i := range delisted {
+		p := &delisted[i]
+		if p.ID == uuid.Nil {
+			continue
+		}
+		if err := s.db.ReArmAlerts(ctx, p.ID, p.IsAvailable); err != nil {
+			log.Error().Err(err).Msg("Failed to re-arm alerts for a delisted product")
+		}
+	}
+
 	log.Info().
 		Str("region", region.Code).
 		Int("products", len(parsed)).
@@ -413,6 +519,7 @@ func (s *Scraper) scrapeRegion(ctx context.Context, region Region) (newCount, re
 		Int("restocks", restockCount).
 		Int("priceChanges", priceChanges).
 		Int("soldOut", soldOutCount).
+		Int("delisted", len(delisted)).
 		Bool("partial", partial != nil).
 		Msg("Region scrape completed")
 
