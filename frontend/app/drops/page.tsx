@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
-import { Sparkles, RotateCcw, TrendingDown, TrendingUp, PackageX, Ruler } from "lucide-react"
+import { Sparkles, RotateCcw, TrendingDown, TrendingUp, PackageX, Ruler, Archive, Megaphone } from "lucide-react"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
@@ -40,7 +40,15 @@ const TYPE_META: Record<string, { label: string; icon: typeof Sparkles; tone: st
   price_increase: { label: "Price up", icon: TrendingUp, tone: "bg-secondary text-muted-foreground" },
   sold_out: { label: "Sold out", icon: PackageX, tone: "bg-secondary text-muted-foreground" },
   size_sold_out: { label: "Size gone", icon: PackageX, tone: "bg-secondary text-muted-foreground" },
+  // Not "sold out": all the scraper observed is that the store stopped
+  // publishing the listing (migration 022).
+  delisted: { label: "Pulled", icon: Archive, tone: "bg-secondary text-muted-foreground" },
 }
+
+/** A change type this page has no entry for. The fallback used to be
+ *  TYPE_META.new, which dressed unknown events — including 'delisted', before
+ *  it had an entry — in a "New" badge, the exact opposite of what happened. */
+const UNKNOWN_META = { label: "Update", icon: Megaphone, tone: "bg-secondary text-muted-foreground" }
 
 const REGIONS = ["", "us", "uk", "eu", "jp", "au", "sg"]
 
@@ -141,17 +149,40 @@ export default function DropsPage() {
               ))}
             </div>
           ) : drops.length === 0 ? (
+            // An empty region is a true statement, not a failure: this feed
+            // only holds events a scrape actually witnessed, and a quiet or
+            // newly-covered region (SG's catalogue was backfilled without
+            // fabricating events) legitimately has none. Say that, rather
+            // than a generic "nothing here" that reads as broken.
             <div className="text-center py-24">
               <Sparkles className="w-9 h-9 mx-auto text-muted-foreground mb-4" strokeWidth={1.5} />
-              <p className="text-[15px] font-semibold mb-1">Nothing here yet</p>
-              <p className="text-[13px] text-muted-foreground max-w-xs mx-auto">
-                Drops appear the moment the tracker sees them. Try a different filter.
+              <p className="text-[15px] font-semibold mb-1">
+                {region
+                  ? `No drops witnessed in ${region.toUpperCase()} yet`
+                  : "Nothing here yet"}
               </p>
+              <p className="text-[13px] text-muted-foreground max-w-xs mx-auto">
+                This feed only shows changes the tracker has actually seen
+                happen. The next release, restock, price change or sell-out
+                {region ? ` in ${region.toUpperCase()}` : ""} will appear here
+                the moment a scrape catches it.
+              </p>
+              {(changeType || region) && (
+                <button
+                  onClick={() => {
+                    setChangeType("")
+                    setRegion("")
+                  }}
+                  className="pill mt-5 px-4 py-2 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-2 pb-16">
               {drops.map((drop) => {
-                const meta = TYPE_META[drop.change_type] || TYPE_META.new
+                const meta = TYPE_META[drop.change_type] || UNKNOWN_META
                 const Icon = meta.icon
                 const href = drop.product_id ? `/product/${drop.product_id}` : drop.product_url
                 return (
