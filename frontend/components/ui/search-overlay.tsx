@@ -3,11 +3,16 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Search, X, Filter, Heart } from "lucide-react"
+import { toast } from "sonner"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { useWishlist } from "@/lib/wishlist-context"
 
 interface SearchResult {
     id: string
+    /** search_products returns SETOF products, so the real handle is here —
+     *  passing it means a save from search keys the same as one from the shop
+     *  grid instead of falling back to the product id as its handle. */
+    handle?: string
     title: string
     price: number
     currency: string
@@ -41,7 +46,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
     const [availableOnly, setAvailableOnly] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
-    const { items: wishlist, addItem, removeItem } = useWishlist()
+    const { addItem, removeItem, isInWishlist } = useWishlist()
 
     useEffect(() => {
         if (isOpen && inputRef.current) {
@@ -98,6 +103,9 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                 // Aborted requests are expected as the user keeps typing
                 if ((error as Error).name !== "AbortError") {
                     console.error("Search error:", error)
+                    // Without this the overlay just shows "No results", which
+                    // reads as "nothing matched" rather than "the request failed".
+                    toast.error("Search failed. Check your connection and try again.")
                 }
             } finally {
                 if (!controller.signal.aborted) setIsSearching(false)
@@ -115,7 +123,10 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
         return `${symbols[currency] || currency}${price.toFixed(currency === "JPY" ? 0 : 2)}`
     }
 
-    const isWishlisted = (id: string) => wishlist.some((item) => item.id === id)
+    // The context is the one place that knows a save can be keyed by product id
+    // or, for rows written before product_id existed, by handle. This checked
+    // item.id alone, so a saved item's heart never filled in here.
+    const isWishlisted = isInWishlist
 
     const handleWishlist = (item: SearchResult, e: React.MouseEvent) => {
         e.preventDefault()
@@ -131,6 +142,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                 image: item.image_url,
                 url: item.product_url,
                 region: item.region,
+                handle: item.handle,
             })
         }
     }
