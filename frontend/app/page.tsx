@@ -1,60 +1,130 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Globe, LineChart, Timer } from "lucide-react"
+import { ArrowRight, Heart, PackageX, TrendingDown } from "lucide-react"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
-import { LogoMark } from "@/components/ui/logo"
+import { ImageWithLoading } from "@/components/image-with-loading"
+import { useAuth } from "@/lib/auth-context"
+import { asProductId, useWishlist } from "@/lib/wishlist-context"
+import { supabase } from "@/lib/supabase"
+import { formatNative, useDisplayPrice } from "@/lib/display-price"
 
-interface FeaturedDrop {
-  id?: string
+interface LatestProduct {
+  id: string
   title: string
-  price: string
-  image: string
+  price: number
+  currency: string
+  image_url: string
   region: string
-  isNew?: boolean
-  salePct?: number
 }
 
-// Shown until live drops load, and if the API is unreachable.
-const FALLBACK_DROPS: FeaturedDrop[] = [
-  { title: "8 Ball Fleece Jacket", price: "$185", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/115690_BLAC_1.jpg", region: "US" },
-  { title: "Stock Link Sweater", price: "$140", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/117752_NATU_1.jpg", region: "UK" },
-  { title: "Basic Stüssy Tee", price: "$45", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/1904917_SAGE_1.jpg", region: "JP" },
-  { title: "Stock Logo Hoodie", price: "$165", image: "https://cdn.shopify.com/s/files/1/0087/6193/3920/files/118572_CHAR_1.jpg", region: "EU" },
-]
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$", GBP: "£", EUR: "€", JPY: "¥", AUD: "A$", SGD: "S$",
+interface PriceCut {
+  id: string
+  product_id: string | null
+  title: string
+  price: number
+  currency: string
+  old_value: string
+  region: string
+  product_url: string
+  detected_at: string
 }
 
-const formatPrice = (price: number, currency: string) =>
-  `${CURRENCY_SYMBOLS[currency] || currency}${price.toFixed(currency === "JPY" ? 0 : 2)}`
+interface CurrentPrice {
+  price: number
+  currency: string
+  isAvailable: boolean
+}
 
-const FEATURES = [
-  {
-    icon: Globe,
-    title: "Six regions, one view",
-    body: "US, UK, EU, Japan, Australia and Singapore monitored in parallel, so you can compare every storefront at a glance.",
-  },
-  {
-    icon: LineChart,
-    title: "Price intelligence",
-    body: "Full price history and cross-region comparison. Know the floor before you check out — never overpay again.",
-  },
-  {
-    icon: Timer,
-    title: "Sell-out velocity",
-    body: "How fast each style went last time, region by region — measured from observed sell-outs, so you know which pieces won't wait.",
-  },
-]
+/**
+ * Next Friday 18:00 in Singapore. Stussy's weekly release has landed then for
+ * every drop the tracker has witnessed, but it is an observed pattern, not a
+ * schedule the stores publish — the copy under the countdown says so.
+ *
+ * SGT is UTC+8 with no DST, so Friday 18:00 SGT is always Friday 10:00 UTC and
+ * the maths can stay in UTC instead of fighting timezone APIs.
+ */
+function nextExpectedDrop(nowMs: number): Date {
+  const target = new Date(nowMs)
+  target.setUTCHours(10, 0, 0, 0)
+  let daysAhead = (5 - target.getUTCDay() + 7) % 7
+  if (daysAhead === 0 && target.getTime() <= nowMs) daysAhead = 7
+  target.setUTCDate(target.getUTCDate() + daysAhead)
+  return target
+}
+
+function countdownLabel(nowMs: number): string {
+  const diff = Math.max(0, Math.floor((nextExpectedDrop(nowMs).getTime() - nowMs) / 1000))
+  const d = Math.floor(diff / 86400)
+  const h = Math.floor((diff % 86400) / 3600)
+  const m = Math.floor((diff % 3600) / 60)
+  const s = diff % 60
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s`
+}
+
+function timeAgo(iso: string) {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return "just now"
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
+/**
+ * What the saved listings cost *now* — the bulk pattern from /wishlist: one
+ * .in() read of products for the whole saved set. products is publicly
+ * SELECT-able (migration 013), so the browser client reads it directly.
+ */
+function useCurrentPrices(productIds: string[]) {
+  const [prices, setPrices] = useState<Record<string, CurrentPrice>>({})
+
+  // Keyed on the joined ids so the effect re-runs when the saved set changes
+  // and not when the array is merely a new object of the same ids.
+  const key = productIds.join(",")
+
+  useEffect(() => {
+    // Legacy saves resolve their id from the TEXT handle column, so an id here
+    // is not guaranteed to be a product UUID. products.id is UUID: one bad
+    // value in the filter is a 400 for the whole request.
+    const ids = productIds.filter((id) => asProductId(id) !== null)
+    if (!ids.length) return
+    let cancelled = false
+
+    supabase
+      .from("products")
+      .select("id, price, currency, is_available")
+      .in("id", ids)
+      .then(({ data, error }) => {
+        // No current price is a real answer: the item simply doesn't show as a
+        // mover rather than showing a delta we cannot stand behind.
+        if (cancelled || error || !Array.isArray(data)) return
+        const next: Record<string, CurrentPrice> = {}
+        for (const row of data as Array<{ id: string; price: number | string | null; currency: string; is_available: boolean }>) {
+          if (row.price == null) continue
+          next[row.id] = {
+            price: Number(row.price),
+            currency: row.currency,
+            isAvailable: row.is_available,
+          }
+        }
+        setPrices(next)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  return prices
+}
 
 /**
  * Placeholders until the real numbers load. Every figure shown here comes from
- * the tracker's own database — the previous version claimed "12.4K active
- * users" and "847K drops tracked", both fabricated, on a product whose entire
- * pitch is data you can trust.
+ * the tracker's own database — a dash is more honest than a made-up figure.
  */
 const STATS_FALLBACK = [
   { value: "—", label: "Products tracked" },
@@ -62,25 +132,64 @@ const STATS_FALLBACK = [
   { value: "6", label: "Regions" },
 ]
 
-export default function LandingPage() {
-  const [isMounted, setIsMounted] = useState(false)
-  const [drops, setDrops] = useState<FeaturedDrop[]>(FALLBACK_DROPS)
+export default function TodayPage() {
+  const { user, isLoading: authLoading } = useAuth()
+  const { items } = useWishlist()
+  const fmt = useDisplayPrice()
+
+  // null until mounted: the server can't know the client's clock, and any
+  // real time here would be a hydration mismatch.
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  const [lastScrapeAt, setLastScrapeAt] = useState<string | null>(null)
+  const [latest, setLatest] = useState<LatestProduct[]>([])
+  const [latestLoading, setLatestLoading] = useState(true)
+  const [cuts, setCuts] = useState<PriceCut[]>([])
+  const [cutsLoading, setCutsLoading] = useState(true)
   const [stats, setStats] = useState(STATS_FALLBACK)
 
-  useEffect(() => {
-    setIsMounted(true)
+  const currentPrices = useCurrentPrices(useMemo(() => items.map((i) => i.id), [items]))
 
+  // Live countdown tick; also keeps the "checked Xm ago" line current.
+  useEffect(() => {
+    setNowMs(Date.now())
+    const id = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
 
+    const load = async (url: string) => fetch(url).then((r) => r.json())
+
+    load("/api/dropradar/status")
+      .then((json) => {
+        if (!cancelled && json?.success && json.data?.last_scrape_at) {
+          setLastScrapeAt(json.data.last_scrape_at)
+        }
+      })
+      .catch(() => {})
+
+    load("/api/dropradar/products?limit=8&sort=newest&available=true")
+      .then((json) => {
+        if (!cancelled && json?.success && Array.isArray(json.data)) setLatest(json.data)
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setLatestLoading(false))
+
+    load("/api/dropradar/drops?type=price_drop&limit=6")
+      .then((json) => {
+        if (!cancelled && json?.success && Array.isArray(json.data)) setCuts(json.data)
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setCutsLoading(false))
+
     // Real numbers from the same API the rest of the app reads. If either
-    // request fails the placeholders stay — a dash is more honest than a
-    // made-up figure.
-    const loadStats = async () => {
-      try {
-        const [statsRes, dropsRes] = await Promise.all([
-          fetch("/api/dropradar/stats").then((r) => r.json()),
-          fetch("/api/dropradar/drops?limit=1").then((r) => r.json()),
-        ])
+    // request fails the placeholders stay.
+    Promise.all([
+      load("/api/dropradar/stats"),
+      load("/api/dropradar/drops?limit=1"),
+    ])
+      .then(([statsRes, dropsRes]) => {
         if (cancelled) return
         const regions: any[] = Array.isArray(statsRes?.data) ? statsRes.data : []
         const tracked = regions.reduce((acc, r) => acc + (r.total_tracked_items || 0), 0)
@@ -90,199 +199,286 @@ export default function LandingPage() {
           { value: typeof witnessed === "number" ? witnessed.toLocaleString() : "—", label: "Changes witnessed" },
           { value: String(regions.length || 6), label: "Regions" },
         ])
-      } catch {
-        // placeholders stay
-      }
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
     }
-    loadStats()
-
-    const loadLatestDrops = async () => {
-      try {
-        const res = await fetch("/api/dropradar/products?limit=4&sort=newest&available=true")
-        const json = await res.json()
-        if (cancelled || !json?.success || !Array.isArray(json.data) || json.data.length === 0) return
-
-        setDrops(
-          json.data.map((p: any): FeaturedDrop => ({
-            id: p.id,
-            title: p.title,
-            price: formatPrice(p.price, p.currency),
-            image: p.image_url,
-            region: String(p.region || "").toUpperCase(),
-            isNew: Date.now() - new Date(p.first_seen_at).getTime() < 48 * 3600 * 1000,
-            salePct: p.compare_price && p.compare_price > p.price
-              ? Math.round((1 - p.price / p.compare_price) * 100)
-              : 0,
-          }))
-        )
-      } catch {
-        // keep the curated fallback
-      }
-    }
-
-    loadLatestDrops()
-    return () => { cancelled = true }
   }, [])
+
+  // A saved item earns a row only if something actually changed: the price
+  // moved past rounding tolerance (prices are decimals off the wire), or the
+  // listing sold out. Saves without a live products row stay silent.
+  const movers = useMemo(
+    () =>
+      items
+        .map((item) => {
+          const current = currentPrices[item.id]
+          if (!current) return null
+          const delta = current.price - item.price
+          const priceMoved = Math.abs(delta) > 0.01
+          if (!priceMoved && current.isAvailable) return null
+          return { item, current, delta, priceMoved }
+        })
+        .filter((m): m is NonNullable<typeof m> => m !== null),
+    [items, currentPrices],
+  )
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
       <main className="flex-1 pt-12">
-        {/* Hero */}
-        <section className="mx-auto max-w-4xl px-6 pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
-          <div className={isMounted ? "animate-rise" : "opacity-0"}>
-            <span className="inline-flex items-center gap-2 pill bg-secondary px-3.5 py-1.5 text-xs font-medium text-muted-foreground">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-60" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-signal" />
-              </span>
-              Live in 6 regions
-            </span>
-
-            <h1 className="display text-6xl sm:text-7xl lg:text-[6.5rem] mt-8 tracking-[-0.03em]">
-              Never miss
-              <br />
-              <span className="text-outline">a drop</span>
-              <LogoMark className="inline-block w-[0.6em] h-[0.6em] ml-[0.08em] align-baseline" />
-            </h1>
-
-            <p className="text-lg text-muted-foreground leading-relaxed mt-7 max-w-xl mx-auto">
-              It Dropped tracks every Stüssy release, restock and price change
-              worldwide — quietly, in one place.
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          {/* Next expected drop + freshness */}
+          <section className="pt-8 pb-10">
+            <p className="label mb-1.5 flex items-center gap-1.5">
+              <span className="w-1 h-1 rounded-full bg-signal" aria-hidden />
+              Today
             </p>
+            <h1 className="display text-2xl md:text-3xl">Next expected drop</h1>
+            <p className="display text-5xl sm:text-6xl mt-4 tabular-nums" suppressHydrationWarning>
+              {nowMs === null ? "—" : countdownLabel(nowMs)}
+            </p>
+            <p className="text-[13px] text-muted-foreground mt-2.5">
+              Fridays 18:00 Singapore time — typical, measured — not promised.
+            </p>
+            <p className="text-[13px] text-muted-foreground mt-1">
+              {lastScrapeAt ? `Catalogue checked ${timeAgo(lastScrapeAt)}` : "Catalogue freshness unknown"}
+            </p>
+          </section>
 
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-9">
+          {/* Latest drops */}
+          <section className="pb-12">
+            <div className="flex items-end justify-between mb-4">
+              <h2 className="display text-xl sm:text-2xl">Latest drops</h2>
               <Link
-                href="/signup"
-                className="pill group inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-medium hover:opacity-85"
+                href="/drops"
+                className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
-                Start tracking
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <Link
-                href="/shop"
-                className="pill inline-flex items-center px-6 py-3 bg-secondary text-sm font-medium hover:bg-border"
-              >
-                Browse drops
+                All drops <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
-          </div>
-        </section>
 
-        {/* Featured drops */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
-          <div className="flex items-end justify-between mb-6">
-            <div>
-              <p className="label mb-1.5 flex items-center gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-signal" aria-hidden />
-                This week
-              </p>
-              <h2 className="display text-2xl sm:text-3xl">On the radar</h2>
-            </div>
-            <Link
-              href="/shop"
-              className="hidden sm:inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              View all <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {drops.map((drop, i) => (
-              <Link
-                key={drop.id ?? drop.title}
-                href={drop.id ? `/product/${drop.id}` : "/shop"}
-                className={`group ${isMounted ? "animate-rise" : "opacity-0"}`}
-                style={{ animationDelay: `${150 + i * 90}ms` }}
-              >
-                <div className="card-lift relative aspect-[3/4] bg-secondary rounded-3xl overflow-hidden">
-                  <img
-                    src={drop.image}
-                    alt={drop.title}
-                    className="w-full h-full object-cover product-image-zoom"
-                  />
-                  <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-                    <span className="pill bg-background/90 backdrop-blur px-2.5 py-1 text-[11px] font-medium">
-                      {drop.region}
-                    </span>
-                    {drop.isNew && (
-                      <span className="pill bg-foreground text-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">
-                        New
-                      </span>
-                    )}
-                    {!!drop.salePct && drop.salePct > 0 && (
-                      <span className="pill bg-signal text-signal-foreground px-2.5 py-1 text-[10px] font-semibold">
-                        −{drop.salePct}%
-                      </span>
-                    )}
+            {latestLoading ? (
+              <div className="flex gap-4 overflow-hidden">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="w-40 sm:w-44 shrink-0">
+                    <div className="aspect-[3/4] rounded-2xl image-loading" />
                   </div>
-                  <span className="pill absolute bottom-3 right-3 bg-foreground text-background px-3 py-1.5 text-[12px] font-medium opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-                    {drop.price}
-                  </span>
+                ))}
+              </div>
+            ) : latest.length === 0 ? (
+              <p className="text-[13px] text-muted-foreground">
+                Nothing live right now —{" "}
+                <Link href="/drops" className="underline underline-offset-2 hover:text-foreground">
+                  see the full feed
+                </Link>
+                .
+              </p>
+            ) : (
+              <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:-mx-6 sm:px-6 pb-1">
+                {latest.map((p) => (
+                  <Link key={p.id} href={`/product/${p.id}`} className="group w-40 sm:w-44 shrink-0">
+                    <div className="card-lift relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
+                      <ImageWithLoading
+                        src={p.image_url}
+                        alt={p.title}
+                        className="w-full h-full object-cover product-image-zoom"
+                      />
+                      <span className="pill absolute top-2.5 left-2.5 bg-background/90 backdrop-blur px-2 py-0.5 text-[10px] font-medium uppercase">
+                        {p.region}
+                      </span>
+                    </div>
+                    <h3 className="text-[13px] font-medium truncate mt-2.5 px-0.5">{p.title}</h3>
+                    <p className="text-[13px] text-muted-foreground px-0.5">{fmt(p.price, p.currency)}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Saved movers (signed in) / slim sign-in banner (signed out) */}
+          {user ? (
+            <section className="pb-12">
+              <div className="flex items-end justify-between mb-4">
+                <h2 className="display text-xl sm:text-2xl">Your saved items</h2>
+                <Link
+                  href="/wishlist"
+                  className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  View saved <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {movers.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">
+                  {items.length === 0 ? "Nothing saved yet — " : "No movement among your saved items — "}
+                  <Link href="/wishlist" className="underline underline-offset-2 hover:text-foreground">
+                    {items.length === 0 ? "start on your wishlist" : "see them all"}
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {movers.map(({ item, current, delta, priceMoved }) => {
+                    const href = asProductId(item.id) ? `/product/${item.id}` : null
+                    const inner = (
+                      <>
+                        <div className="w-12 h-14 rounded-xl overflow-hidden bg-background shrink-0">
+                          <ImageWithLoading
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-[13px] font-medium truncate">{item.name}</h3>
+                          <p className="text-[12px] text-muted-foreground">
+                            {priceMoved ? (
+                              <>
+                                <span className="line-through">{formatNative(item.price, item.currency)}</span>{" "}
+                                <span className={delta < 0 ? "text-signal font-medium" : undefined}>
+                                  {formatNative(current.price, current.currency)}
+                                </span>
+                              </>
+                            ) : (
+                              formatNative(current.price, current.currency)
+                            )}
+                            <span className="uppercase"> · {item.region}</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {priceMoved && (
+                            <span
+                              className={`pill inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold ${
+                                delta < 0 ? "bg-signal text-signal-foreground" : "bg-secondary text-muted-foreground"
+                              }`}
+                            >
+                              <TrendingDown className={`w-3 h-3 ${delta > 0 ? "rotate-180" : ""}`} />
+                              {delta < 0 ? "−" : "+"}
+                              {formatNative(Math.abs(delta), current.currency)}
+                            </span>
+                          )}
+                          {!current.isAvailable && (
+                            <span className="pill inline-flex items-center gap-1 bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                              <PackageX className="w-3 h-3" />
+                              Sold out
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )
+                    const rowClass = "card-lift flex items-center gap-4 rounded-2xl bg-secondary p-3 pr-4"
+                    return href ? (
+                      <Link key={item.id} href={href} className={rowClass}>
+                        {inner}
+                      </Link>
+                    ) : (
+                      <div key={item.id} className={rowClass}>
+                        {inner}
+                      </div>
+                    )
+                  })}
                 </div>
-                <div className="flex items-baseline justify-between gap-3 mt-3.5 px-1">
-                  <h3 className="text-[13px] font-medium truncate">{drop.title}</h3>
-                  <span className="text-[13px] text-muted-foreground shrink-0">{drop.price}</span>
-                </div>
+              )}
+            </section>
+          ) : authLoading ? null : (
+            <section className="pb-12">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-secondary px-5 py-4">
+                <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+                  <Heart className="w-4 h-4 shrink-0" strokeWidth={1.8} />
+                  Sign in to save items and see when their prices move.
+                </p>
+                <Link
+                  href="/login"
+                  className="pill shrink-0 px-5 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
+                >
+                  Sign in
+                </Link>
+              </div>
+            </section>
+          )}
+
+          {/* Price cuts */}
+          <section className="pb-12">
+            <div className="flex items-end justify-between mb-4">
+              <h2 className="display text-xl sm:text-2xl">Price cuts</h2>
+              <Link
+                href="/drops?type=price_drop"
+                className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                All cuts <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-            ))}
-          </div>
-        </section>
+            </div>
 
-        {/* Features */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
-          <div className="grid md:grid-cols-3 gap-4">
-            {FEATURES.map((feature, i) => (
-              <div key={feature.title} className="card-lift relative rounded-3xl bg-secondary p-8 overflow-hidden">
-                <span className="absolute top-6 right-7 font-display text-sm font-semibold text-muted-foreground/40">
-                  0{i + 1}
-                </span>
-                <span className="inline-flex items-center justify-center w-10 h-10 rounded-2xl bg-background mb-6">
-                  <feature.icon className="w-[18px] h-[18px]" strokeWidth={1.8} />
-                </span>
-                <h3 className="text-[15px] font-semibold mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{feature.body}</p>
+            {cutsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 rounded-2xl bg-secondary p-3">
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-1/3 rounded image-loading" />
+                      <div className="h-3 w-1/5 rounded image-loading" />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Stats */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
-          <div className="flex flex-wrap justify-center gap-x-24 gap-y-8 py-2">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="display text-4xl sm:text-5xl">{stat.value}</p>
-                <p className="text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
+            ) : cuts.length === 0 ? (
+              // A quiet feed is a true statement — this only holds cuts a
+              // scrape actually witnessed.
+              <p className="text-[13px] text-muted-foreground">No price cuts witnessed recently.</p>
+            ) : (
+              <div className="space-y-2">
+                {cuts.map((cut) => {
+                  const oldPrice = parseFloat(cut.old_value)
+                  const inner = (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-[13px] font-medium truncate">{cut.title}</h3>
+                        <p className="text-[12px] text-muted-foreground">
+                          {Number.isFinite(oldPrice) && (
+                            <>
+                              <span className="line-through">{formatNative(oldPrice, cut.currency)}</span>{" "}
+                              <ArrowRight className="inline w-3 h-3 align-[-1px]" />{" "}
+                            </>
+                          )}
+                          <span className="text-signal font-medium">{formatNative(cut.price, cut.currency)}</span>
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[11px] uppercase text-muted-foreground">{cut.region}</p>
+                        <p className="text-[11px] text-muted-foreground">{timeAgo(cut.detected_at)}</p>
+                      </div>
+                    </>
+                  )
+                  const rowClass = "card-lift flex items-center gap-4 rounded-2xl bg-secondary p-3 pr-4"
+                  return cut.product_id ? (
+                    <Link key={cut.id} href={`/product/${cut.product_id}`} className={rowClass}>
+                      {inner}
+                    </Link>
+                  ) : (
+                    <a key={cut.id} href={cut.product_url} target="_blank" rel="noopener noreferrer" className={rowClass}>
+                      {inner}
+                    </a>
+                  )
+                })}
               </div>
-            ))}
-          </div>
-        </section>
+            )}
+          </section>
 
-        {/* CTA */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-28">
-          <div className="relative rounded-[2rem] bg-primary text-primary-foreground px-6 py-20 sm:py-24 text-center overflow-hidden">
-            {/* watermark drop */}
-            <LogoMark className="absolute -right-10 -bottom-14 w-64 h-64 opacity-[0.07] rotate-12 pointer-events-none" />
-
-            <span className="inline-flex items-center gap-2 pill bg-primary-foreground/10 px-3.5 py-1.5 text-xs font-medium text-primary-foreground/70">
-              <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-soft" />
-              Tracking runs 24/7
-            </span>
-            <h2 className="display text-4xl sm:text-5xl mt-6">Ready when you are.</h2>
-            <p className="text-primary-foreground/60 mt-3.5 max-w-md mx-auto">
-              Free to start. Track drops, compare landed prices, get alerted before it&apos;s gone.
-            </p>
-            <Link
-              href="/signup"
-              className="pill group inline-flex items-center gap-2 px-7 py-3.5 mt-9 bg-primary-foreground text-primary text-sm font-medium hover:opacity-90"
-            >
-              Create free account
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-          </div>
-        </section>
+          {/* Stats */}
+          <section className="pb-16">
+            <div className="flex flex-wrap justify-center gap-x-24 gap-y-8 py-2">
+              {stats.map((stat) => (
+                <div key={stat.label} className="text-center">
+                  <p className="display text-4xl sm:text-5xl">{stat.value}</p>
+                  <p className="text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       </main>
 
       <Footer />
