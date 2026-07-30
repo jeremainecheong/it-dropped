@@ -53,7 +53,10 @@ export const catalogueLive = createClient(supabaseUrl, supabaseKey, {
 export const PRODUCT_COLUMNS =
   "id,shopify_id,region,handle,title,vendor,product_type,tags,price,compare_price," +
   "currency,is_available,available_sizes,total_variants,image_url,product_url," +
-  "first_seen_at,last_seen_at,style_code,color,all_sizes,available_variants,published_at"
+  "first_seen_at,last_seen_at,style_code,color,all_sizes,available_variants,published_at," +
+  // Migration 021. Without these the size matrix silently falls back to the raw
+  // runs, and Singapore's "Size Medium" never lands in the same row as "M".
+  "all_sizes_normalised,available_sizes_normalised"
 
 export interface Meta {
   total?: number

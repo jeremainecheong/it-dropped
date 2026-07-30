@@ -17,10 +17,11 @@ func (c *Client) UpsertProduct(ctx context.Context, p *models.Product) error {
 			shopify_id, region, handle, title, vendor, product_type,
 			tags, price, compare_price, currency, is_available,
 			available_sizes, total_variants, image_url, product_url, last_hash,
-			style_code, color, all_sizes, available_variants, published_at
+			style_code, color, all_sizes, available_variants, published_at,
+			all_sizes_normalised, available_sizes_normalised
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-			$17, $18, $19, $20, $21
+			$17, $18, $19, $20, $21, $22, $23
 		)
 		ON CONFLICT (shopify_id, region) DO UPDATE SET
 			handle = EXCLUDED.handle,
@@ -42,6 +43,8 @@ func (c *Client) UpsertProduct(ctx context.Context, p *models.Product) error {
 			all_sizes = EXCLUDED.all_sizes,
 			available_variants = EXCLUDED.available_variants,
 			published_at = EXCLUDED.published_at,
+			all_sizes_normalised = EXCLUDED.all_sizes_normalised,
+			available_sizes_normalised = EXCLUDED.available_sizes_normalised,
 			last_seen_at = NOW()
 		RETURNING id`
 
@@ -50,6 +53,7 @@ func (c *Client) UpsertProduct(ctx context.Context, p *models.Product) error {
 		p.Tags, p.Price, p.ComparePrice, p.Currency, p.IsAvailable,
 		p.AvailableSizes, p.TotalVariants, p.ImageURL, p.ProductURL, p.LastHash,
 		p.StyleCode, p.Color, p.AllSizes, p.AvailableVariants, p.PublishedAt,
+		p.AllSizesNormalised, p.AvailableSizesNormalised,
 	).Scan(&p.ID)
 }
 
@@ -78,7 +82,8 @@ const productColumns = `id, shopify_id, region, handle, title, vendor, product_t
 		available_sizes, total_variants, image_url, product_url,
 		first_seen_at, last_seen_at, last_hash,
 		COALESCE(style_code, handle), COALESCE(color, ''),
-		COALESCE(all_sizes, '{}'), COALESCE(available_variants, 0), published_at`
+		COALESCE(all_sizes, '{}'), COALESCE(available_variants, 0), published_at,
+		COALESCE(all_sizes_normalised, '{}'), COALESCE(available_sizes_normalised, '{}')`
 
 // scanProduct reads one productColumns row into p.
 func scanProduct(rows pgx.Rows, p *models.Product) error {
@@ -88,6 +93,7 @@ func scanProduct(rows pgx.Rows, p *models.Product) error {
 		&p.AvailableSizes, &p.TotalVariants, &p.ImageURL, &p.ProductURL,
 		&p.FirstSeenAt, &p.LastSeenAt, &p.LastHash,
 		&p.StyleCode, &p.Color, &p.AllSizes, &p.AvailableVariants, &p.PublishedAt,
+		&p.AllSizesNormalised, &p.AvailableSizesNormalised,
 	)
 }
 

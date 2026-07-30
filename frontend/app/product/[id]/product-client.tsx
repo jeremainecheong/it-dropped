@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Heart, ExternalLink, Share2, Bell, Check, Globe } from "lucide-react"
+import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { Header } from "@/components/layout/header"
@@ -35,6 +36,9 @@ interface Product {
   is_available: boolean
   available_sizes: string[]
   all_sizes?: string[]
+  /** Cross-region size vocabulary (migration 021); absent until rescraped. */
+  all_sizes_normalised?: string[]
+  available_sizes_normalised?: string[]
   total_variants: number
   available_variants?: number
   image_url: string
@@ -66,7 +70,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
   const params = useParams()
   const productId = (initialProduct?.id ?? params.id) as string
   const { user } = useAuth()
-  const { items: wishlist, addItem, removeItem } = useWishlist()
+  const { addItem, removeItem, isInWishlist } = useWishlist()
 
   const [product, setProduct] = useState<Product | null>(initialProduct ?? null)
   const [relatedProducts, setRelatedProducts] = useState<Product[]>(
@@ -82,7 +86,9 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
     : { label: null, isLow: false }
   const left = product ? scarcity(product.available_variants, product.total_variants) : null
 
-  const isWishlisted = wishlist.some((item) => item.id === productId)
+  // Compared against item.id only, which never held a product id — so the
+  // heart on this page stayed empty for an item that was in fact saved.
+  const isWishlisted = isInWishlist(productId)
 
   // Regional offers ranked by ESTIMATED DELIVERED cost, not sticker price:
   // the cheapest tag can land dearer once shipping and duty are added.
@@ -149,6 +155,9 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
       }
     } catch (error) {
       console.error("Error fetching product:", error)
+      // Otherwise a failed request renders the "Product not found" page, which
+      // claims the listing is gone when the request simply did not complete.
+      toast.error("Couldn't load this product. Check your connection.")
     } finally {
       setIsLoading(false)
     }
@@ -163,6 +172,9 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
       }
     } catch (error) {
       console.error("Error fetching related:", error)
+      // The "Compare regions" block simply does not render without these, so
+      // there is nothing on the page to say the comparison is missing.
+      toast.error("Couldn't load the other regions for this product.")
     }
   }
 
@@ -187,18 +199,27 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
         image: product.image_url,
         url: product.product_url,
         region: product.region,
+        handle: product.handle,
       })
     }
   }
 
   const handleShare = async () => {
-    if (navigator.share && product) {
-      await navigator.share({
-        title: product.title,
-        url: window.location.href,
-      })
-    } else {
-      navigator.clipboard.writeText(window.location.href)
+    // The share sheet rejects with AbortError when the user dismisses it, and
+    // this was unguarded — a cancelled share became an unhandled rejection.
+    // The clipboard path gave no feedback at all, so it looked like nothing
+    // happened.
+    try {
+      if (navigator.share && product) {
+        await navigator.share({ title: product.title, url: window.location.href })
+        return
+      }
+      await navigator.clipboard.writeText(window.location.href)
+      toast.success("Link copied")
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return
+      console.error("Error sharing product:", error)
+      toast.error("Couldn't share this link.")
     }
   }
 
@@ -250,7 +271,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
         currency={product.currency}
       />
 
-      <main className="pt-12 pb-20 md:pb-8">
+      <main className="pt-12 pb-nav">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-5">
           <Link href="/shop" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -446,6 +467,8 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 region: offer.region,
                 all_sizes: offer.all_sizes,
                 available_sizes: offer.available_sizes,
+                all_sizes_normalised: offer.all_sizes_normalised,
+                available_sizes_normalised: offer.available_sizes_normalised,
                 is_available: offer.is_available,
                 deliverability: landed.deliverability,
               }))}

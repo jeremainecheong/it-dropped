@@ -74,6 +74,127 @@ func TestParseResolvesSizeByDeclaredOptionPosition(t *testing.T) {
 	}
 }
 
+// Size normalisation. Measured against the live database, Dover Street Market
+// Singapore's 16 size tokens and the Stussy stores' 77 had an overlap of
+// exactly ZERO, which split every shared garment into two disjoint halves of
+// the availability matrix and made cross-region size alerts impossible.
+//
+// The second half of this table is the part that has to keep working: bags,
+// shoes, hats and belts carry sizes that look nothing like S/M/L and must come
+// back unharmed.
+func TestNormaliseSize(t *testing.T) {
+	cases := []struct{ in, want string }{
+		// --- Dover Street Market Singapore, every distinct form -------------
+		{"Size X-Small", "XS"},
+		{"Size Small", "S"},
+		{"Size Medium", "M"},
+		{"Size Large", "L"},
+		{"Size X-Large", "XL"},
+		{"Size XX-Large", "XXL"},
+		{"Size One Size", "OS"},
+		{"Size Large/X-Large", "L/XL"},
+		{"Size 26", "26"},
+		{"Size 30", "30"},
+		{"Size 38", "38"},
+
+		// --- Stussy's own tokens, which must be left where they already are --
+		{"XS", "XS"},
+		{"S", "S"},
+		{"M", "M"},
+		{"L", "L"},
+		{"XL", "XL"},
+		{"XXL", "XXL"},
+		{"30", "30"},
+		{"S/M", "S/M"},
+		{"L/XL", "L/XL"},
+
+		// ONE SIZE is spelt out on the Stussy stores and prefixed on DSM; both
+		// sides have to move for the rows to meet.
+		{"ONE SIZE", "OS"},
+		{"One Size", "OS"},
+		{"OS", "OS"},
+
+		// --- legitimate non-garment sizes: bags, shoes, caps, belts ---------
+		{"EA", "EA"},
+		{"US 4", "US 4"},
+		{"US 5.5", "US 5.5"},
+		{"US 7", "US 7"},
+		{"7 1/8", "7 1/8"},
+		{"7 1/4", "7 1/4"},
+		{"7 3/8", "7 3/8"},
+		{"7 1/2", "7 1/2"},
+
+		// --- shape tolerance ------------------------------------------------
+		{"  Size   Medium  ", "M"},
+		{"size medium", "M"},
+		{"X Large", "XL"},
+		{"", ""},
+		// The bare word is not a prefix of anything, so it is left alone
+		// rather than stripped down to an empty size.
+		{"Size", "SIZE"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			if got := normaliseSize(tc.in); got != tc.want {
+				t.Errorf("normaliseSize(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// The whole point of the exercise: a garment listed in Singapore and a garment
+// listed in the US must produce the same normalised tokens.
+func TestNormalisedSizesJoinSingaporeToStussy(t *testing.T) {
+	sg := normaliseSizes([]string{"Size Small", "Size Medium", "Size Large", "Size X-Large"})
+	us := normaliseSizes([]string{"S", "M", "L", "XL"})
+
+	if !equalStrings(sg, us) {
+		t.Fatalf("SG %v and US %v must normalise to the same tokens", sg, us)
+	}
+}
+
+// Normalisation can map two raw tokens onto one, which would otherwise put a
+// duplicate row in the size matrix.
+func TestNormaliseSizesDedupes(t *testing.T) {
+	got := normaliseSizes([]string{"ONE SIZE", "OS", "One Size", ""})
+	if want := []string{"OS"}; !equalStrings(got, want) {
+		t.Errorf("normaliseSizes = %v, want %v", got, want)
+	}
+}
+
+// Parse must persist BOTH: the raw run the store published and the normalised
+// one. Overwriting the raw values would make a bad rule unrecoverable.
+func TestParseKeepsRawAndNormalisedSizes(t *testing.T) {
+	sp := models.ShopifyProduct{
+		ID:     1001,
+		Handle: "stussy-mens-varsity-zip-hood-navy-ss26-118589",
+		Options: []models.ShopifyOption{
+			{Name: "Colour", Position: 1},
+			{Name: "Size", Position: 2},
+		},
+		Variants: []models.ShopifyVariant{
+			{ID: 1, Price: "329.00", Available: true, Option1: "Navy", Option2: "Size Medium"},
+			{ID: 2, Price: "329.00", Available: false, Option1: "Navy", Option2: "Size Large"},
+		},
+	}
+
+	p := Parse(sp, Regions["us"])
+
+	if got, want := p.AllSizes, []string{"Size Medium", "Size Large"}; !equalStrings(got, want) {
+		t.Errorf("AllSizes = %v, want the untouched %v", got, want)
+	}
+	if got, want := p.AllSizesNormalised, []string{"M", "L"}; !equalStrings(got, want) {
+		t.Errorf("AllSizesNormalised = %v, want %v", got, want)
+	}
+	if got, want := p.AvailableSizes, []string{"Size Medium"}; !equalStrings(got, want) {
+		t.Errorf("AvailableSizes = %v, want %v", got, want)
+	}
+	if got, want := p.AvailableSizesNormalised, []string{"M"}; !equalStrings(got, want) {
+		t.Errorf("AvailableSizesNormalised = %v, want %v", got, want)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

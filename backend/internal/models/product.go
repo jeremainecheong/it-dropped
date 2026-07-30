@@ -39,6 +39,14 @@ type Product struct {
 	// AllSizes is the full size run, including sold-out sizes; AvailableSizes
 	// is only what is currently buyable. The difference is what sold out.
 	AllSizes []string `json:"all_sizes" db:"all_sizes"`
+	// AllSizesNormalised / AvailableSizesNormalised mirror the two fields above
+	// in a vocabulary shared across storefronts ("Size Medium" -> "M"). They are
+	// separate columns rather than a rewrite of the raw values so that a bad
+	// normalisation rule is recoverable from what the store actually published,
+	// and so the original stays auditable. Group and match on these; display the
+	// raw ones. See scraper.normaliseSize for the rules and why they exist.
+	AllSizesNormalised       []string `json:"all_sizes_normalised" db:"all_sizes_normalised"`
+	AvailableSizesNormalised []string `json:"available_sizes_normalised" db:"available_sizes_normalised"`
 	// AvailableVariants is how many variants are buyable, giving sell-through
 	// (AvailableVariants / TotalVariants) without an Admin API key.
 	AvailableVariants int `json:"available_variants" db:"available_variants"`

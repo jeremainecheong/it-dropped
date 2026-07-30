@@ -25,6 +25,8 @@ export interface ApiProduct {
   tags: string[]
   total_variants: number
   available_variants?: number
+  all_sizes_normalised?: string[]
+  available_sizes_normalised?: string[]
   price: number
   compare_price: number | null
   currency: string
@@ -50,6 +52,17 @@ export interface ApiProduct {
  * Throwing is the honest signal. `app/error.tsx` catches it and offers a retry,
  * which is the right response to an outage, while a genuine miss still reaches
  * `notFound()` in the caller.
+ *
+ * The UI is right; the status code is not. A thrown read still leaves HTTP 200
+ * on the wire. `app/loading.tsx` puts a Suspense boundary above every route, so
+ * Fizz has already flushed the fallback — and with it the response head — by
+ * the time this rejects; nothing in `page.tsx` or in this file sits above that
+ * boundary to change it. We accept that. The alternatives are deleting
+ * `app/loading.tsx`, which returns every route to a blank screen while it
+ * loads, or a middleware round-trip to the database on every product request,
+ * which is more than a personal tracker should pay. Crawlers are covered
+ * separately: `generateMetadata` emits `robots: { index: false }` when the
+ * product is missing. Uptime checks that watch status codes are not.
  *
  * Wrapped in React's cache so generateMetadata and the page body share one
  * query. Next dedupes fetch() automatically, but these go through supabase-js,
