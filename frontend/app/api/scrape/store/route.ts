@@ -41,13 +41,17 @@ const MAX_PAGE = 40
 const UPSTREAM_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-/** Constant-time bearer check, length-safe. */
-function authorised(req: Request): boolean {
-  const expected = process.env.SCRAPE_PROXY_TOKEN
-  if (!expected) return false
-
+/**
+ * Constant-time bearer check, length-safe.
+ *
+ * Trimmed on both sides. A token pasted into a dashboard field arrives with a
+ * trailing newline often enough that an untrimmed compare is a trap, and the
+ * scraper trims its own copy — so an untrimmed one here fails against a token
+ * that is, to the eye, identical.
+ */
+function authorised(req: Request, expected: string): boolean {
   const header = req.headers.get("authorization") ?? ""
-  const presented = header.startsWith("Bearer ") ? header.slice(7) : ""
+  const presented = (header.startsWith("Bearer ") ? header.slice(7) : "").trim()
 
   const a = Buffer.from(presented)
   const b = Buffer.from(expected)
@@ -58,8 +62,20 @@ function authorised(req: Request): boolean {
 }
 
 export async function GET(req: Request) {
-  if (!authorised(req)) {
-    return Response.json({ error: "unauthorised" }, { status: 401 })
+  // Distinguished from a bad token deliberately. Both are 401s to a stranger,
+  // and telling them apart is the difference between "the environment variable
+  // never reached this deployment" and "the two values differ" — which is
+  // otherwise an afternoon. Neither response reveals the token.
+  const expected = process.env.SCRAPE_PROXY_TOKEN?.trim()
+  if (!expected) {
+    return Response.json(
+      { error: "SCRAPE_PROXY_TOKEN is not set on this deployment" },
+      { status: 503 },
+    )
+  }
+
+  if (!authorised(req, expected)) {
+    return Response.json({ error: "unauthorised: token mismatch" }, { status: 401 })
   }
 
   const params = new URL(req.url).searchParams

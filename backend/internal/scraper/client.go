@@ -338,6 +338,22 @@ func retryAfter(h string) time.Duration {
 	return 0
 }
 
+// bodySnippet reads a bounded, single-line excerpt of an error response, for
+// putting in an error message. Bounded because the alternative on a bot wall
+// is a full HTML page in the log; single-line so it does not break the
+// structured output into fragments.
+func bodySnippet(r io.Reader) string {
+	b, err := io.ReadAll(io.LimitReader(r, 512))
+	if err != nil || len(b) == 0 {
+		return ""
+	}
+	s := strings.Join(strings.Fields(string(b)), " ")
+	if len(s) > 200 {
+		s = s[:200] + "…"
+	}
+	return s
+}
+
 // doFetch performs one HTTP request. The returned plan reports whether the
 // error is worth retrying (network errors, 429/430, 5xx) and how long to wait.
 func (c *Client) doFetch(ctx context.Context, region Region, url string) ([]models.ShopifyProduct, retryPlan, error) {
@@ -374,6 +390,13 @@ func (c *Client) doFetch(ctx context.Context, region Region, url string) ([]mode
 			retryable:   limited || resp.StatusCode >= 500,
 			rateLimited: limited,
 			after:       retryAfter(resp.Header.Get("Retry-After")),
+		}
+		// The body is where a refusal explains itself, and the proxy in front
+		// of these stores explains itself there deliberately. "unexpected
+		// status code: 401" sent someone to read this file; "401: {"error":
+		// "unauthorised: token mismatch"}" names the fix.
+		if detail := bodySnippet(resp.Body); detail != "" {
+			return nil, plan, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, detail)
 		}
 		return nil, plan, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}

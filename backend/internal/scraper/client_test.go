@@ -351,3 +351,45 @@ func TestNoProxyMeansNoAuthorizationHeader(t *testing.T) {
 		t.Fatal("sent an Authorization header to a storefront")
 	}
 }
+
+// A status code alone does not say why a request was refused. The proxy in
+// front of these stores distinguishes "no token configured on the deployment"
+// from "token mismatch" in the body, and that distinction is worth surfacing.
+func TestErrorCarriesTheResponseBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, `{"error":"unauthorised: token mismatch"}`)
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	_, err := c.FetchProducts(context.Background(), region)
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if !strings.Contains(err.Error(), "token mismatch") {
+		t.Fatalf("error = %q, want it to carry the response body", err)
+	}
+}
+
+// A bot wall answers with a whole HTML page. Enough of it to recognise, not
+// enough to bury the log.
+func TestErrorBodyIsBounded(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprint(w, "<html>\n<body>\n"+strings.Repeat("blocked ", 500)+"</body>\n</html>")
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	_, err := c.FetchProducts(context.Background(), region)
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if len(err.Error()) > 300 {
+		t.Fatalf("error is %d chars, want it bounded", len(err.Error()))
+	}
+	if strings.ContainsAny(err.Error(), "\n\r") {
+		t.Fatalf("error spans lines: %q", err)
+	}
+}
