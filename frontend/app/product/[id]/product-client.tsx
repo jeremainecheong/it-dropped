@@ -39,6 +39,13 @@ interface Product {
   style_code?: string
 }
 
+/** Resolved on the server for the JSON-LD, so both arrive with the HTML and
+ *  the browser has no reason to ask for them again. */
+interface ProductDetailProps {
+  initialProduct?: Product | null
+  initialSiblings?: Product[]
+}
+
 const REGION_FLAGS: Record<string, string> = {
   us: "US",
   uk: "UK",
@@ -48,15 +55,17 @@ const REGION_FLAGS: Record<string, string> = {
   sg: "SG",
 }
 
-function ProductDetailContent() {
+function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetailProps) {
   const params = useParams()
-  const productId = params.id as string
+  const productId = (initialProduct?.id ?? params.id) as string
   const { user } = useAuth()
   const { items: wishlist, addItem, removeItem } = useWishlist()
 
-  const [product, setProduct] = useState<Product | null>(null)
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [product, setProduct] = useState<Product | null>(initialProduct ?? null)
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>(
+    (initialSiblings ?? []).filter((p) => p.id !== initialProduct?.id)
+  )
+  const [isLoading, setIsLoading] = useState(!initialProduct)
   const [alertModalOpen, setAlertModalOpen] = useState(false)
   const { destination, setDestination } = useDestination()
 
@@ -96,8 +105,12 @@ function ProductDetailContent() {
       : 0
 
   useEffect(() => {
+    // The server resolved both of these already. Only a render that somehow
+    // arrives without them needs to go and look, which keeps this component
+    // usable outside the product route.
+    if (initialProduct) return
     fetchProduct()
-  }, [productId])
+  }, [productId, initialProduct])
 
   const fetchProduct = async () => {
     try {
@@ -463,6 +476,6 @@ function ProductDetailContent() {
   )
 }
 
-export default function ProductDetail() {
-  return <ProductDetailContent />
+export default function ProductDetail(props: ProductDetailProps) {
+  return <ProductDetailContent {...props} />
 }

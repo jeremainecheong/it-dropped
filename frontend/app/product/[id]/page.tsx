@@ -95,7 +95,10 @@ export default async function ProductPage({ params }: Props) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <ProductDetail />
+      {/* Both were read above for the JSON-LD. Handing them down removes the
+          browser's two-step fetch — product, then siblings keyed by the handle
+          it had to fetch the product to learn. */}
+      <ProductDetail initialProduct={product} initialSiblings={siblings ?? []} />
     </>
   )
 }
