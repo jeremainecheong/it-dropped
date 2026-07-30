@@ -1,0 +1,279 @@
+package scraper
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+// testClient is a Client wired to a test server, with the retry waits scaled
+// down so a test that proves a retry happens does not spend six real seconds
+// doing it.
+func testClient(srv *httptest.Server, delay time.Duration) (*Client, Region) {
+	c := NewClient(5*time.Second, delay)
+	c.backoffBase = time.Millisecond
+	return c, Region{Code: "test", Name: "Test", BaseURL: srv.URL, Currency: "USD"}
+}
+
+// productsJSON renders n products as Shopify would.
+func productsJSON(startID int64, n int) string {
+	var b strings.Builder
+	b.WriteString(`{"products":[`)
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, `{"id":%d,"title":"P%d","handle":"p%d","vendor":"Stussy","variants":[],"images":[]}`,
+			startID+int64(i), i, i)
+	}
+	b.WriteString(`]}`)
+	return b.String()
+}
+
+// The run that prompted this returned 429 to five of six regions on their very
+// first request and gave up inside six seconds. A limiter that clears must not
+// be reported as an unreachable store.
+func TestFetchProductsSurvivesRateLimit(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) <= 4 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		fmt.Fprint(w, productsJSON(1, 3))
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	products, err := c.FetchProducts(context.Background(), region)
+	if err != nil {
+		t.Fatalf("FetchProducts: %v", err)
+	}
+	if len(products) != 3 {
+		t.Fatalf("got %d products, want 3", len(products))
+	}
+	if got := calls.Load(); got != 5 {
+		t.Fatalf("made %d requests, want 5 (4 rate-limited + 1 success)", got)
+	}
+}
+
+// 430 is Shopify's own "request blocked" and clears the same way a 429 does.
+func TestFetchProductsRetries430(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			w.WriteHeader(430)
+			return
+		}
+		fmt.Fprint(w, productsJSON(1, 1))
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	if _, err := c.FetchProducts(context.Background(), region); err != nil {
+		t.Fatalf("FetchProducts: %v", err)
+	}
+}
+
+// A 404 is the store saying the endpoint is not there. Retrying it five more
+// times is six wasted requests against an address that is already suspect.
+func TestFetchProductsDoesNotRetryClientErrors(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	if _, err := c.FetchProducts(context.Background(), region); err == nil {
+		t.Fatal("want an error for a 404 store")
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("made %d requests, want 1", got)
+	}
+}
+
+// Pagination that stops on an error keeps what it read, and says so: the
+// caller writes the products and still marks the region failed.
+func TestFetchProductsReportsPartialCatalog(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, productsJSON(1, pageLimit))
+			return
+		}
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	products, err := c.FetchProducts(context.Background(), region)
+
+	var partial *PartialCatalogError
+	if !errors.As(err, &partial) {
+		t.Fatalf("got error %v, want *PartialCatalogError", err)
+	}
+	if partial.Pages != 1 {
+		t.Fatalf("partial.Pages = %d, want 1", partial.Pages)
+	}
+	if len(products) != pageLimit {
+		t.Fatalf("got %d products, want the %d already read", len(products), pageLimit)
+	}
+}
+
+// A full catalogue must not come back wrapped in a partial error — the typed
+// nil is exactly the trap this guards.
+func TestFetchProductsCompleteHasNoError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, productsJSON(1, 10))
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	if _, err := c.FetchProducts(context.Background(), region); err != nil {
+		t.Fatalf("FetchProducts: %v", err)
+	}
+}
+
+// The gate is what stops six regions putting six first pages on the wire
+// inside the same second.
+func TestGateSpacesConcurrentRequests(t *testing.T) {
+	const (
+		regions = 6
+		delay   = 20 * time.Millisecond
+	)
+
+	var mu sync.Mutex
+	var times []time.Time
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		times = append(times, time.Now())
+		mu.Unlock()
+		fmt.Fprint(w, productsJSON(1, 1))
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, delay)
+
+	var wg sync.WaitGroup
+	for i := 0; i < regions; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := c.FetchProducts(context.Background(), region); err != nil {
+				t.Errorf("FetchProducts: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	if len(times) != regions {
+		t.Fatalf("saw %d requests, want %d", len(times), regions)
+	}
+	// Slowest-to-first spread must cover the reserved slots, which it cannot if
+	// the requests all left together.
+	first, last := times[0], times[0]
+	for _, ts := range times {
+		if ts.Before(first) {
+			first = ts
+		}
+		if ts.After(last) {
+			last = ts
+		}
+	}
+	if want := time.Duration(regions-1) * delay; last.Sub(first) < want {
+		t.Fatalf("requests spanned %v, want at least %v", last.Sub(first), want)
+	}
+}
+
+// A 429 against one region has to slow every region down: the limit is on the
+// address, and the other five carrying on at full rate is what keeps it shut.
+func TestPenaliseHoldsBackEveryRegion(t *testing.T) {
+	c, _ := testClient(httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})), 0)
+	c.penalise(80 * time.Millisecond)
+
+	start := time.Now()
+	if err := c.gate(context.Background()); err != nil {
+		t.Fatalf("gate: %v", err)
+	}
+	if waited := time.Since(start); waited < 60*time.Millisecond {
+		t.Fatalf("gate returned after %v, want it held for the penalty", waited)
+	}
+}
+
+func TestRetryAfter(t *testing.T) {
+	tests := []struct {
+		name   string
+		header string
+		want   time.Duration
+	}{
+		{"absent", "", 0},
+		{"seconds", "12", 12 * time.Second},
+		{"padded", "  3 ", 3 * time.Second},
+		{"zero", "0", 0},
+		{"negative", "-5", 0},
+		{"past date", "Mon, 02 Jan 2006 15:04:05 GMT", 0},
+		{"nonsense", "soon", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := retryAfter(tt.header); got != tt.want {
+				t.Fatalf("retryAfter(%q) = %v, want %v", tt.header, got, tt.want)
+			}
+		})
+	}
+
+	// An HTTP-date in the future resolves to the interval until it.
+	got := retryAfter(time.Now().Add(30 * time.Second).UTC().Format(http.TimeFormat))
+	if got < 25*time.Second || got > 30*time.Second {
+		t.Fatalf("retryAfter(future date) = %v, want ~30s", got)
+	}
+}
+
+// Retrying before the server said it would listen again is a wasted request
+// that renews the limit that produced the header.
+func TestBackoffHonoursRetryAfter(t *testing.T) {
+	c := NewClient(time.Second, 0)
+
+	if got := c.backoffFor(1, 20*time.Second); got < 20*time.Second {
+		t.Fatalf("backoffFor(1, 20s) = %v, want at least 20s", got)
+	}
+	// A short hint must not shorten an already-long exponential wait.
+	if got := c.backoffFor(4, time.Second); got < 16*time.Second {
+		t.Fatalf("backoffFor(4, 1s) = %v, want at least the 16s exponential", got)
+	}
+	// Neither the exponential nor an outlandish hint may hold the job forever.
+	if got := c.backoffFor(10, time.Hour); got > retryAfterCap+retryAfterCap/4 {
+		t.Fatalf("backoffFor(10, 1h) = %v, want it bounded", got)
+	}
+}
+
+// The default identifies as a browser. A datacentre address asking for
+// products.json as curl is the shape a bot wall looks for, and CI is a
+// datacentre.
+func TestRequestSendsConfiguredUserAgent(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("User-Agent")
+		fmt.Fprint(w, productsJSON(1, 1))
+	}))
+	defer srv.Close()
+
+	c, region := testClient(srv, 0)
+	if _, err := c.FetchProducts(context.Background(), region); err != nil {
+		t.Fatalf("FetchProducts: %v", err)
+	}
+	if got != c.userAgent {
+		t.Fatalf("User-Agent = %q, want %q", got, c.userAgent)
+	}
+	if strings.Contains(strings.ToLower(got), "curl") {
+		t.Fatalf("User-Agent = %q, which is what a bot wall filters on", got)
+	}
+}
