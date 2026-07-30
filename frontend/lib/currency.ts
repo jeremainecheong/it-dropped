@@ -14,12 +14,19 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   SGD: "S$",
 }
 
+/** USD per one unit of the currency. */
+export type FxRates = Record<string, number>
+
 /**
- * Approximate FX rates, used only to rank offers across regions and to show
- * an indicative "≈ $X". These are not checkout prices and drift over time —
- * move to a rates feed if they ever drive a real transaction.
+ * Rates to fall back on when the feed is unreachable.
+ *
+ * These were the hardcoded table, and the reason they are now only a fallback
+ * is that they had drifted: against the ECB's rates on 2026-07-30 the euro was
+ * 5.7% low, sterling 4.9% low and the yen 8.7% high. On a €215 jacket that is
+ * about $17 of error before shipping is even added — larger than the duty line
+ * the estimate agonises over. Live rates come from /api/dropradar/fx.
  */
-export const FX_TO_USD: Record<string, number> = {
+export const FALLBACK_FX_TO_USD: FxRates = {
   USD: 1,
   GBP: 1.27,
   EUR: 1.08,
@@ -28,20 +35,27 @@ export const FX_TO_USD: Record<string, number> = {
   SGD: 0.74,
 }
 
-/** Convert a regional price to approximate USD for comparison. */
-export function toUSD(price: number, currency: string): number {
-  return price * (FX_TO_USD[currency] ?? 1)
+/**
+ * Rates in force for a render.
+ *
+ * Passed explicitly rather than read from module state, so a component that
+ * receives live rates re-renders with them: a mutable module-level table
+ * updates silently and leaves whatever already rendered showing the fallback.
+ * Omitted, the fallback is used, which keeps every non-React caller working.
+ */
+export function toUSD(price: number, currency: string, rates: FxRates = FALLBACK_FX_TO_USD): number {
+  return price * (rates[currency] ?? FALLBACK_FX_TO_USD[currency] ?? 1)
 }
 
 /**
- * Convert approximate USD back out into a currency, for display.
+ * Convert USD back out into a currency, for display.
  *
  * Comparison happens in USD because that is the only unit every storefront can
  * be ranked in. Nobody shopping to Singapore thinks in USD, though, so what
  * gets shown has to come back out.
  */
-export function fromUSD(usd: number, currency: string): number {
-  return usd / (FX_TO_USD[currency] ?? 1)
+export function fromUSD(usd: number, currency: string, rates: FxRates = FALLBACK_FX_TO_USD): number {
+  return usd / (rates[currency] ?? FALLBACK_FX_TO_USD[currency] ?? 1)
 }
 
 /**
