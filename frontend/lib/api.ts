@@ -53,16 +53,28 @@ export interface ApiProduct {
  * which is the right response to an outage, while a genuine miss still reaches
  * `notFound()` in the caller.
  *
- * The UI is right; the status code is not. A thrown read still leaves HTTP 200
- * on the wire. `app/loading.tsx` puts a Suspense boundary above every route, so
- * Fizz has already flushed the fallback — and with it the response head — by
- * the time this rejects; nothing in `page.tsx` or in this file sits above that
- * boundary to change it. We accept that. The alternatives are deleting
- * `app/loading.tsx`, which returns every route to a blank screen while it
- * loads, or a middleware round-trip to the database on every product request,
- * which is more than a personal tracker should pay. Crawlers are covered
- * separately: `generateMetadata` emits `robots: { index: false }` when the
- * product is missing. Uptime checks that watch status codes are not.
+ * The UI is right; the status code is not. `/product/<absent-uuid>` renders the
+ * branded not-found page and serves it with a 200.
+ *
+ * Measured, on this Next (14.2.25), with throwaway probe routes rather than by
+ * reasoning about it — three plausible causes were each tested and each is
+ * innocent:
+ *
+ *   - Moving the check into `generateMetadata`, which resolves before the
+ *     response streams. Still 200, even with `notFound()` called synchronously
+ *     at the top, before anything can have suspended.
+ *   - The Suspense boundary `app/loading.tsx` puts above every route. Removing
+ *     it does not change the status, and it cannot be removed anyway: the build
+ *     depends on it for the `useSearchParams` boundaries on /compare and
+ *     /login.
+ *   - The custom `app/not-found.tsx`. Removing it: still 200.
+ *
+ * So `notFound()` on a dynamic route in this version returns 200 whatever the
+ * caller does, and none of the fixes previously guessed at would have worked.
+ * Left as is rather than paid for with a middleware round-trip to the database
+ * on every product request. Crawlers are covered separately: `generateMetadata`
+ * emits `robots: { index: false }` when the product is missing. Uptime checks
+ * that watch status codes are not — a Next upgrade is the real fix.
  *
  * Wrapped in React's cache so generateMetadata and the page body share one
  * query. Next dedupes fetch() automatically, but these go through supabase-js,
