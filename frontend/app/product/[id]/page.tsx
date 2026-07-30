@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { getProduct, getProductsByHandle, formatPriceServer, SITE_URL } from "@/lib/api"
 import ProductDetail from "./product-client"
+import { notFound } from "next/navigation"
 
 // Product data changes with the scrape cycle; revalidate rather than
 // rebuilding, so crawlers get fresh pages without hammering the API.
@@ -60,12 +61,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const product = await getProduct(params.id)
-  const siblings = product ? await getProductsByHandle(product.handle) : null
+
+  // A real 404 rather than a 200 carrying a "Product not found" card. A failed
+  // read now throws inside getProduct and is caught by app/error.tsx, so
+  // reaching here with null genuinely means the listing is gone.
+  if (!product) notFound()
+
+  const siblings = await getProductsByHandle(product.handle)
 
   // Structured data so search engines can render price and availability
   // directly. Every claim here comes from the tracker's own observation.
-  const jsonLd = product
-    ? {
+  const jsonLd = {
         "@context": "https://schema.org",
         "@type": "Product",
         name: product.title,
@@ -85,16 +91,13 @@ export default async function ProductPage({ params }: Props) {
           areaServed: p.region.toUpperCase(),
         })),
       }
-    : null
 
   return (
     <>
-      {jsonLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Both were read above for the JSON-LD. Handing them down removes the
           browser's two-step fetch — product, then siblings keyed by the handle
           it had to fetch the product to learn. */}

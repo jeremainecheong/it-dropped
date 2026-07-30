@@ -40,8 +40,16 @@ export interface ApiProduct {
 }
 
 /**
- * A missing product must render a 404, not crash the route — every caller here
- * already branches on null.
+ * Null means the product does not exist. A failed query throws.
+ *
+ * These used to be the same thing — `if (error) return null` — so a database
+ * outage and a delisted garment produced an identical page: "Product not found",
+ * served with a 200. That told a visitor the piece was gone when the truth was
+ * that we could not look, and told crawlers and uptime checks that all was well.
+ *
+ * Throwing is the honest signal. `app/error.tsx` catches it and offers a retry,
+ * which is the right response to an outage, while a genuine miss still reaches
+ * `notFound()` in the caller.
  *
  * Wrapped in React's cache so generateMetadata and the page body share one
  * query. Next dedupes fetch() automatically, but these go through supabase-js,
@@ -53,7 +61,7 @@ export const getProduct = cache(async function getProduct(id: string): Promise<A
     .select(PRODUCT_COLUMNS)
     .eq("id", id)
     .maybeSingle()
-  if (error) return null
+  if (error) throw new Error(`Failed to read product ${id}: ${error.message}`)
   return (data as unknown as ApiProduct) ?? null
 })
 

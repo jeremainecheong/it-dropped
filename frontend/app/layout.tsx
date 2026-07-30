@@ -1,7 +1,8 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import localFont from "next/font/local"
 import { Analytics } from "@vercel/analytics/next"
+import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/lib/auth-context"
 import { WishlistProvider } from "@/lib/wishlist-context"
 import { PWAProvider } from "@/components/pwa-provider"
@@ -41,22 +42,35 @@ export const metadata: Metadata = {
   generator: "v0.app",
   keywords: ["Stüssy", "streetwear", "drops", "restocks", "price tracker", "fashion"],
   manifest: "/manifest.json",
-  themeColor: "#ffffff",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "IT DROPPED",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   icons: {
     icon: "/icon-192.png",
     apple: "/icon-192.png",
   },
+}
+
+/**
+ * Next 14 wants these in their own export; leaving them in `metadata` logged a
+ * warning on every route at build and applied nothing.
+ *
+ * `maximumScale: 1` and `userScalable: false` are gone. They blocked pinch-zoom
+ * across an app whose body copy is 13px and whose smallest labels are 9px — a
+ * WCAG 1.4.4 failure with nothing gained. Nobody was being protected from
+ * anything; iOS has not zoomed on input focus since it started respecting
+ * 16px-or-larger form fields.
+ *
+ * `viewportFit: "cover"` is what makes `env(safe-area-inset-*)` resolve, which
+ * the bottom navigation needs to clear the iPhone home indicator.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
 }
 
 export default function RootLayout({
@@ -73,6 +87,10 @@ export default function RootLayout({
           </AuthProvider>
         </ThemeProvider>
         <PWAProvider />
+        {/* Mounted at last. The toast system was installed, duplicated across
+            two directories, and rendered nowhere — so 26 of the app's 37 catch
+            blocks had nothing to report to and only wrote to the console. */}
+        <Toaster position="top-center" richColors closeButton />
         <Analytics />
       </body>
     </html>
