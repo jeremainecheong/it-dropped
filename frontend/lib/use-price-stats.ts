@@ -94,13 +94,23 @@ export interface PriceVerdict {
 /**
  * Turn stats into something sayable, or say nothing.
  *
- * Two guards, both there to stop the badge becoming as meaningless as the one
- * it replaces. A single recorded price is not a series, so a brand-new listing
- * cannot be at "its lowest" — it has only ever had one price. And a drop of a
- * percent or two is noise from currency rounding rather than a sale.
+ * Three guards, each there to stop the badge becoming as meaningless as the one
+ * it replaces.
+ *
+ * A single recorded price is not a series: a listing we have only ever seen at
+ * one price cannot be at "its lowest".
+ *
+ * Nor can one whose price has never moved. Two observations of ¥33,000 make
+ * ¥33,000 both the low and the high, and "Lowest in 90 days" on that is true
+ * in the way a tautology is true — it reads as a discount and describes a
+ * price that has never changed. Real examples of exactly this were sitting in
+ * the data when this was written.
+ *
+ * And a drop of a percent or two is currency rounding rather than a sale.
  */
 export function priceVerdict(price: number, stats: PriceStats | null): PriceVerdict {
   if (!stats || stats.points < 2) return { label: null, isLow: false }
+  if (stats.high <= stats.low) return { label: null, isLow: false }
 
   // Prices are decimals off the wire; compare with a cent of tolerance rather
   // than by equality.
