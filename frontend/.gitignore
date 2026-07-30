@@ -16,8 +16,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
+# env files. The example is the one that must stay tracked — the readme tells
+# you to copy it, which only works if a fresh clone actually has it.
 .env*
+!.env.example
 
 # vercel
 .vercel
