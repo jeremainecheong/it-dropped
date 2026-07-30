@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Heart, ExternalLink, Share2, Bell, Check, Globe } from "lucide-react"
@@ -11,8 +11,9 @@ import { Header } from "@/components/layout/header"
 import { PriceHistoryChart } from "@/components/product/price-history-chart"
 import { PriceAlertModal } from "@/components/product/price-alert-modal"
 import { formatPrice, toUSD } from "@/lib/currency"
-import { bestOfferPerRegion, estimateLandedCost, formatDisplay, formatLanded, toDisplayCost } from "@/lib/landed-cost"
-import { useDestination } from "@/lib/use-destination"
+import { bestOfferPerRegion, estimateLandedCost, formatDisplay, formatLanded, getDestination, toDisplayCost } from "@/lib/landed-cost"
+import { usePrefs } from "@/lib/prefs"
+import { useDisplayPrice } from "@/lib/display-price"
 import { useFx } from "@/lib/use-fx"
 import { usePriceStats, priceVerdict } from "@/lib/use-price-stats"
 import { scarcity } from "@/lib/scarcity"
@@ -78,7 +79,16 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
   )
   const [isLoading, setIsLoading] = useState(!initialProduct)
   const [alertModalOpen, setAlertModalOpen] = useState(false)
-  const { destination, setDestination } = useDestination()
+  // Destination lives in prefs, not page state, so the choice made here is
+  // the same one the shop grid and every other product page use — pick
+  // Singapore once and stay bought-into-Singapore everywhere.
+  const { prefs, setPrefs, isReady: prefsReady } = usePrefs()
+  const destination = getDestination(prefs.destination)
+  const setDestination = useCallback(
+    (code: string) => setPrefs({ destination: code }),
+    [setPrefs]
+  )
+  const displayPrice = useDisplayPrice()
   const { rates: fx } = useFx()
   const priceStats = usePriceStats(product?.id)
   const verdict = product
@@ -134,6 +144,30 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
     currentLanded && best && best.offer.id !== product?.id
       ? currentLanded.totalUSD - best.landed.totalUSD
       : 0
+
+  // For each of the shopper's sizes, the regions where it is in stock right
+  // now — the intersection the verdict banner reads out. Matched on the
+  // normalised vocabulary only: raw available_sizes are per-store spellings.
+  // Rows scraped before migration 021 have no normalised column at all, and an
+  // absent column is not an empty one — hasNormalised keeps the banner from
+  // reading "no data yet" as "none of your sizes anywhere".
+  const hasNormalised = rankedOffers.some((r) => r.offer.available_sizes_normalised !== undefined)
+  const sizeMatches = useMemo(() => {
+    if (prefs.sizes.length === 0) return []
+    return prefs.sizes
+      .map((size) => ({
+        size,
+        regions: rankedOffers
+          .filter(
+            (r) =>
+              r.offer.is_available !== false &&
+              r.offer.available_sizes_normalised?.includes(size)
+          )
+          .map((r) => REGION_FLAGS[r.offer.region] || r.offer.region.toUpperCase()),
+      }))
+      .filter((m) => m.regions.length > 0)
+  }, [rankedOffers, prefs.sizes])
+  const inStockRegions = rankedOffers.filter((r) => r.offer.is_available !== false).length
 
   useEffect(() => {
     // The server resolved both of these already. Only a render that somehow
@@ -304,6 +338,72 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 </p>
                 <h1 className="display text-2xl lg:text-3xl">{product.title}</h1>
               </div>
+
+              {/* One sentence composed entirely from data already on the page:
+                  which regions stock the shopper's sizes, and where this lands
+                  cheapest. Clauses with nothing behind them are dropped, not
+                  guessed at. Gated on prefsReady so it never renders against
+                  the pre-hydration defaults and then rewrites itself. */}
+              {prefsReady && (() => {
+                const joinRegions = (regions: string[]) =>
+                  regions.length > 1
+                    ? `${regions.slice(0, -1).join(", ")} & ${regions[regions.length - 1]}`
+                    : regions[0]
+                const bold = (text: string, key: string) => (
+                  <strong key={key} className="font-semibold text-foreground">{text}</strong>
+                )
+
+                const clauses: React.ReactNode[] = []
+                if (prefs.sizes.length > 0 && hasNormalised) {
+                  if (sizeMatches.length > 0) {
+                    clauses.push(
+                      <span key="sizes">
+                        {sizeMatches.map((m, i) => (
+                          <span key={m.size}>
+                            {i > 0 && ", "}
+                            {bold(m.size, `s-${m.size}`)} available in {bold(joinRegions(m.regions), `r-${m.size}`)}
+                          </span>
+                        ))}
+                      </span>
+                    )
+                  } else {
+                    clauses.push(
+                      <span key="sizes">
+                        {bold(prefs.sizes.join(", "), "s-none")} not in stock in any region
+                      </span>
+                    )
+                  }
+                } else {
+                  clauses.push(
+                    <span key="regions">
+                      In stock in {bold(String(inStockRegions), "n-in")} of{" "}
+                      {bold(String(rankedOffers.length), "n-of")} region{rankedOffers.length === 1 ? "" : "s"}
+                    </span>
+                  )
+                }
+                if (best) {
+                  clauses.push(
+                    <span key="landed">
+                      cheapest landed to {destination.code}:{" "}
+                      {bold(
+                        `${REGION_FLAGS[best.offer.region] || best.offer.region.toUpperCase()} ≈${formatLanded(best.landed.totalUSD, destination, fx)}`,
+                        "landed"
+                      )}
+                    </span>
+                  )
+                }
+                if (clauses.length === 0) return null
+                return (
+                  <div className="bg-secondary rounded-2xl px-4 py-3 text-[13px] text-muted-foreground">
+                    {clauses.map((clause, i) => (
+                      <span key={i}>
+                        {i > 0 && " · "}
+                        {clause}
+                      </span>
+                    ))}
+                  </div>
+                )
+              })()}
 
               <div className="flex items-center gap-4">
                 <span className="display text-2xl">
@@ -586,8 +686,50 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
             </>
           )}
 
+          {/* Clearance for the fixed action bar below — pb-nav only clears the
+              bottom nav, and the bar stacks on top of that. */}
+          <div className="h-16 md:hidden" aria-hidden="true" />
         </div>
       </main>
+
+      {/* Mobile action bar. Sits directly on top of the bottom nav, which is
+          h-14 (3.5rem) plus the home indicator — see the nav in
+          components/layout/header.tsx and .pb-nav in globals.css. z-40 keeps
+          it under the nav (z-50) so the nav's blur stays on top of scrolled
+          content, not under this bar's. */}
+      <div className="md:hidden fixed left-0 right-0 z-40 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] bg-background/90 backdrop-blur-xl border-t border-border">
+        <div className="flex items-center gap-3 px-4 py-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold truncate">
+              {displayPrice(product.price, product.currency)}
+            </p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {REGION_FLAGS[product.region] || product.region.toUpperCase()} ·{" "}
+              {product.is_available ? "In stock" : "Sold out"}
+            </p>
+          </div>
+          <button
+            onClick={handleWishlist}
+            aria-label="Toggle wishlist"
+            className={`pill flex items-center justify-center w-10 h-10 shrink-0 transition-colors ${
+              isWishlisted
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${isWishlisted ? "fill-current" : ""}`} />
+          </button>
+          <a
+            href={product.product_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pill flex items-center justify-center gap-2 px-5 py-2.5 shrink-0 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Open store
+          </a>
+        </div>
+      </div>
     </div>
   )
 }
