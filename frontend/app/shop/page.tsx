@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "rea
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Heart, ChevronDown, ChevronRight, X, Menu, Clock, Package, Globe, Filter } from "lucide-react"
+import { toast } from "sonner"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
@@ -157,7 +158,15 @@ function ShopPageContent() {
 
             if (seq !== requestSeq.current) return // superseded by a newer request
 
-            if (data.success && Array.isArray(data.data)) {
+            // The route answers a failure with 500 and {success:false,error},
+            // which fetch resolves rather than throws — so the catch below never
+            // ran for the failure mode that actually happens, and a server-side
+            // error rendered as "No products found".
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || `Request failed (${response.status})`)
+            }
+
+            if (Array.isArray(data.data)) {
                 if (reset) {
                     setProducts(data.data)
                 } else {
@@ -171,6 +180,10 @@ function ShopPageContent() {
             }
         } catch (error) {
             console.error("Error:", error)
+            // A failed fetch leaves the grid empty, which renders as
+            // "No products found" — an answer about the catalogue rather than
+            // about the request.
+            if (seq === requestSeq.current) toast.error("Couldn't load products. Try again in a moment.")
         } finally {
             if (seq === requestSeq.current) {
                 setIsLoading(false)

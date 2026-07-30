@@ -12,9 +12,14 @@ import { LogoMark } from "@/components/ui/logo"
  * exception has occurred". No header, no navigation, no way back — and no
  * indication of whether the fault was theirs, the network's or ours.
  *
- * That was not a hypothetical. `app/shop/page.tsx` dereferences a price-stats
- * entry inside a map over two dozen products, so a single missing row took the
- * whole catalogue to a white screen.
+ * The concrete case it exists for is `getProduct` in `lib/api.ts`, which now
+ * throws on a query error instead of returning null. Every product route
+ * therefore has a live path to an uncaught error whenever Supabase is
+ * unreachable, and "Try again" is the correct response to that — a retry of a
+ * transient outage is the one repair a visitor can actually perform.
+ *
+ * It is a backstop, not a diagnosis: it cannot say which of the app's reads
+ * failed, only that the route did.
  */
 export default function Error({
   error,

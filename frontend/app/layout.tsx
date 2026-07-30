@@ -85,12 +85,15 @@ export default function RootLayout({
           <AuthProvider>
             <WishlistProvider>{children}</WishlistProvider>
           </AuthProvider>
+          {/* Inside ThemeProvider, not beside it: components/ui/sonner.tsx calls
+              useTheme(), and outside the provider that returns no theme and
+              falls back to "system" — so toasts could render dark on a light
+              app. This is the mount point every toast() call site depends on:
+              without it sonner renders nowhere and the calls are silent, which
+              is what the app did for every failure until now. */}
+          <Toaster position="top-center" richColors closeButton />
         </ThemeProvider>
         <PWAProvider />
-        {/* Mounted at last. The toast system was installed, duplicated across
-            two directories, and rendered nowhere — so 26 of the app's 37 catch
-            blocks had nothing to report to and only wrote to the console. */}
-        <Toaster position="top-center" richColors closeButton />
         <Analytics />
       </body>
     </html>
