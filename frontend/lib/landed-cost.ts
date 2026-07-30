@@ -110,8 +110,10 @@ export interface LandedCost {
   isDomestic: boolean
   /** True when nothing beyond the item price is expected */
   isCleanEstimate: boolean
-  /** True when the shipping figure is our estimate, not the store's published
-   *  rate. Only Dover Street Market Singapore, whose rates are not readable. */
+  /** True when the shipping figure is our estimate rather than the store's own.
+   *  Nothing in the table qualifies any more — every rate is now read from a
+   *  storefront or its checkout — but the flag stays so that if an estimate is
+   *  ever reintroduced it arrives labelled instead of silently. */
   shippingIsEstimated: boolean
   notes: string
 }

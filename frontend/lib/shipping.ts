@@ -29,6 +29,10 @@
  * delivered cost has to be converted into something to be shown. That excludes
  * Taiwan and Vietnam, which the US store does serve; they are absent for want
  * of an exchange rate, not for want of shipping.
+ *
+ * Dover Street Market Singapore publishes nothing readable, so its rates were
+ * read out of its own checkout instead — see the `sg` block. Every figure in
+ * this file is now the store's, and `unknown` no longer occurs.
  */
 
 export type Corridor =
@@ -53,6 +57,9 @@ export type Corridor =
   | { kind: "unknown" }
 
 const NO: Corridor = { kind: "no-service" }
+// No entry uses this any more — every corridor below was established one
+// way or another. It remains the fallback for a region or destination that is
+// not in the table at all, where "we did not look" is the honest answer.
 const UNKNOWN: Corridor = { kind: "unknown" }
 
 /**
@@ -148,26 +155,36 @@ export const SHIPPING: Record<string, Record<string, Corridor>> = {
     ZA: NO,
     BR: NO,
   },
-  // Dover Street Market Singapore publishes its rates behind a client-rendered
-  // FAQ, so none of this could be read the way the Stüssy stores could. Its own
-  // market is marked as an estimate and everywhere else as unknown — which is
-  // not the same as "does not ship", and is not shown as if it were.
+  // Dover Street Market Singapore does not publish a rate card anywhere
+  // readable — its FAQ is client-rendered and its shipping page is a stub. So
+  // these came from its checkout instead: /cart/shipping_rates.json, the same
+  // endpoint the store's own basket calls, asked once per destination on
+  // 2026-07-30. Nothing here is estimated.
+  //
+  // Two things that guessing had got wrong. Domestic shipping is free and
+  // unconditional, not the S$10 previously assumed — verified on a S$279
+  // basket and again on a S$39 one, so there is no threshold. And DSM is a
+  // real second source for three countries: it quotes DHL Express Worldwide to
+  // Malaysia, Thailand and Indonesia, which had been marked unknown.
+  //
+  // Everywhere else returned no rates at all, which is Shopify's way of saying
+  // the destination is not served.
   sg: {
-    SG: { kind: "ships", cost: 10, currency: "SGD", carrier: "Local courier (estimated)" },
-    US: UNKNOWN,
-    GB: UNKNOWN,
-    EU: UNKNOWN,
-    JP: UNKNOWN,
-    AU: UNKNOWN,
-    HK: UNKNOWN,
-    MY: UNKNOWN,
-    TH: UNKNOWN,
-    PH: UNKNOWN,
-    ID: UNKNOWN,
-    MX: UNKNOWN,
-    IN: UNKNOWN,
-    ZA: UNKNOWN,
-    BR: UNKNOWN,
+    SG: { kind: "ships", cost: 0, currency: "SGD", carrier: "Free SG Shipping" },
+    MY: { kind: "ships", cost: 28.45, currency: "SGD", carrier: "DHL Express Worldwide" },
+    TH: { kind: "ships", cost: 34.39, currency: "SGD", carrier: "DHL Express Worldwide" },
+    ID: { kind: "ships", cost: 34.39, currency: "SGD", carrier: "DHL Express Worldwide" },
+    US: NO,
+    GB: NO,
+    EU: NO,
+    JP: NO,
+    AU: NO,
+    HK: NO,
+    PH: NO,
+    MX: NO,
+    IN: NO,
+    ZA: NO,
+    BR: NO,
   },
 }
 

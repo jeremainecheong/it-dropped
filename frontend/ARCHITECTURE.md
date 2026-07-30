@@ -95,9 +95,12 @@ cannot be used as an open redirect.
 
 ## Landed cost
 
-Shipping is not modelled, it is read: each Stüssy storefront embeds an
+Shipping is not modelled, it is read. Each Stüssy storefront embeds an
 `internationalMessaging` map giving the carrier, price and free-shipping
-threshold per destination country, and `lib/shipping.ts` is that data.
+threshold per destination country. Dover Street Market Singapore publishes no
+such map, so its rates came from `/cart/shipping_rates.json` — the endpoint its
+own basket calls — asked once per destination. `lib/shipping.ts` is that data,
+and no figure in it is a guess.
 
 The destination lists are the important part. Each store serves its own
 territory and little else, so most cross-region pairs cannot be bought at all —
