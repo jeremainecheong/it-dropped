@@ -1,6 +1,7 @@
-import { catalogue, fail, ok } from "@/lib/catalogue"
+import { catalogueLive, fail, ok } from "@/lib/catalogue"
 
-// Liveness, so never cached.
+// Liveness, so never cached. Note that this line is not sufficient on its
+// own — see catalogueLive, which is the half that actually does it.
 export const dynamic = "force-dynamic"
 
 /**
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic"
  * readable (migration 013), so this reports freshness only.
  */
 export async function GET() {
-  const { data, error } = await catalogue
+  const { data, error } = await catalogueLive
     .from("products")
     .select("last_seen_at")
     .order("last_seen_at", { ascending: false })

@@ -21,6 +21,33 @@ export const catalogue = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
+/**
+ * The same reads, never cached. For anything whose whole job is to report the
+ * present.
+ *
+ * `export const dynamic = "force-dynamic"` does not cover this. It governs the
+ * route's own rendering and the fetches Next issues on its behalf; the request
+ * here is made inside supabase-js, and it landed in the Data Cache with no
+ * revalidation — that is, forever.
+ *
+ * Which is worse than it sounds, because the Data Cache **survives
+ * deployments**. `/status` spent a day reporting a `last_scrape_at` from the
+ * previous afternoon while the products table was being written to every few
+ * minutes. Redeploying did not clear it. A cache-buster on the route did not
+ * either: the cache is keyed on the upstream Supabase URL, which a query
+ * parameter on our own route never reaches. The tell was that the value it
+ * returned matched no row in the table at all.
+ *
+ * Routes with a `revalidate` were unaffected — their entries expire. It is
+ * specifically the ones asking not to be cached that were cached hardest.
+ */
+export const catalogueLive = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  global: {
+    fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+  },
+})
+
 /** The columns the Go API returned. Selecting explicitly keeps the payload —
  *  and Supabase's egress allowance — off the search_vector column. */
 export const PRODUCT_COLUMNS =
