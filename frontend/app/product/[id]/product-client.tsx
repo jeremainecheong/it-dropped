@@ -17,6 +17,7 @@ import { usePriceStats, priceVerdict } from "@/lib/use-price-stats"
 import { scarcity } from "@/lib/scarcity"
 import { DestinationSelect } from "@/components/ui/destination-select"
 import { RegionAlertCard } from "@/components/product/region-alert-card"
+import { SizeAvailability } from "@/components/product/size-availability"
 
 interface Product {
   id: string
@@ -32,6 +33,7 @@ interface Product {
   currency: string
   is_available: boolean
   available_sizes: string[]
+  all_sizes?: string[]
   total_variants: number
   available_variants?: number
   image_url: string
@@ -429,6 +431,20 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
           )}
 
           {rankedOffers.length > 1 && (
+            <>
+            <SizeAvailability
+              offers={rankedOffers.map(({ offer, landed }) => ({
+                id: offer.id,
+                region: offer.region,
+                all_sizes: offer.all_sizes,
+                available_sizes: offer.available_sizes,
+                is_available: offer.is_available,
+                deliverability: landed.deliverability,
+              }))}
+              destination={destination}
+              currentRegion={product.region}
+            />
+
             <div className="py-8 border-t border-border">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                 <h2 className="label">Compare regions</h2>
@@ -531,11 +547,12 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
               </div>
 
               <p className="text-[11px] text-muted-foreground mt-4 max-w-xl">
-                Shipping and duty are estimated from typical rates and are not a quote. Actual
-                charges depend on the carrier, the item&apos;s classification and the rules in
-                force when it clears customs.
+                Shipping is each store&apos;s own published rate for this destination. Duty and tax
+                are estimated and are not a quote — the final amount is assessed by customs when
+                the parcel clears.
               </p>
             </div>
+            </>
           )}
 
         </div>
