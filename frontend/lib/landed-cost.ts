@@ -15,7 +15,8 @@
  * clearly-labelled estimate beats a confident wrong ranking.
  */
 
-import { formatApprox, fromUSD, toUSD } from "./currency"
+import { formatApprox, fromUSD, toUSD, type FxRates } from "./currency"
+import { corridor, isEstimatedCorridor } from "./shipping"
 
 export interface Destination {
   code: string
@@ -59,25 +60,12 @@ export function getDestination(code: string): Destination {
   return DESTINATIONS.find((d) => d.code === code) ?? DESTINATIONS[0]
 }
 
-/**
- * Typical international shipping, in USD, charged by these storefronts.
- * Flat per source region — carriers price by weight and zone, but a garment
- * sits in a narrow band and a flat figure is honest at this precision.
- */
-const SHIPPING_USD: Record<string, number> = {
-  us: 25,
-  uk: 25,
-  eu: 25,
-  jp: 35,
-  au: 30,
-  sg: 30,
-}
-
-/** Domestic shipping, in USD. Often free above a threshold. */
-const DOMESTIC_SHIPPING_USD = 8
-const FREE_DOMESTIC_THRESHOLD_USD = 150
+/** Whether an order can be placed at all, before what it would cost. */
+export type Deliverability = "ships" | "no-service" | "unknown"
 
 export interface LandedCost {
+  /** Can this store deliver here? A price is only meaningful when it can. */
+  deliverability: Deliverability
   /** Sticker price converted to USD */
   itemUSD: number
   shippingUSD: number
@@ -88,51 +76,110 @@ export interface LandedCost {
   isDomestic: boolean
   /** True when nothing beyond the item price is expected */
   isCleanEstimate: boolean
+  /** True when the shipping figure is our estimate, not the store's published
+   *  rate. Only Dover Street Market Singapore, whose rates are not readable. */
+  shippingIsEstimated: boolean
   notes: string
 }
 
 /**
  * Estimate what an item from `sourceRegion` costs delivered to `destination`.
+ *
+ * Shipping is whatever the store publishes for that corridor — see
+ * lib/shipping.ts — including the possibility that it publishes nothing
+ * because it does not serve the destination at all. That case is the common
+ * one: Stüssy runs a store per region and each serves its own territory, so
+ * most pairs cannot be bought at any price and a cost for them would be
+ * fiction.
  */
 export function estimateLandedCost(
   price: number,
   currency: string,
   sourceRegion: string,
-  destination: Destination
+  destination: Destination,
+  rates?: FxRates
 ): LandedCost {
-  const itemUSD = toUSD(price, currency)
+  const itemUSD = toUSD(price, currency, rates)
   const isDomestic = sourceRegion.toLowerCase() === destination.domesticRegion
+  const route = corridor(sourceRegion, destination.code)
+
+  if (route.kind !== "ships") {
+    return {
+      deliverability: route.kind,
+      itemUSD,
+      shippingUSD: 0,
+      importUSD: 0,
+      totalUSD: itemUSD,
+      isDomestic,
+      isCleanEstimate: false,
+      shippingIsEstimated: false,
+      notes:
+        route.kind === "no-service"
+          ? `Does not ship to ${destination.name}`
+          : `Shipping to ${destination.name} not published`,
+    }
+  }
+
+  // Free-shipping thresholds are quoted in whatever currency the store chose —
+  // the US store's Singapore threshold is in SGD, its domestic one in USD — so
+  // both sides of the comparison go through USD.
+  const shipCostUSD = toUSD(route.cost, route.currency, rates)
+  const freeOverUSD =
+    route.freeOver === undefined
+      ? undefined
+      : toUSD(route.freeOver, route.freeOverCurrency ?? route.currency, rates)
+
+  const shippingUSD = freeOverUSD !== undefined && itemUSD >= freeOverUSD ? 0 : shipCostUSD
+  const shippingIsEstimated = isEstimatedCorridor(route)
 
   if (isDomestic) {
-    const shippingUSD = itemUSD >= FREE_DOMESTIC_THRESHOLD_USD ? 0 : DOMESTIC_SHIPPING_USD
     // Domestic sales tax is either already in the sticker price (VAT markets)
     // or added at checkout and varies by locality (US) — we don't guess it.
     return {
+      deliverability: "ships",
       itemUSD,
       shippingUSD,
       importUSD: 0,
       totalUSD: itemUSD + shippingUSD,
       isDomestic: true,
       isCleanEstimate: true,
+      shippingIsEstimated,
       notes: destination.domesticTaxIncluded
         ? "Domestic — tax included in the listed price"
         : "Domestic — sales tax added at checkout, varies by state",
     }
   }
 
-  const shippingUSD = SHIPPING_USD[sourceRegion.toLowerCase()] ?? 30
-  const dutiable = itemUSD + shippingUSD
+  // Several stores state that duty and import tax are collected at checkout.
+  // Adding an import estimate on top of a delivered-duty-paid corridor would
+  // double-count the one line the shopper has already been quoted.
+  if (route.ddp) {
+    return {
+      deliverability: "ships",
+      itemUSD,
+      shippingUSD,
+      importUSD: 0,
+      totalUSD: itemUSD + shippingUSD,
+      isDomestic: false,
+      isCleanEstimate: true,
+      shippingIsEstimated,
+      notes: "Import — duty and tax collected by the store at checkout",
+    }
+  }
 
+  const dutiable = itemUSD + shippingUSD
   const belowDeMinimis = destination.deMinimisUSD > 0 && itemUSD < destination.deMinimisUSD
   const importUSD = belowDeMinimis ? 0 : dutiable * destination.importRate
 
   return {
+    deliverability: "ships",
     itemUSD,
     shippingUSD,
     importUSD,
     totalUSD: itemUSD + shippingUSD + importUSD,
     isDomestic: false,
     isCleanEstimate: false,
+    shippingIsEstimated,
     notes: belowDeMinimis
       ? `Import — likely under ${destination.name}'s duty threshold`
       : `Import — includes estimated duty & tax (~${Math.round(destination.importRate * 100)}%)`,
@@ -150,18 +197,36 @@ export interface RankedOffer<T> {
  */
 export function rankByLandedCost<
   T extends { price: number; currency: string; region: string; is_available?: boolean }
->(offers: T[], destination: Destination): RankedOffer<T>[] {
+>(offers: T[], destination: Destination, rates?: FxRates): RankedOffer<T>[] {
   return offers
     .map((offer) => ({
       offer,
-      landed: estimateLandedCost(offer.price, offer.currency, offer.region, destination),
+      landed: estimateLandedCost(offer.price, offer.currency, offer.region, destination, rates),
     }))
-    .sort((a, b) => {
-      const aOut = a.offer.is_available === false
-      const bOut = b.offer.is_available === false
-      if (aOut !== bOut) return aOut ? 1 : -1
-      return a.landed.totalUSD - b.landed.totalUSD
-    })
+    .sort(byBuyability)
+}
+
+/**
+ * Cheapest first, but only among offers that can actually be bought.
+ *
+ * An offer the store will not ship here is not a cheap offer, it is not an
+ * offer — so deliverability outranks price, and price only decides between
+ * things a shopper could put in a basket. Sold-out ranks last for the same
+ * reason: "best" has to be something buyable or the word means nothing.
+ */
+function byBuyability<T extends { is_available?: boolean }>(
+  a: RankedOffer<T>,
+  b: RankedOffer<T>
+): number {
+  const rank = (r: RankedOffer<T>) =>
+    r.landed.deliverability === "ships" ? 0 : r.landed.deliverability === "unknown" ? 1 : 2
+  if (rank(a) !== rank(b)) return rank(a) - rank(b)
+
+  const aOut = a.offer.is_available === false
+  const bOut = b.offer.is_available === false
+  if (aOut !== bOut) return aOut ? 1 : -1
+
+  return a.landed.totalUSD - b.landed.totalUSD
 }
 
 /**
@@ -181,19 +246,16 @@ export function bestOfferPerRegion<
     is_available?: boolean
     color?: string
   },
->(offers: T[], destination: Destination, preferColor?: string): RankedOffer<T>[] {
+>(offers: T[], destination: Destination, preferColor?: string, rates?: FxRates): RankedOffer<T>[] {
   const wanted = preferColor?.trim().toLowerCase()
 
-  const ranked = rankByLandedCost(offers, destination).sort((a, b) => {
+  const ranked = rankByLandedCost(offers, destination, rates).sort((a, b) => {
     if (wanted) {
       const aMatch = a.offer.color?.trim().toLowerCase() === wanted
       const bMatch = b.offer.color?.trim().toLowerCase() === wanted
       if (aMatch !== bMatch) return aMatch ? -1 : 1
     }
-    const aOut = a.offer.is_available === false
-    const bOut = b.offer.is_available === false
-    if (aOut !== bOut) return aOut ? 1 : -1
-    return a.landed.totalUSD - b.landed.totalUSD
+    return byBuyability(a, b)
   })
 
   const bestByRegion = new Map<string, RankedOffer<T>>()
@@ -203,17 +265,12 @@ export function bestOfferPerRegion<
 
   // Re-sort the survivors by cost, since the colour preference above is only
   // meant to decide WHICH listing represents a region, not their ordering.
-  return [...bestByRegion.values()].sort((a, b) => {
-    const aOut = a.offer.is_available === false
-    const bOut = b.offer.is_available === false
-    if (aOut !== bOut) return aOut ? 1 : -1
-    return a.landed.totalUSD - b.landed.totalUSD
-  })
+  return [...bestByRegion.values()].sort(byBuyability)
 }
 
 /** Format a single USD figure in the destination's currency. */
-export function formatLanded(usd: number, destination: Destination): string {
-  return formatApprox(fromUSD(usd, destination.currency), destination.currency)
+export function formatLanded(usd: number, destination: Destination, rates?: FxRates): string {
+  return formatApprox(fromUSD(usd, destination.currency, rates), destination.currency)
 }
 
 /** A landed cost as it should be displayed: one currency, whole units. */
@@ -245,8 +302,12 @@ export interface DisplayCost {
  *
  * Ranking still uses the unrounded `totalUSD` — this is presentation only.
  */
-export function toDisplayCost(landed: LandedCost, destination: Destination): DisplayCost {
-  const inDest = (usd: number) => Math.round(fromUSD(usd, destination.currency))
+export function toDisplayCost(
+  landed: LandedCost,
+  destination: Destination,
+  rates?: FxRates
+): DisplayCost {
+  const inDest = (usd: number) => Math.round(fromUSD(usd, destination.currency, rates))
 
   const item = inDest(landed.itemUSD)
   const shipping = inDest(landed.shippingUSD)

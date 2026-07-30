@@ -12,6 +12,7 @@ import { PriceAlertModal } from "@/components/product/price-alert-modal"
 import { formatPrice, toUSD } from "@/lib/currency"
 import { bestOfferPerRegion, estimateLandedCost, formatDisplay, formatLanded, toDisplayCost } from "@/lib/landed-cost"
 import { useDestination } from "@/lib/use-destination"
+import { useFx } from "@/lib/use-fx"
 import { DestinationSelect } from "@/components/ui/destination-select"
 import { RegionAlertCard } from "@/components/product/region-alert-card"
 
@@ -68,6 +69,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
   const [isLoading, setIsLoading] = useState(!initialProduct)
   const [alertModalOpen, setAlertModalOpen] = useState(false)
   const { destination, setDestination } = useDestination()
+  const { rates: fx } = useFx()
 
   const isWishlisted = wishlist.some((item) => item.id === productId)
 
@@ -76,12 +78,16 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
   const rankedOffers = useMemo(
     () =>
       product
-        ? bestOfferPerRegion([product, ...relatedProducts], destination, product.color)
+        ? bestOfferPerRegion([product, ...relatedProducts], destination, product.color, fx)
         : [],
-    [product, relatedProducts, destination]
+    [product, relatedProducts, destination, fx]
   )
 
-  const best = rankedOffers.find((r) => r.offer.is_available !== false)
+  // Buyable means in stock AND a store that will ship here: a cheaper price
+  // from a store that does not serve this country is not an offer at all.
+  const best = rankedOffers.find(
+    (r) => r.offer.is_available !== false && r.landed.deliverability === "ships"
+  )
   const bestOffer = best?.offer
 
   // Which regions carry this garment at all, and whether the shopper's own
@@ -94,8 +100,11 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
   const stockedLocally = stockedRegions.includes(destination.domesticRegion)
 
   const currentLanded = useMemo(
-    () => (product ? estimateLandedCost(product.price, product.currency, product.region, destination) : null),
-    [product, destination]
+    () =>
+      product
+        ? estimateLandedCost(product.price, product.currency, product.region, destination, fx)
+        : null,
+    [product, destination, fx]
   )
 
   // Only claim a saving when the alternative genuinely lands cheaper.
@@ -286,8 +295,8 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 >
                   <Globe className="w-3.5 h-3.5" />
                   Cheaper from {REGION_FLAGS[bestOffer.region] || bestOffer.region.toUpperCase()} —{" "}
-                  ~{formatLanded(best!.landed.totalUSD, destination)} delivered (save ≈{" "}
-                  {formatLanded(savingsUSD, destination)})
+                  ~{formatLanded(best!.landed.totalUSD, destination, fx)} delivered (save ≈{" "}
+                  {formatLanded(savingsUSD, destination, fx)})
                 </Link>
               )}
 
@@ -412,7 +421,8 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 {rankedOffers.map(({ offer: p, landed }) => {
                   const isCurrent = p.id === product.id
                   const isBest = bestOffer && p.id === bestOffer.id
-                  const cost = toDisplayCost(landed, destination)
+                  const cost = toDisplayCost(landed, destination, fx)
+                  const undeliverable = landed.deliverability !== "ships"
                   return (
                     <Link
                       key={p.id}
@@ -435,10 +445,25 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                         />
                       </div>
 
-                      <p className="text-[15px] font-semibold">~{formatDisplay(cost.total, cost)}</p>
-                      <p className={`text-[11px] ${isBest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                        delivered{isCurrent ? " · viewing" : ""}
-                      </p>
+                      {/* A store that will not ship here has no delivered cost,
+                          so it shows the shelf price and says why there is no
+                          total. Ranking it on an invented total put "cheapest"
+                          on orders that cannot be placed. */}
+                      {undeliverable ? (
+                        <>
+                          <p className="text-[15px] font-semibold">{formatPrice(p.price, p.currency)}</p>
+                          <p className={`text-[11px] ${isBest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                            in store{isCurrent ? " · viewing" : ""}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-[15px] font-semibold">~{formatDisplay(cost.total, cost)}</p>
+                          <p className={`text-[11px] ${isBest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                            delivered{isCurrent ? " · viewing" : ""}
+                          </p>
+                        </>
+                      )}
 
                       {/* Every row here is in the destination's currency, so the
                           column adds up to the total above it. The store's own
@@ -446,23 +471,31 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                           is what gets charged at checkout, which is worth
                           knowing, but it is not a term in this sum. */}
                       <div className={`mt-2.5 pt-2.5 space-y-0.5 text-[11px] border-t ${isBest ? "border-primary-foreground/15 text-primary-foreground/60" : "border-border text-muted-foreground"}`}>
-                        <div className="flex justify-between gap-2">
-                          <span>Item</span>
-                          <span>~{formatDisplay(cost.item, cost)}</span>
-                        </div>
-                        {cost.shipping > 0 && (
-                          <div className="flex justify-between gap-2">
-                            <span>Shipping</span>
-                            <span>~{formatDisplay(cost.shipping, cost)}</span>
-                          </div>
+                        {undeliverable ? (
+                          <div>{landed.notes}</div>
+                        ) : (
+                          <>
+                            <div className="flex justify-between gap-2">
+                              <span>Item</span>
+                              <span>~{formatDisplay(cost.item, cost)}</span>
+                            </div>
+                            {cost.shipping > 0 && (
+                              <div className="flex justify-between gap-2">
+                                <span>Shipping{landed.shippingIsEstimated ? "*" : ""}</span>
+                                <span>~{formatDisplay(cost.shipping, cost)}</span>
+                              </div>
+                            )}
+                            {cost.shipping === 0 && <div>Free shipping</div>}
+                            {cost.duty > 0 && (
+                              <div className="flex justify-between gap-2">
+                                <span>Duty &amp; tax</span>
+                                <span>~{formatDisplay(cost.duty, cost)}</span>
+                              </div>
+                            )}
+                            {landed.isCleanEstimate && !landed.isDomestic && <div>Duty paid at checkout</div>}
+                            {landed.isDomestic && <div>Domestic</div>}
+                          </>
                         )}
-                        {cost.duty > 0 && (
-                          <div className="flex justify-between gap-2">
-                            <span>Duty &amp; tax</span>
-                            <span>~{formatDisplay(cost.duty, cost)}</span>
-                          </div>
-                        )}
-                        {landed.isDomestic && <div>Domestic</div>}
                         {p.currency !== destination.currency && (
                           <div className={`flex justify-between gap-2 pt-1 mt-1 border-t ${isBest ? "border-primary-foreground/15" : "border-border"}`}>
                             <span>Pay at store</span>

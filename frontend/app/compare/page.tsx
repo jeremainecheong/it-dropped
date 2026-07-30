@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header"
 import { formatPrice } from "@/lib/currency"
 import { rankByLandedCost, formatDisplay, toDisplayCost } from "@/lib/landed-cost"
 import { useDestination } from "@/lib/use-destination"
+import { useFx } from "@/lib/use-fx"
 import { DestinationSelect } from "@/components/ui/destination-select"
 
 interface Product {
@@ -40,6 +41,7 @@ function CompareContent() {
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const { destination, setDestination } = useDestination()
+    const { rates: fx } = useFx()
 
     useEffect(() => {
         if (handle) {
@@ -64,8 +66,10 @@ function CompareContent() {
 
     // Ranked by estimated delivered cost — sticker price alone is misleading
     // once shipping and duty enter the picture.
-    const ranked = rankByLandedCost(products, destination)
-    const cheapest = ranked.find((r) => r.offer.is_available)?.offer ?? null
+    const ranked = rankByLandedCost(products, destination, fx)
+    // Cheapest has to be buyable: in stock AND from a store that ships here.
+    const cheapest =
+        ranked.find((r) => r.offer.is_available && r.landed.deliverability === "ships")?.offer ?? null
 
     if (!handle) {
         return (
@@ -110,7 +114,8 @@ function CompareContent() {
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {ranked.map(({ offer: product, landed }) => {
                                     const isCheapest = cheapest && product.id === cheapest.id
-                                    const cost = toDisplayCost(landed, destination)
+                                    const cost = toDisplayCost(landed, destination, fx)
+                                    const undeliverable = landed.deliverability !== "ships"
                                     return (
                                         <div
                                             key={product.id}
@@ -133,18 +138,22 @@ function CompareContent() {
                                             </div>
 
                                             <div className="mb-4">
-                                                <div className="display text-3xl">~{formatDisplay(cost.total, cost)}</div>
+                                                <div className="display text-3xl">
+                                                    {undeliverable ? formatPrice(product.price, product.currency) : `~${formatDisplay(cost.total, cost)}`}
+                                                </div>
                                                 <div className={`text-xs mt-1 ${isCheapest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                                                    delivered to {destination.name}
+                                                    {undeliverable ? "in store" : `delivered to ${destination.name}`}
                                                 </div>
                                             </div>
 
                                             {/* One currency per column of figures: the item line used to be the
                                                 store's own, so the breakdown did not sum to the total above it. */}
                                             <div className={`mb-4 space-y-0.5 text-xs ${isCheapest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                                                {!undeliverable && (
                                                 <div className="flex justify-between">
                                                     <span>Item</span><span>~{formatDisplay(cost.item, cost)}</span>
                                                 </div>
+                                                )}
                                                 {cost.shipping > 0 && (
                                                     <div className="flex justify-between">
                                                         <span>Shipping</span><span>~{formatDisplay(cost.shipping, cost)}</span>
