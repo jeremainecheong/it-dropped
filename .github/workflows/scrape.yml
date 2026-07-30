@@ -27,7 +27,10 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Comfortably above SCRAPE_CYCLE_TIMEOUT below, so the scraper always
+    # deadlines itself first and exits with an error to read, rather than being
+    # killed here mid-write.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -52,5 +55,9 @@ jobs:
           REGIONS: us,uk,eu,jp,au,sg
           # One cycle, then exit — the cron above is the loop.
           SCRAPE_INTERVAL: "0"
+          # A runner's address is shared and the stores rate-limit on it, so a
+          # cycle can spend minutes backing off before it gets through. This
+          # bounds that, below the job timeout above.
+          SCRAPE_CYCLE_TIMEOUT: 10m
           LOG_LEVEL: info
         run: go run ./cmd/scraper

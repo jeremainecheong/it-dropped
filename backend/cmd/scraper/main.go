@@ -80,7 +80,7 @@ func main() {
 	// panicked in NewTicker before a single product was fetched.
 	if cfg.ScrapeInterval <= 0 {
 		log.Info().Msg("SCRAPE_INTERVAL not positive, running a single cycle")
-		if err := runScraper(ctx, s, notifier); err != nil {
+		if err := runScraper(ctx, s, notifier, cfg.ScrapeCycleTimeout); err != nil {
 			// The one-shot path is the CI path (.github/workflows/scrape.yml
 			// sets SCRAPE_INTERVAL=0), so this exit code is the only thing
 			// standing between a region that scraped nothing and a green tick
@@ -104,7 +104,7 @@ func main() {
 	// Run immediately once. The loop deliberately ignores the cycle error:
 	// a long-running scraper should survive a bad cycle and try again on the
 	// next tick. Only the one-shot path above turns it into an exit status.
-	_ = runScraper(ctx, s, notifier)
+	_ = runScraper(ctx, s, notifier, cfg.ScrapeCycleTimeout)
 
 	for {
 		select {
@@ -112,7 +112,7 @@ func main() {
 			log.Info().Msg("Scraper shutting down")
 			return
 		case <-ticker.C:
-			_ = runScraper(ctx, s, notifier)
+			_ = runScraper(ctx, s, notifier, cfg.ScrapeCycleTimeout)
 		}
 	}
 }
@@ -121,7 +121,14 @@ func main() {
 // a region fails entirely — see Scraper.Run. In loop mode the caller logs and
 // carries on to the next tick; in one-shot mode the caller turns it into a
 // non-zero exit status, which is what makes an unattended daily run visible.
-func runScraper(ctx context.Context, s *scraper.Scraper, notifier *telegram.Notifier) error {
+func runScraper(parent context.Context, s *scraper.Scraper, notifier *telegram.Notifier, timeout time.Duration) error {
+	ctx := parent
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(parent, timeout)
+		defer cancel()
+	}
+
 	log.Info().Msg("Starting scrape cycle")
 	err := s.Run(ctx)
 	if err != nil {
@@ -134,8 +141,12 @@ func runScraper(ctx context.Context, s *scraper.Scraper, notifier *telegram.Noti
 	// the drops are already durably recorded and will be retried next pass.
 	// This still runs after a partial failure: the regions that did succeed
 	// have drops worth announcing.
+	//
+	// Deliberately on the parent context, not the deadlined one: a cycle that
+	// ran out its budget still recorded drops, and they are exactly the ones
+	// worth announcing.
 	if notifier != nil {
-		if notifyErr := notifier.NotifyDrops(ctx); notifyErr != nil {
+		if notifyErr := notifier.NotifyDrops(parent); notifyErr != nil {
 			log.Error().Err(notifyErr).Msg("Notification pass failed")
 		}
 	}

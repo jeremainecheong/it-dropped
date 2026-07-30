@@ -10,7 +10,10 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 300
+      # Above the scraper's own SCRAPE_CYCLE_TIMEOUT, so the binary deadlines
+      # itself and exits with a readable error instead of being killed here
+      # partway through writing a region.
+      activeDeadlineSeconds: 900
       template:
         metadata:
           labels:
@@ -32,6 +35,11 @@ spec:
             # next run. Zero means one cycle, then exit.
             - name: SCRAPE_INTERVAL
               value: "0"
+            # Bounds one cycle. The stores rate-limit per address and a cycle
+            # can spend minutes backing off through it; this keeps that inside
+            # activeDeadlineSeconds above.
+            - name: SCRAPE_CYCLE_TIMEOUT
+              value: "10m"
             resources:
               requests:
                 memory: "64Mi"

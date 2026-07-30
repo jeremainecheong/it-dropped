@@ -30,12 +30,22 @@ type Config struct {
 
 	// Scraper settings
 	ScrapeTimeout time.Duration `envconfig:"SCRAPE_TIMEOUT" default:"30s"`
-	RequestDelay  time.Duration `envconfig:"REQUEST_DELAY" default:"500ms"`
+	// Minimum spacing between any two outbound requests, across all regions —
+	// the stores rate-limit per address, so pacing each region separately just
+	// multiplies the rate by six. A full cycle is ~24 requests, so a second
+	// apart costs well under a minute.
+	RequestDelay time.Duration `envconfig:"REQUEST_DELAY" default:"1s"`
 	// How often the long-running scraper starts a new cycle. Drops don't land
 	// more than once every few minutes, and a full cycle is ~24 requests, so
 	// 5m keeps us to a polite request rate against the upstream stores.
 	// Ignored when the scraper runs as a one-shot CronJob.
 	ScrapeInterval time.Duration `envconfig:"SCRAPE_INTERVAL" default:"5m"`
+	// Hard bound on one cycle. Retrying through a rate limit can legitimately
+	// take minutes, but a cycle that outlives its scheduler gets killed
+	// mid-write, leaving scrape_logs rows that never complete and no error to
+	// read. Deadlining ourselves first turns that into an ordinary failure.
+	// Must stay below the scheduler's own timeout.
+	ScrapeCycleTimeout time.Duration `envconfig:"SCRAPE_CYCLE_TIMEOUT" default:"10m"`
 }
 
 // Load reads configuration from environment variables
