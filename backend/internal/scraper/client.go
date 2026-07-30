@@ -172,17 +172,46 @@ func (c *Client) FetchProducts(ctx context.Context, region Region) ([]models.Sho
 		}
 
 		if len(products) < pageLimit {
-			break // last page
+			break // last page — the only clean way out of this loop
 		}
 
 		// A store that ignores ?page returns the same items forever; without
 		// this the loop would burn the whole page budget hammering it.
+		//
+		// This is a TRUNCATION, not a clean finish, and it must say so. It used
+		// to break with `partial` nil, which told the caller the catalogue was
+		// complete when we had in fact stopped early — and a caller now acts on
+		// that: scrapeRegion marks every product it did not see as delisted.
+		// A proxy that serves a cached page, or a store that quietly drops the
+		// parameter, would have flipped a whole region to unavailable.
 		if added == 0 {
 			log.Warn().
 				Str("region", region.Code).
 				Int("page", page).
 				Msg("Page returned no new products, stopping pagination")
+			partial = &PartialCatalogError{
+				Region: region.Code,
+				Pages:  page - 1,
+				Err:    fmt.Errorf("page %d returned no new products; the store may be ignoring ?page", page),
+			}
 			break
+		}
+	}
+
+	// Falling out of the loop having used every page is also a truncation: the
+	// guard exists because pagination can run away, and a catalogue larger than
+	// maxPages*pageLimit is one we have only partly seen. Dover Street Market
+	// paginates its whole multi-brand catalogue before the vendor filter runs,
+	// so this is reachable in practice rather than theoretical.
+	if partial == nil && len(all) >= maxPages*pageLimit {
+		log.Warn().
+			Str("region", region.Code).
+			Int("products", len(all)).
+			Msg("Hit the pagination cap, catalogue may be incomplete")
+		partial = &PartialCatalogError{
+			Region: region.Code,
+			Pages:  maxPages,
+			Err:    fmt.Errorf("hit the %d-page cap at %d products", maxPages, len(all)),
 		}
 	}
 
