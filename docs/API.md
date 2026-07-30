@@ -1,6 +1,16 @@
-# DROPRADAR API Documentation
+# It Dropped — read API
 
-Base URL: `http://localhost:8080` (local) or `https://api.dropradar.dev` (production)
+These endpoints are Next.js route handlers under `frontend/app/api/dropradar/*`,
+served from the same origin as the site. There is no separate API service: the
+Go one this file used to describe was removed once the queries moved into
+Postgres (migration `014`) and the handlers took over. `api.dropradar.dev` no
+longer exists.
+
+Base URL: your own origin — `http://localhost:3000` locally.
+
+Everything here is read-only and unauthenticated. The catalogue tables are
+world-readable by policy and writable only by `service_role` (migration `013`),
+so these routes use the publishable key and cannot modify anything.
 
 ---
 

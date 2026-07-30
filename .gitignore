@@ -37,9 +37,11 @@ go.work
 Thumbs.db
 
 # Environment
-.env
-.env.local
-.env.*.local
+# Everything env-shaped. The narrow list this replaced covered .env,
+# .env.local and .env.*.local, which let .env.production and .env.development
+# through — a gap that only matters once, and permanently.
+.env*
+!.env.example
 
 # Logs
 *.log
