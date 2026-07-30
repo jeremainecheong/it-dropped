@@ -11,6 +11,21 @@ interface ImageWithLoadingProps {
   onLoad?: () => void
 }
 
+/**
+ * An image that fades in, with a placeholder while it loads.
+ *
+ * The sizing is the subtle part. Callers pass `className` as "w-full h-full
+ * object-cover" and expect it to fill an `aspect-[3/4]` tile. That only works
+ * if the *wrapper* is the full-size box: previously `className` went to the
+ * `<img>` and to the placeholder but never to the wrapper, so the wrapper was a
+ * plain block of indefinite height, the image's `h-full` resolved against
+ * nothing and computed to `auto`, and `object-cover` never engaged. A square
+ * product shot in a 3:4 tile therefore left a grey band under every card.
+ *
+ * The placeholder had the same cause and a worse symptom: `absolute inset-0` of
+ * a zero-height wrapper is zero-height, so the shimmer and spinner this
+ * component exists to show have never once been visible.
+ */
 export function ImageWithLoading({
   src,
   alt,
@@ -35,22 +50,21 @@ export function ImageWithLoading({
   }
 
   return (
-    <div className="relative overflow-hidden">
-      {/* Loading placeholder */}
+    <div className={cn("relative overflow-hidden", className)}>
+      {/* Tokens, not raw palette values: the previous bg-gray-200 /
+          border-gray-300 flashed a light grey block in dark mode. */}
       {isLoading && (
-        <div className={cn("absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center", className)}>
-          <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+        <div className="absolute inset-0 bg-secondary animate-pulse flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-border border-t-muted-foreground rounded-full animate-spin" />
         </div>
       )}
 
-      {/* Actual image */}
       <img
         src={hasError ? placeholder : src}
         alt={alt}
         className={cn(
-          "transition-all duration-500",
+          "w-full h-full object-cover transition-all duration-500",
           isLoading ? "opacity-0 scale-105" : "opacity-100 scale-100",
-          className,
         )}
         onLoad={handleLoad}
         onError={handleError}

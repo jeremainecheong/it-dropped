@@ -3,11 +3,12 @@
 import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { User, Heart, Home, ShoppingBag, Users, Sparkles, Search } from "lucide-react"
+import { User, Heart, Home, ShoppingBag, Sparkles, Search } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Logo } from "@/components/ui/logo"
 import { SearchOverlay } from "@/components/ui/search-overlay"
+import { NotificationBell } from "@/components/ui/notification-bell"
 
 interface HeaderProps {
     /** Page-specific actions rendered before the default actions */
@@ -28,7 +29,7 @@ const NAV_LINKS = [
  */
 export function Header({ actions }: HeaderProps) {
     const pathname = usePathname()
-    const { user } = useAuth()
+    const { user, isLoading } = useAuth()
     const [searchOpen, setSearchOpen] = useState(false)
 
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
@@ -109,8 +110,15 @@ export function Header({ actions }: HeaderProps) {
                         </button>
 
                         <ThemeToggle />
-                        {user ? (
+                        {/* Held until the session resolves. Rendering the
+                            signed-out branch while `getSession()` is still in
+                            flight meant every signed-in visitor saw a "Sign In"
+                            button flash on 100% of page loads. */}
+                        {isLoading ? (
+                            <div className="w-8 h-8" aria-hidden />
+                        ) : user ? (
                             <>
+                                <NotificationBell />
                                 <Link
                                     href="/wishlist"
                                     aria-label="Wishlist"
@@ -147,7 +155,11 @@ export function Header({ actions }: HeaderProps) {
                         { href: "/", label: "Home", icon: Home, active: pathname === "/" },
                         { href: "/drops", label: "Drops", icon: Sparkles, active: isActive("/drops") },
                         { href: "/shop", label: "Shop", icon: ShoppingBag, active: isActive("/shop") },
-                        { href: "/community", label: "Forum", icon: Users, active: isActive("/community") },
+                        // Was the forum, which is frozen and needs other
+                        // people to be worth anything. The wishlist is the
+                        // surface this tool exists for and had no mobile entry
+                        // at all.
+                        { href: "/wishlist", label: "Saved", icon: Heart, active: isActive("/wishlist") },
                         {
                             href: user ? "/profile" : "/login",
                             label: user ? "Profile" : "Login",
