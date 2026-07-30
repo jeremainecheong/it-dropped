@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +46,10 @@ type Client struct {
 	httpClient *http.Client
 	userAgent  string
 	delay      time.Duration
+	// proxyURL, when set, is fetched instead of the store directly, with the
+	// region and page as query parameters. See requestURL.
+	proxyURL   string
+	proxyToken string
 	// backoffBase scales the wait between attempts: 2*base, 4*base, 8*base…
 	// Only tests move it, so they need not spend real seconds proving that a
 	// retry happens.
@@ -54,9 +59,16 @@ type Client struct {
 	nextAt time.Time // earliest instant the next request may leave
 }
 
-// NewClient creates a new HTTP client for scraping
-func NewClient(timeout, delay time.Duration) *Client {
+// NewClient creates a new HTTP client for scraping.
+//
+// proxyURL and proxyToken are optional. Set, every store fetch goes through
+// that endpoint instead of straight to the store — which is how this runs in
+// CI, because the stores rate limit GitHub's runner addresses on sight. Unset,
+// the stores are fetched directly, which is what a local run wants.
+func NewClient(timeout, delay time.Duration, proxyURL, proxyToken string) *Client {
 	return &Client{
+		proxyURL:   strings.TrimSpace(proxyURL),
+		proxyToken: strings.TrimSpace(proxyToken),
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
@@ -209,9 +221,24 @@ type retryPlan struct {
 	after       time.Duration // server-supplied Retry-After, zero if absent
 }
 
+// requestURL is where a page is actually fetched from: the store, or the
+// proxy standing in front of it. The proxy takes a region code rather than a
+// URL — it resolves the store itself, so that no input reaches it that could
+// point it at another host.
+func (c *Client) requestURL(region Region, page int) string {
+	if c.proxyURL == "" {
+		return region.ProductsPageURL(page)
+	}
+	sep := "?"
+	if strings.Contains(c.proxyURL, "?") {
+		sep = "&"
+	}
+	return fmt.Sprintf("%s%sregion=%s&page=%d", c.proxyURL, sep, url.QueryEscape(region.Code), page)
+}
+
 // fetchPage fetches a single page with retry and exponential backoff.
 func (c *Client) fetchPage(ctx context.Context, region Region, page int) ([]models.ShopifyProduct, error) {
-	url := region.ProductsPageURL(page)
+	target := c.requestURL(region, page)
 
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -219,7 +246,7 @@ func (c *Client) fetchPage(ctx context.Context, region Region, page int) ([]mode
 			return nil, err
 		}
 
-		products, plan, err := c.doFetch(ctx, region, url)
+		products, plan, err := c.doFetch(ctx, region, target)
 		if err == nil {
 			return products, nil
 		}
@@ -327,6 +354,12 @@ func (c *Client) doFetch(ctx context.Context, region Region, url string) ([]mode
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/json, text/plain, */*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	// Guarded on proxyURL as well as on the token: with no proxy configured the
+	// request goes straight to a storefront, and that is not somewhere to send
+	// a bearer token.
+	if c.proxyURL != "" && c.proxyToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.proxyToken)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

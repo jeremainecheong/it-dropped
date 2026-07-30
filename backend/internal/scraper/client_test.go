@@ -17,7 +17,7 @@ import (
 // down so a test that proves a retry happens does not spend six real seconds
 // doing it.
 func testClient(srv *httptest.Server, delay time.Duration) (*Client, Region) {
-	c := NewClient(5*time.Second, delay)
+	c := NewClient(5*time.Second, delay, "", "")
 	c.backoffBase = time.Millisecond
 	return c, Region{Code: "test", Name: "Test", BaseURL: srv.URL, Currency: "USD"}
 }
@@ -243,7 +243,7 @@ func TestRetryAfter(t *testing.T) {
 // Retrying before the server said it would listen again is a wasted request
 // that renews the limit that produced the header.
 func TestBackoffHonoursRetryAfter(t *testing.T) {
-	c := NewClient(time.Second, 0)
+	c := NewClient(time.Second, 0, "", "")
 
 	if got := c.backoffFor(1, 20*time.Second); got < 20*time.Second {
 		t.Fatalf("backoffFor(1, 20s) = %v, want at least 20s", got)
@@ -278,5 +278,76 @@ func TestRequestSendsConfiguredUserAgent(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(got), "curl") {
 		t.Fatalf("User-Agent = %q, which is what a bot wall filters on", got)
+	}
+}
+
+// With a proxy configured, the store is never contacted directly: the proxy is
+// fetched instead, and told which region and page by name. It resolves the
+// storefront itself, so there is no input that could point it at another host.
+func TestProxyIsFetchedInsteadOfTheStore(t *testing.T) {
+	var gotPath, gotAuth string
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.String()
+		gotAuth = r.Header.Get("Authorization")
+		fmt.Fprint(w, productsJSON(1, 2))
+	}))
+	defer proxy.Close()
+
+	var storeHits atomic.Int32
+	store := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		storeHits.Add(1)
+		fmt.Fprint(w, productsJSON(99, 1))
+	}))
+	defer store.Close()
+
+	c := NewClient(5*time.Second, 0, proxy.URL+"/api/scrape/store", "s3cret")
+	c.backoffBase = time.Millisecond
+	region := Region{Code: "us", Name: "US", BaseURL: store.URL, Currency: "USD"}
+
+	products, err := c.FetchProducts(context.Background(), region)
+	if err != nil {
+		t.Fatalf("FetchProducts: %v", err)
+	}
+	if len(products) != 2 {
+		t.Fatalf("got %d products, want the proxy's 2", len(products))
+	}
+	if storeHits.Load() != 0 {
+		t.Fatalf("store was contacted %d times, want 0", storeHits.Load())
+	}
+	if want := "/api/scrape/store?region=us&page=1"; gotPath != want {
+		t.Fatalf("proxy path = %q, want %q", gotPath, want)
+	}
+	if want := "Bearer s3cret"; gotAuth != want {
+		t.Fatalf("Authorization = %q, want %q", gotAuth, want)
+	}
+}
+
+// A proxy URL that already carries a query string must gain parameters, not a
+// second '?'.
+func TestProxyURLWithExistingQuery(t *testing.T) {
+	c := NewClient(time.Second, 0, "https://example.test/p?v=1", "t")
+	region := Region{Code: "jp"}
+	if got, want := c.requestURL(region, 3), "https://example.test/p?v=1&region=jp&page=3"; got != want {
+		t.Fatalf("requestURL = %q, want %q", got, want)
+	}
+}
+
+// Without a proxy the request goes straight to a storefront, which is not
+// somewhere to send a bearer token — even if one is somehow configured.
+func TestNoProxyMeansNoAuthorizationHeader(t *testing.T) {
+	var sawAuth bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawAuth = r.Header.Get("Authorization") != ""
+		fmt.Fprint(w, productsJSON(1, 1))
+	}))
+	defer srv.Close()
+
+	c := NewClient(5*time.Second, 0, "", "leaked-if-sent")
+	region := Region{Code: "us", BaseURL: srv.URL}
+	if _, err := c.FetchProducts(context.Background(), region); err != nil {
+		t.Fatalf("FetchProducts: %v", err)
+	}
+	if sawAuth {
+		t.Fatal("sent an Authorization header to a storefront")
 	}
 }

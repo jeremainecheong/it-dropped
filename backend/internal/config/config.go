@@ -46,6 +46,17 @@ type Config struct {
 	// read. Deadlining ourselves first turns that into an ordinary failure.
 	// Must stay below the scheduler's own timeout.
 	ScrapeCycleTimeout time.Duration `envconfig:"SCRAPE_CYCLE_TIMEOUT" default:"10m"`
+	// Where to fetch storefronts from. Set, every store request goes through
+	// this endpoint instead of straight to the store; unset, the stores are
+	// fetched directly.
+	//
+	// This exists because of where the scraper runs, not what it does. The
+	// stores answer a GitHub Actions runner's address 429 with a Retry-After
+	// of a minute or more, on the first request of a run — the same code from
+	// Vercel reaches all six in about 130ms each. So CI sets this and a local
+	// run leaves it empty.
+	ScrapeProxyURL   string `envconfig:"SCRAPE_PROXY_URL"`
+	ScrapeProxyToken string `envconfig:"SCRAPE_PROXY_TOKEN"`
 }
 
 // Load reads configuration from environment variables

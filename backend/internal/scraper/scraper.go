@@ -29,7 +29,7 @@ func New(cfg *config.Config, db *database.Client) *Scraper {
 	return &Scraper{
 		cfg:    cfg,
 		db:     db,
-		client: NewClient(cfg.ScrapeTimeout, cfg.RequestDelay),
+		client: NewClient(cfg.ScrapeTimeout, cfg.RequestDelay, cfg.ScrapeProxyURL, cfg.ScrapeProxyToken),
 	}
 }
 
