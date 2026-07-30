@@ -1,213 +1,141 @@
-# DROPRADAR
+<div align="center">
 
-Stüssy product drop monitoring system with Telegram notifications.
+# It Dropped
 
-## Features
+**Track Stüssy across six storefronts and find out where a garment is actually cheapest — after shipping and duty.**
 
-- 🔍 **Multi-Region Monitoring** - Tracks Stüssy stores across US, UK, EU, JP, AU
-- 🆕 **New Drop Alerts** - Instant notifications when new products drop
-- 🔄 **Restock Notifications** - Know when sold-out items are back
-- 💰 **Price Tracking** - Get alerted on price changes
-- 🤖 **Telegram Bot** - Easy subscription management via Telegram
-- 📊 **REST API** - Dashboard-ready API endpoints
-- 🖥️ **Web Dashboard** - Next.js frontend for browsing drops
+[![Live](https://img.shields.io/badge/live-it--dropped.vercel.app-000?style=flat-square)](https://it-dropped.vercel.app)
+![Next.js](https://img.shields.io/badge/Next.js-14-000?style=flat-square&logo=next.js)
+![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?style=flat-square&logo=supabase)
+![Licence](https://img.shields.io/badge/licence-MIT-blue?style=flat-square)
+
+</div>
+
+![The catalogue](docs/screenshots/shop.png)
+
+---
+
+## The problem
+
+Stüssy sells the same garment through six storefronts in five currencies, and each prices independently. A tee is $45 in the US and S$85 in Singapore. Which is cheaper depends on where you live, because shipping and duty are often larger than the price gap.
+
+Worse, the stores don't agree on how to identify a product. Stüssy's own sites use one SKU convention; Dover Street Market Singapore uses its own. Matching a garment across regions is the hard part, and everything else depends on it.
+
+## What it does
+
+**Compares the delivered cost, not the sticker price.** Every regional listing of the same garment, ranked by what it would actually cost to get to your door.
+
+![Cross-region comparison](docs/screenshots/compare.png)
+
+- **Six storefronts** — US, UK, EU, JP, AU, and Dover Street Market Singapore, which carries pieces the brand's own stores don't
+- **Cross-region identity** — resolves a `style_code` per garment, so the same hoodie is recognisable across five currencies
+- **Landed cost** — shipping and duty estimated per corridor, so the ranking reflects reality rather than the price tag
+- **Drop feed** — new listings, restocks, price cuts and sell-outs, found by diffing each scrape against the last
+- **Alerts** — watch a price, a size, or a garment that isn't stocked in your country yet
+- **Full-text search** — Postgres `tsvector` with weighted ranking over title, vendor, type and tags
 
 ## Architecture
 
+Two hosted platforms and a scheduled job. No server to run.
+
+```mermaid
+flowchart TB
+    subgraph stores["Storefronts"]
+        S1["stussy.com · uk · eu · jp · au"]
+        S2["Dover Street Market SG"]
+    end
+
+    subgraph ci["GitHub Actions · daily"]
+        SC["Go scraper<br/>fetch → parse → diff"]
+    end
+
+    subgraph sb["Supabase"]
+        PG[("Postgres<br/>RLS · RPC · full-text")]
+        AU["Auth<br/>email · Google OAuth"]
+        RT["Realtime"]
+    end
+
+    subgraph vc["Vercel"]
+        RH["Route handlers<br/>/api/dropradar/*"]
+        UI["Next.js App Router<br/>SSR + ISR"]
+    end
+
+    S1 --> SC
+    S2 --> SC
+    SC -->|"upsert · drops · price history"| PG
+    RH --> PG
+    UI --> RH
+    UI --> AU
+    UI --> RT
+    RT --> PG
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     KUBERNETES CLUSTER                      │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   CRONJOB   │  │ DEPLOYMENT  │  │     DEPLOYMENT      │  │
-│  │   scraper   │  │ api-server  │  │    telegram-bot     │  │
-│  │  */5 * * *  │  │ replicas: 2 │  │     replicas: 1     │  │
-│  └─────────────┘  └──────┬──────┘  └──────────┬──────────┘  │
-│                          │                     │            │
-│                   ┌──────▼──────┐      ┌──────▼──────┐      │
-│                   │ api-service │      │ bot-service │      │
-│                   │    :8080    │      │    :8081    │      │
-│                   └─────────────┘      └─────────────┘      │
-└─────────────────────────────────────────────────────────────┘
-                          │                     │
-              ┌───────────▼─────────────────────▼───────────┐
-              │              SUPABASE                       │
-              │         PostgreSQL Database                 │
-              └─────────────────────────────────────────────┘
+
+**The scraper** runs once a day in CI. It fetches each store's `products.json`, parses variants into a normalised product, and diffs against a stored hash to decide what changed. Only changed rows are then read in full — the cheap fingerprint comparison comes first, which keeps a cycle inside Supabase's free egress allowance.
+
+**The read API** is Next.js route handlers reading Supabase directly. There is no separate API service. The queries PostgREST can't express — ranked search, the handle-to-style-code resolution, the dashboard aggregates — live in Postgres as functions and views.
+
+**Security** is row level security throughout. The catalogue is world-readable and writable only by `service_role`; every user-owned table is scoped to its owner. The publishable key in the browser bundle can read the catalogue and nothing else.
+
+## Tech stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Frontend | Next.js 14 (App Router), React 19, TypeScript | Server components for SEO, client components where interaction lives |
+| Styling | Tailwind CSS, Radix UI primitives | Utility styling over accessible unstyled components |
+| Charts | Recharts | Price history and dashboard aggregates |
+| Database | Supabase Postgres | RLS, PostgREST, realtime and auth in one managed instance |
+| Auth | Supabase Auth — email and Google OAuth, PKCE | Sessions in cookies, so server components can read them |
+| Scraper | Go 1.24, `pgx` | Concurrent per-region fetches; a batch job, not a service |
+| Notifications | Telegram Bot API | Optional — drops are recorded whether or not it is configured |
+| Hosting | Vercel + GitHub Actions | Free at hobby scale, with nothing long-running to host |
+
+## Repository layout
+
+```
+backend/
+  cmd/scraper          the daily batch job
+  cmd/bot              Telegram bot (optional)
+  internal/scraper     fetching, parsing, the differ
+  internal/database    queries and upserts
+frontend/
+  app/                 App Router pages
+  app/api/dropradar    the read API, as route handlers
+  lib/                 Supabase clients, landed-cost model, contexts
+  components/          UI and feature components
+docs/
+  schema.sql           base schema
+  migrations/          ordered and numbered, each runnable on its own
+  DEPLOY.md            Vercel, Supabase and CI setup
+  API.md               the read endpoints
+infra/                 Kubernetes manifests, kept for reference
 ```
 
-## Quick Start
-
-### Prerequisites
-
-- Go 1.22+
-- Node.js 18+ & pnpm
-- Docker
-- Minikube (for local development)
-- kubectl
-- Supabase account
-- Telegram Bot Token (from @BotFather)
-
-### 1. Clone & Configure
+## Running it locally
 
 ```bash
-git clone https://github.com/yourusername/dropradar.git
-cd dropradar
+# 1. Database — apply the schema, then every migration in order
+psql "$DATABASE_URL" -f docs/schema.sql
+for m in docs/migrations/*.sql; do psql "$DATABASE_URL" -f "$m"; done
 
-cp .env.example .env
-# Edit .env with your credentials
+# 2. Frontend
+cd frontend
+cp .env.example .env.local     # add your Supabase URL and publishable key
+npm ci && npm run dev
+
+# 3. One scrape cycle
+cd backend
+DATABASE_URL=… REGIONS=us,uk,eu,jp,au,sg SCRAPE_INTERVAL=0 go run ./cmd/scraper
 ```
 
-### 2. Setup Supabase
+`SCRAPE_INTERVAL=0` runs a single cycle and exits, which is what CI wants. Any positive value runs an internal loop instead — useful locally, wrong under a scheduler, because the job never ends and the next run is skipped.
 
-1. Create a new Supabase project at [supabase.com](https://supabase.com)
-2. Go to SQL Editor and run the schema from `docs/schema.sql`
-3. Copy your connection string to `.env`:
-   ```
-   SUPABASE_URL=postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
-   ```
+Deployment, including Google OAuth and the CI secret, is in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
-### 3. Create Telegram Bot
+## Notes on the data
 
-1. Message [@BotFather](https://t.me/BotFather) on Telegram
-2. Send `/newbot` and follow prompts
-3. Copy the bot token to `.env`:
-   ```
-   TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
-   ```
+Prices are what each storefront published at the last scrape. Shipping and duty are **estimates from typical rates for the corridor** — not a quote, and customs assesses the final amount. Currency conversion exists to make listings comparable on one axis, never to quote a checkout price.
 
-### 4. Local Development with Minikube
+## Licence
 
-```bash
-# Setup Minikube cluster
-make minikube-setup
-
-# Build and deploy
-make minikube-deploy
-
-# Check pods are running
-kubectl -n dropradar get pods
-
-# Access API locally
-kubectl -n dropradar port-forward svc/api-service 8080:8080
-```
-
-### 5. Test the API
-
-```bash
-# Health check
-curl http://localhost:8080/health
-
-# Get products
-curl http://localhost:8080/products?region=us&limit=10
-
-# Get recent drops
-curl http://localhost:8080/drops?type=new&limit=10
-```
-
-## Project Structure
-
-```
-dropradar/
-├── frontend/             # Next.js web dashboard
-│   ├── app/              # App router pages
-│   ├── components/       # React components
-│   ├── hooks/            # Custom hooks
-│   └── lib/              # Utilities
-├── backend/              # Go backend services
-│   ├── cmd/
-│   │   ├── api/          # API server entry point
-│   │   ├── bot/          # Telegram bot entry point
-│   │   └── scraper/      # Scraper entry point
-│   ├── internal/
-│   │   ├── api/          # REST API handlers
-│   │   ├── config/       # Configuration loading
-│   │   ├── database/     # Database operations
-│   │   ├── models/       # Data models
-│   │   ├── scraper/      # Scraping logic
-│   │   └── telegram/     # Telegram bot logic
-│   └── pkg/
-│       └── httputil/     # HTTP utilities
-├── infra/                # Infrastructure & deployment
-│   ├── docker/           # Dockerfiles
-│   ├── k8s/              # Kubernetes manifests
-│   └── scripts/          # Deployment scripts
-└── docs/                 # Documentation
-```
-
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Health check |
-| GET | `/status` | System status with recent scrapes |
-| GET | `/products` | List products (query: region, available, limit, offset) |
-| GET | `/drops` | List drops (query: region, type, notified, limit, offset) |
-
-## Bot Commands
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Subscribe to notifications |
-| `/settings` | View/edit notification preferences |
-| `/regions` | Select regions to monitor |
-| `/stop` | Unsubscribe |
-| `/help` | Show help |
-
-## Make Commands
-
-```bash
-# Backend
-make build              # Build all Go binaries
-make test               # Run tests
-make run-api            # Run API server locally
-make run-bot            # Run Telegram bot locally
-make run-scraper        # Run scraper locally
-
-# Frontend
-make frontend-install   # Install dependencies
-make frontend-dev       # Run frontend dev server
-make frontend-build     # Build frontend for production
-
-# Docker
-make docker-build       # Build Docker images
-
-# Kubernetes
-make minikube-setup     # Setup Minikube cluster
-make minikube-deploy    # Deploy to Minikube
-make minikube-logs-api  # Stream API logs
-make minikube-logs-bot  # Stream bot logs
-make minikube-logs-scraper # Stream scraper logs
-
-make clean              # Clean up
-```
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SUPABASE_URL` | PostgreSQL connection string | Yes |
-| `SUPABASE_SERVICE_KEY` | Supabase service key | Yes |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token | Yes |
-| `TELEGRAM_WEBHOOK_SECRET` | Webhook validation secret | No |
-| `REGIONS` | Comma-separated regions (default: us,uk,eu,jp,au) | No |
-| `LOG_LEVEL` | Logging level (default: info) | No |
-| `API_PORT` | API server port (default: 8080) | No |
-| `BOT_PORT` | Bot server port (default: 8081) | No |
-
-## Production Deployment (Vultr VKE)
-
-1. Create a Vultr Kubernetes cluster
-2. Download kubeconfig
-3. Run setup script:
-   ```bash
-   make vultr-setup
-   ```
-4. Deploy:
-   ```bash
-   make vultr-deploy
-   ```
-
-## License
-
-MIT
+MIT — see [LICENSE](LICENSE).
