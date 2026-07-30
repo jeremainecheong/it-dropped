@@ -1,10 +1,14 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { toast } from "sonner"
 import { useAuth } from "./auth-context"
 import { supabase } from "./supabase"
 
 export interface WishlistItem {
+    /** The PRODUCT id, which is what every call site passes to addItem,
+     *  removeItem and isInWishlist. This used to be mapped from the wishlists
+     *  row PK, so nothing a caller asked about ever matched. */
     id: string
     name: string
     price: number
@@ -58,6 +62,19 @@ function removeLocalStorage(key: string): void {
     }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * wishlists.product_id is a UUID column, so a non-UUID sent to it is a 400 for
+ * the whole insert rather than a null column. Legacy saves resolve their id
+ * from the TEXT handle column, so an id reaching here is not guaranteed to be
+ * a product UUID; anything that isn't goes in as NULL and the row still keys
+ * off handle, exactly as every existing row already does.
+ */
+export function asProductId(id: string): string | null {
+    return UUID_RE.test(id) ? id : null
+}
+
 export function WishlistProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth()
     const [items, setItems] = useState<WishlistItem[]>([])
@@ -85,8 +102,12 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
             if (error) throw error
 
+            // `id` is the product id. Rows written before product_id was
+            // populated have it NULL and the product UUID in the NOT NULL
+            // handle column, so handle is the fallback that keeps those saves
+            // resolvable.
             const mappedItems: WishlistItem[] = (data || []).map((row) => ({
-                id: row.id,
+                id: row.product_id ?? row.handle,
                 name: row.title,
                 price: parseFloat(row.price),
                 currency: row.currency,
@@ -99,9 +120,22 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
                 handle: row.handle,
             }))
 
-            setItems(mappedItems)
+            // One product can hold two rows — a legacy one keyed on the product
+            // UUID as its handle and a newer one keyed on the real handle —
+            // because the unique constraint is (user_id, handle, region) and
+            // those are different handles. They collapse to the same id here,
+            // and rendering both would mean duplicate React keys on /wishlist.
+            const seen = new Set<string>()
+            const deduped = mappedItems.filter((item) => {
+                if (seen.has(item.id)) return false
+                seen.add(item.id)
+                return true
+            })
+
+            setItems(deduped)
         } catch (error) {
             console.error("Error fetching wishlist:", error)
+            toast.error("Couldn't load your saved items.")
             // Fallback to localStorage (only on client)
             if (isMounted) {
                 const saved = getLocalStorage(`itdropped_wishlist_${user.id}`)
@@ -125,9 +159,21 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     }, [fetchWishlist, isMounted])
 
     const addItem = async (item: Omit<WishlistItem, "addedAt">) => {
-        if (!user) return
+        if (!user) {
+            // Signed out, the heart used to do nothing at all — no row, no
+            // error, no hint that saving needs an account.
+            toast.error("Sign in to save items", {
+                action: { label: "Sign in", onClick: () => window.location.assign("/login") },
+            })
+            return
+        }
 
-        const newItem = { ...item, addedAt: new Date().toISOString() }
+        // trending-products and search-overlay call addItem without a handle,
+        // so the product id is the handle for those saves. Resolving it here
+        // rather than only at the insert keeps the optimistic item identical to
+        // the row, which is what removeItem keys on before the refetch lands.
+        const handle = item.handle || item.id
+        const newItem = { ...item, handle, addedAt: new Date().toISOString() }
 
         // Optimistic update
         setItems((prev) => [...prev, newItem])
@@ -135,7 +181,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         try {
             const { error } = await supabase.from("wishlists").insert({
                 user_id: user.id,
-                handle: item.handle || item.id,
+                product_id: asProductId(item.id),
+                handle,
                 title: item.name,
                 price: item.price,
                 currency: item.currency,
@@ -150,6 +197,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             await fetchWishlist()
         } catch (error) {
             console.error("Error adding to wishlist:", error)
+            toast.error("Couldn't save that. It's stored on this device for now.")
             setItems((prev) => prev.filter((i) => i.id !== item.id))
 
             // Fallback to localStorage
@@ -161,8 +209,24 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    /**
+     * The handles a product id can be stored under, for keying a write on the
+     * table's real unique constraint, (user_id, handle, region).
+     *
+     * Callers pass a product id. The old code fed that straight to
+     * .eq("id", …) — the row PK — which matched zero rows for every save the
+     * app has ever written, so un-saving outside /wishlist silently failed and
+     * came back on reload. Both candidates are TEXT, so there is no UUID parse
+     * to fail on, and sending them as one IN list also clears the duplicate
+     * legacy/new pair described in fetchWishlist in a single request.
+     */
+    const handlesFor = (id: string, known?: WishlistItem) =>
+        Array.from(new Set([known?.handle, id].filter(Boolean) as string[]))
+
     const updateItem = async (id: string, updates: Partial<WishlistItem>) => {
         if (!user) return
+
+        const target = items.find((i) => i.id === id || i.handle === id)
 
         setItems((prev) =>
             prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
@@ -174,16 +238,22 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             if (updates.price) dbUpdates.price = updates.price
             if (updates.selectedSize !== undefined) dbUpdates.selected_size = updates.selectedSize
             if (updates.trackGlobal !== undefined) dbUpdates.track_all_regions = updates.trackGlobal
+            // PostgREST rejects an empty patch body, so an update of fields this
+            // function does not map would fail rather than no-op.
+            if (Object.keys(dbUpdates).length === 0) return
 
-            const { error } = await supabase
+            let query = supabase
                 .from("wishlists")
                 .update(dbUpdates)
-                .eq("id", id)
                 .eq("user_id", user.id)
+                .in("handle", handlesFor(id, target))
+            if (target?.region) query = query.eq("region", target.region)
 
+            const { error } = await query
             if (error) throw error
         } catch (error) {
             console.error("Error updating wishlist item:", error)
+            toast.error("Couldn't update that saved item.")
             await fetchWishlist()
         }
     }
@@ -191,19 +261,22 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     const removeItem = async (id: string) => {
         if (!user) return
 
-        const removedItem = items.find((i) => i.id === id)
-        setItems((prev) => prev.filter((item) => item.id !== id))
+        const removedItem = items.find((i) => i.id === id || i.handle === id)
+        setItems((prev) => prev.filter((item) => item.id !== id && item.handle !== id))
 
         try {
-            const { error } = await supabase
+            let query = supabase
                 .from("wishlists")
                 .delete()
-                .eq("id", id)
                 .eq("user_id", user.id)
+                .in("handle", handlesFor(id, removedItem))
+            if (removedItem?.region) query = query.eq("region", removedItem.region)
 
+            const { error } = await query
             if (error) throw error
         } catch (error) {
             console.error("Error removing from wishlist:", error)
+            toast.error("Couldn't remove that. Try again.")
             if (removedItem) {
                 setItems((prev) => [...prev, removedItem])
             }
@@ -231,6 +304,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             for (const item of localItems) {
                 await supabase.from("wishlists").upsert({
                     user_id: user.id,
+                    product_id: asProductId(item.id),
                     handle: item.handle || item.id,
                     title: item.name,
                     price: item.price,
@@ -249,6 +323,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             await fetchWishlist()
         } catch (error) {
             console.error("Error syncing wishlist:", error)
+            toast.error("Couldn't sync your saved items to your account.")
         } finally {
             setIsLoading(false)
         }
