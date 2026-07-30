@@ -229,18 +229,37 @@ func (c *Client) fetchPage(ctx context.Context, region Region, page int) ([]mode
 		}
 
 		backoff := c.backoffFor(attempt, plan.after)
+
+		// Sleeping past the cycle's own deadline buys nothing and costs the
+		// diagnosis: the context cancels mid-sleep and the region reports a
+		// cancellation instead of the rate limit that actually stopped it.
+		if deadline, ok := ctx.Deadline(); ok && time.Now().Add(backoff).After(deadline) {
+			lastErr = fmt.Errorf("rate limited, and the next retry (%s) would run past the cycle deadline: %w",
+				backoff, lastErr)
+			break
+		}
+
 		if plan.rateLimited {
 			// Hold every region back, not just this one — see penalise.
 			c.penalise(backoff)
 		}
 
-		log.Warn().Err(err).
+		// Durations as strings, not zerolog's default float milliseconds: the
+		// first log of this working read "backoff=63217.264018", which is a
+		// number nobody can act on. The server's own figure is logged beside
+		// ours because it is the single most useful fact about a rate limit —
+		// whether it clears in two seconds or two minutes — and inferring it
+		// from a jittered backoff is guesswork.
+		ev := log.Warn().Err(err).
 			Str("region", region.Code).
 			Int("page", page).
 			Int("attempt", attempt).
-			Dur("backoff", backoff).
-			Bool("rateLimited", plan.rateLimited).
-			Msg("Fetch failed, retrying")
+			Str("backoff", backoff.String()).
+			Bool("rateLimited", plan.rateLimited)
+		if plan.after > 0 {
+			ev = ev.Str("retryAfter", plan.after.String())
+		}
+		ev.Msg("Fetch failed, retrying")
 
 		select {
 		case <-ctx.Done():
