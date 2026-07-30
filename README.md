@@ -57,12 +57,14 @@ flowchart TB
     end
 
     subgraph vc["Vercel"]
+        SP["Store proxy<br/>/api/scrape/store"]
         RH["Route handlers<br/>/api/dropradar/*"]
         UI["Next.js App Router<br/>SSR + ISR"]
     end
 
-    S1 --> SC
-    S2 --> SC
+    S1 --> SP
+    S2 --> SP
+    SC -->|"products.json"| SP
     SC -->|"upsert · drops · price history"| PG
     RH --> PG
     UI --> RH
@@ -72,6 +74,8 @@ flowchart TB
 ```
 
 **The scraper** runs once a day in CI. It fetches each store's `products.json`, parses variants into a normalised product, and diffs against a stored hash to decide what changed. Only changed rows are then read in full — the cheap fingerprint comparison comes first, which keeps a cycle inside Supabase's free egress allowance.
+
+It fetches through Vercel rather than directly, because the stores answer a GitHub Actions runner's address `429` on the first request of a run, before it has asked for anything. That is a fact about the address — GitHub's egress ranges are shared and heavily abused — and no amount of backoff addresses it. So the fetch happens somewhere with a clean address and everything else stays in CI.
 
 **The read API** is Next.js route handlers reading Supabase directly. There is no separate API service. The queries PostgREST can't express — ranked search, the handle-to-style-code resolution, the dashboard aggregates — live in Postgres as functions and views.
 

@@ -63,8 +63,44 @@ triggered by hand from the Actions tab.
 | Secret | Where to get it |
 |---|---|
 | `DATABASE_URL` | Supabase → **Connect** → **Session pooler** (or Transaction pooler) |
+| `SCRAPE_PROXY_TOKEN` | Generate one; must match the same variable on Vercel. See below |
 | `TELEGRAM_BOT_TOKEN` | Optional. Absent, drops are stored but not announced |
 | `TELEGRAM_CHANNEL_ID` | Optional, with the token |
+
+### Why the storefronts are fetched through Vercel
+
+The stores answer a GitHub Actions runner's address `429`, with a `Retry-After`
+of a minute or more, **on the first request of a run** — before the scraper has
+asked for anything. GitHub's egress ranges are shared and heavily abused, and
+Shopify rate limits them on sight.
+
+Nothing in the scraper fixes that. There is no burst to slow down and no limit
+to wait out; the address is over quota on arrival. Measured from Vercel, the
+same six stores answer `200` in about 130ms each.
+
+So the fetch moves and everything else stays put. `app/api/scrape/store` returns
+a storefront's `products.json` verbatim, and the scraper fetches that instead of
+the store. Actions remains the scheduler and still does all the parsing,
+diffing and writing — it just never talks to Stüssy.
+
+Set one shared token in **both** places:
+
+```bash
+openssl rand -hex 32
+```
+
+- **Vercel** → Project → Settings → Environment Variables → `SCRAPE_PROXY_TOKEN`
+  (Production), then redeploy so the running deployment picks it up.
+- **GitHub** → Settings → Secrets and variables → Actions → `SCRAPE_PROXY_TOKEN`.
+
+`SCRAPE_PROXY_URL` is set in the workflow rather than as a secret, because it is
+the public site. Leave both unset locally and the scraper fetches the stores
+directly, which is what a laptop wants.
+
+The endpoint takes a **region code, never a URL** — it resolves the storefront
+from a hardcoded map — and refuses every request when no token is configured
+rather than falling open. Both matter: an endpoint that fetches a URL a caller
+hands it is an open proxy.
 
 Use a **pooler** string, not the direct `db.<ref>.supabase.co` host: the direct
 host resolves to IPv6 only and GitHub's runners are IPv4, so it cannot connect
@@ -168,6 +204,11 @@ SCRAPE_INTERVAL=0                    # one cycle, then exit
 SCRAPE_CYCLE_TIMEOUT=10m              # hard bound on one cycle
 SCRAPE_TIMEOUT=30s                    # per-request
 REQUEST_DELAY=1s                      # spacing between requests, all regions
+
+# Optional: fetch the stores through Vercel instead of directly (section 1b).
+# Unset locally — a laptop's address is not rate limited.
+SCRAPE_PROXY_URL=https://<your-app>.vercel.app/api/scrape/store
+SCRAPE_PROXY_TOKEN=…
 
 # Telegram announcements (optional)
 TELEGRAM_BOT_TOKEN=…

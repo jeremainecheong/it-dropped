@@ -57,6 +57,19 @@ Sorting by price is sorting by `price_usd`, a stored generated column, because
 PostgREST can order by columns but not by an expression. Ranked search and the
 handle-to-style-code lookup are Postgres functions for the same reason.
 
+## The scrape proxy
+
+`app/api/scrape/store` is not part of the read API and is not for the browser.
+It returns a storefront's `products.json` verbatim, so that the daily scraper —
+which runs on a GitHub Actions runner, an address the stores rate limit on
+sight — can fetch from an address they answer. Actions still does the parsing,
+diffing and writing; only the outbound request moves here.
+
+It takes a **region code, never a URL**, resolving the storefront from a
+hardcoded map, and requires a bearer token that must be configured for it to
+serve anything at all. An endpoint that fetches a URL a caller hands it is an
+open proxy, and this one is reachable by anyone.
+
 ## Auth
 
 Supabase Auth with **PKCE**, via `createBrowserClient`. This matters: the plain
@@ -92,6 +105,10 @@ ordinary wear, not an exception.
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_…
 NEXT_PUBLIC_SITE_URL=https://your-domain.com
+
+# Server-only. Required by the scrape proxy, which refuses every request
+# without it rather than falling open. Must match the GitHub Actions secret.
+SCRAPE_PROXY_TOKEN=…
 ```
 
 There is no API base URL. `NEXT_PUBLIC_SITE_URL` defaults to
