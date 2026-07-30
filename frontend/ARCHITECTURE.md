@@ -1,89 +1,99 @@
-# Stüssy Drop Radar - Technical Architecture
+# It Dropped — frontend architecture
 
 ## Overview
 
-Stüssy Drop Radar is a real-time product tracking application that monitors Stüssy stores worldwide for new drops, restocks, and price changes. The application provides a clean, minimalist interface for viewing the latest product updates across multiple regions.
+The frontend is a Next.js App Router application that reads Supabase directly.
+It is both the site and the read API: there is no separate backend service to
+call. The Go code in `backend/` is a scheduled scraper that writes to the same
+database; it never serves a request.
 
-## Tech Stack
+## Stack
 
-### Frontend
-- **Next.js 14** with App Router
-- **React 19** with modern hooks
-- **TypeScript** for type safety
-- **Tailwind CSS v4** with custom design tokens
-- **shadcn/ui** + **Radix UI** for accessible components
+- **Next.js 14** (App Router) with **React 19** and **TypeScript**
+- **Tailwind CSS** with custom design tokens
+- **shadcn/ui** over **Radix UI** primitives
+- **Recharts** for price history and dashboard aggregates
+- **@supabase/supabase-js** and **@supabase/ssr** for data and auth
 
-### Backend
-- **Next.js API Routes** as BFF (Backend for Frontend)
-- **DropRadar API** external service for product data
-- **Next.js Caching** with revalidation strategies
+## How data reaches the page
 
-### Infrastructure
-- **Vercel** for deployment and hosting
-- **Vercel Analytics** for usage metrics
+Three distinct paths, chosen by what the caller can do:
 
-## Architecture
+| Path | Used by | Reads via |
+|---|---|---|
+| Server component | product pages, sitemap, OG images | `lib/api.ts` → Supabase directly |
+| Route handler | anything the browser asks for | `app/api/dropradar/*` → `lib/catalogue.ts` |
+| Browser client | auth, wishlist, alerts, forum | `lib/supabase.ts` → Supabase directly |
 
-### Data Flow
+Server-rendered pages cannot go through the route handlers — those are
+same-origin URLs that do not exist yet at build time — so `lib/api.ts` reads
+Supabase itself. Both server paths are wrapped in React's `cache`, because
+Next dedupes `fetch` but cannot see supabase-js calls, and a product page
+otherwise reads the same row twice.
 
-```
-User → Frontend → Next.js API Routes → DropRadar API → Response
-```
+The product page resolves its product and every regional sibling on the server
+and passes both to the client component. The browser makes no product request
+of its own.
 
-### API Integration
+## The read API
 
-The application integrates with the DropRadar API through Next.js API routes:
+`app/api/dropradar/*` returns `{ success, data, meta }`. All of it is
+read-only and uses the publishable key, which row level security restricts to
+reading the catalogue.
 
-- **GET /api/dropradar/products** - Fetches available products
-  - Query params: `region`, `available`, `limit`, `offset`
-  - Cache: 5 minutes (products change less frequently)
+| Route | Notes |
+|---|---|
+| `products` | filters, whitelisted sorts, `count=exact` for `meta.total` |
+| `products/[id]` | 404s rather than 500s on a missing row |
+| `products/by-handle/[handle]` | every region carrying the same garment |
+| `products/search` | ranked; calls the `search_products` function |
+| `drops` | the change feed |
+| `trending` | most recently touched listings |
+| `stats` | the `region_stats` view |
+| `analytics` | the `analytics_summary` function |
+| `status` | catalogue freshness |
 
-- **GET /api/dropradar/drops** - Fetches latest drops and changes
-  - Query params: `region`, `type`, `notified`, `limit`, `offset`
-  - Cache: 1 minute (drops are time-sensitive)
+Sorting by price is sorting by `price_usd`, a stored generated column, because
+PostgREST can order by columns but not by an expression. Ranked search and the
+handle-to-style-code lookup are Postgres functions for the same reason.
 
-- **GET /api/dropradar/status** - System health and recent scrapes
-  - Cache: 30 seconds
+## Auth
 
-### Features
+Supabase Auth with **PKCE**, via `createBrowserClient`. This matters: the plain
+`createClient` defaults to the implicit flow, which returns the session in the
+URL fragment — and fragments never reach the server, so the callback route at
+`app/auth/callback/route.ts` would find no `code`. PKCE puts the code in the
+query string and the verifier in a cookie, which is also what lets server
+components see a session at all.
 
-1. **Multi-Region Support**: Track products across US, UK, EU, JP, and AU stores
-2. **Drop Types**: 
-   - NEW - Brand new products
-   - RESTOCK - Previously sold-out items back in stock
-   - PRICE DROP - Discounted items
-   - PRICE INCREASE - Price went up
-   - SIZE RESTOCK - Specific sizes restocked
+`next` on the callback is validated to be a same-origin relative path, so it
+cannot be used as an open redirect.
 
-3. **Real-time Updates**: Automatic data refresh based on cache strategies
-4. **Responsive Design**: Mobile-first approach with desktop enhancements
-5. **Search Functionality**: Filter products by name or category
+## Caching
 
-### Performance Optimizations
+- Route handlers revalidate on a per-route basis: 60s for the time-sensitive
+  feeds, 300s for the catalogue, never for `status`.
+- The service worker caches **same-origin static assets only**. It must not
+  touch cross-origin requests: Supabase reads are cross-origin, and caching
+  them meant a freshly posted comment came back without itself. Navigations are
+  network-first, because a cached document names build-hashed chunks that stop
+  existing at the next deploy.
 
-- **Smart Caching**: Different revalidation times based on data sensitivity
-- **Image Optimization**: Next.js automatic image optimization
-- **Code Splitting**: Automatic route-based code splitting
-- **Edge Functions**: API routes deployed to edge for low latency
+## Design system
 
-### Design System
+Monochrome — black, white and greys — with SF Pro throughout, an 8px spacing
+grid, and transitions kept subtle. Product imagery is hotlinked from the
+retailer's CDN, so every image has a placeholder fallback: a delisted asset is
+ordinary wear, not an exception.
 
-- **Monochrome Palette**: Black, white, and grays for clean aesthetic
-- **Typography**: Geist Sans for headings, Geist Mono for data
-- **Spacing**: Consistent 8px grid system
-- **Animations**: Subtle transitions for smooth UX
-
-## Environment Variables
+## Environment
 
 ```bash
-DROPRADAR_API_URL=https://api.dropradar.dev
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_…
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
 ```
 
-## Future Enhancements
-
-- Real-time WebSocket updates for instant drop notifications
-- User accounts for personalized alerts
-- Wishlist and favorites functionality
-- Price history charts
-- Email/SMS notifications for specific drops
-- Advanced filtering and sorting options
+There is no API base URL. `NEXT_PUBLIC_SITE_URL` defaults to
+`https://itdropped.app`, so leaving it unset on another domain points canonical
+tags and the sitemap at a site you do not own.
