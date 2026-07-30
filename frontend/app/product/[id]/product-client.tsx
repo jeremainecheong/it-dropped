@@ -107,7 +107,12 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
     () => Array.from(new Set(rankedOffers.map((r) => r.offer.region))),
     [rankedOffers]
   )
-  const stockedLocally = stockedRegions.includes(destination.domesticRegion)
+  // Null where no storefront serves the destination locally, which is most of
+  // them — there are five stores and fifteen destinations. "Watch for a local
+  // release" is not an offer you can make to Hong Kong or Thailand: there is no
+  // local store to release anything.
+  const localRegion = destination.domesticRegion
+  const stockedLocally = localRegion !== null && stockedRegions.includes(localRegion)
 
   const currentLanded = useMemo(
     () =>
@@ -417,11 +422,11 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
             </div>
           </div>
 
-          {!stockedLocally && (
+          {localRegion !== null && !stockedLocally && (
             <div className="py-8 border-t border-border">
               <RegionAlertCard
                 styleCode={product.style_code || product.handle}
-                region={destination.domesticRegion}
+                region={localRegion}
                 regionName={destination.name}
                 title={product.title}
                 imageUrl={product.image_url}

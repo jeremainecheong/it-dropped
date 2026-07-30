@@ -12,6 +12,15 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   JPY: "¥",
   AUD: "A$",
   SGD: "S$",
+  HKD: "HK$",
+  MYR: "RM",
+  THB: "฿",
+  PHP: "₱",
+  IDR: "Rp",
+  MXN: "MX$",
+  INR: "₹",
+  ZAR: "R",
+  BRL: "R$",
 }
 
 /** USD per one unit of the currency. */
@@ -28,11 +37,20 @@ export type FxRates = Record<string, number>
  */
 export const FALLBACK_FX_TO_USD: FxRates = {
   USD: 1,
-  GBP: 1.27,
-  EUR: 1.08,
-  JPY: 0.0067,
-  AUD: 0.65,
-  SGD: 0.74,
+  GBP: 1.3289,
+  EUR: 1.13801,
+  JPY: 0.00610948,
+  AUD: 0.694011,
+  SGD: 0.773635,
+  HKD: 0.127512,
+  MYR: 0.244529,
+  THB: 0.029824,
+  PHP: 0.0162856,
+  IDR: 0.0000553342,
+  MXN: 0.057223,
+  INR: 0.0104548,
+  ZAR: 0.0597018,
+  BRL: 0.195305,
 }
 
 /**

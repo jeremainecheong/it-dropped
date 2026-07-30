@@ -18,7 +18,13 @@ import { FALLBACK_FX_TO_USD, type FxRates } from "@/lib/currency"
  */
 export const revalidate = 21600
 
-const CURRENCIES = ["GBP", "EUR", "JPY", "AUD", "SGD"] as const
+// Every currency a destination is priced in. Kept in step with DESTINATIONS
+// in lib/landed-cost.ts; a destination whose currency is missing here silently
+// falls back to a stale rate.
+const CURRENCIES = [
+  "GBP", "EUR", "JPY", "AUD", "SGD",
+  "HKD", "MYR", "THB", "PHP", "IDR", "MXN", "INR", "ZAR", "BRL",
+] as const
 
 interface FxResponse {
   rates: FxRates

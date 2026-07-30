@@ -21,8 +21,12 @@ import { corridor, isEstimatedCorridor } from "./shipping"
 export interface Destination {
   code: string
   name: string
-  /** Region code whose storefront is domestic for this destination */
-  domesticRegion: string
+  /**
+   * Region code whose storefront is domestic for this destination, or null
+   * where no store serves it locally. Most destinations are null: Stüssy has
+   * five stores and this list is fifteen countries.
+   */
+  domesticRegion: string | null
   /** Consumption tax already included in the domestic sticker price */
   domesticTaxIncluded: boolean
   /**
@@ -32,26 +36,56 @@ export interface Destination {
    */
   importRate: number
   /**
+   * What that rate is made of, in words.
+   *
+   * Shown next to the figure, because "~37%" on its own is a number the reader
+   * has to either trust or ignore. "7% VAT on top of ~30% apparel duty" can at
+   * least be checked, and makes plain that it is a blend rather than a lookup.
+   */
+  rateBasis: string
+  /**
    * Order value in USD below which imports are typically not assessed.
    * The US de-minimis exemption was repealed in 2025, so it is 0 there.
    */
   deMinimisUSD: number
   /**
    * What a shopper here pays in. Everything below is computed in USD — the
-   * de-minimis thresholds are published in USD and the FX table is anchored
+   * de-minimis thresholds are published in USD and the rates feed is anchored
    * there — and converted back out for display. Someone buying to Singapore
    * does not think in dollars.
    */
   currency: string
 }
 
+/**
+ * Where you can buy to.
+ *
+ * Every entry has a storefront that publishes a shipping rate to it (see
+ * lib/shipping.ts) and a currency the ECB quotes. Taiwan and Vietnam are
+ * served by the US store but absent here for want of the exchange rate.
+ *
+ * The import rates are the softest numbers in this codebase and the only ones
+ * not read from a source. Shipping is published; duty is not, it varies by
+ * fibre and construction within apparel alone, and it is finally assessed by
+ * the destination's customs authority months after this file was written.
+ * Each carries its basis so a reader can judge it rather than take it.
+ */
 export const DESTINATIONS: Destination[] = [
-  { code: "US", name: "United States", domesticRegion: "us", domesticTaxIncluded: false, importRate: 0.20, deMinimisUSD: 0, currency: "USD" },
-  { code: "GB", name: "United Kingdom", domesticRegion: "uk", domesticTaxIncluded: true, importRate: 0.28, deMinimisUSD: 0, currency: "GBP" },
-  { code: "EU", name: "Europe", domesticRegion: "eu", domesticTaxIncluded: true, importRate: 0.33, deMinimisUSD: 0, currency: "EUR" },
-  { code: "JP", name: "Japan", domesticRegion: "jp", domesticTaxIncluded: true, importRate: 0.20, deMinimisUSD: 65, currency: "JPY" },
-  { code: "AU", name: "Australia", domesticRegion: "au", domesticTaxIncluded: true, importRate: 0.10, deMinimisUSD: 660, currency: "AUD" },
-  { code: "SG", name: "Singapore", domesticRegion: "sg", domesticTaxIncluded: true, importRate: 0.09, deMinimisUSD: 0, currency: "SGD" },
+  { code: "US", name: "United States",  domesticRegion: "us",  domesticTaxIncluded: false, importRate: 0.16, deMinimisUSD: 0,   currency: "USD", rateBasis: "apparel duty; no federal sales tax, and the de-minimis exemption was repealed in 2025" },
+  { code: "GB", name: "United Kingdom", domesticRegion: "uk",  domesticTaxIncluded: true,  importRate: 0.28, deMinimisUSD: 0,   currency: "GBP", rateBasis: "20% VAT, plus roughly 12% apparel duty above £135" },
+  { code: "EU", name: "Europe",         domesticRegion: "eu",  domesticTaxIncluded: true,  importRate: 0.33, deMinimisUSD: 0,   currency: "EUR", rateBasis: "about 21% VAT, plus roughly 12% apparel duty above €150" },
+  { code: "JP", name: "Japan",          domesticRegion: "jp",  domesticTaxIncluded: true,  importRate: 0.20, deMinimisUSD: 65,  currency: "JPY", rateBasis: "10% consumption tax plus about 10% apparel duty; nothing under ¥10,000" },
+  { code: "AU", name: "Australia",      domesticRegion: "au",  domesticTaxIncluded: true,  importRate: 0.10, deMinimisUSD: 660, currency: "AUD", rateBasis: "10% GST; nothing under A$1,000" },
+  { code: "SG", name: "Singapore",      domesticRegion: "sg",  domesticTaxIncluded: true,  importRate: 0.09, deMinimisUSD: 0,   currency: "SGD", rateBasis: "9% GST; Singapore charges no duty on apparel" },
+  { code: "HK", name: "Hong Kong",      domesticRegion: null,  domesticTaxIncluded: false, importRate: 0,    deMinimisUSD: 0,   currency: "HKD", rateBasis: "no sales tax and no duty on apparel" },
+  { code: "MY", name: "Malaysia",       domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.10, deMinimisUSD: 106, currency: "MYR", rateBasis: "10% sales tax on imports; nothing under RM500" },
+  { code: "TH", name: "Thailand",       domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.37, deMinimisUSD: 42,  currency: "THB", rateBasis: "7% VAT charged on top of roughly 30% apparel duty; nothing under ฿1,500" },
+  { code: "PH", name: "Philippines",    domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.29, deMinimisUSD: 170, currency: "PHP", rateBasis: "12% VAT charged on top of roughly 15% duty; nothing under ₱10,000" },
+  { code: "ID", name: "Indonesia",      domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.28, deMinimisUSD: 3,   currency: "IDR", rateBasis: "11% VAT plus roughly 15% duty; almost nothing is exempt" },
+  { code: "MX", name: "Mexico",         domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.16, deMinimisUSD: 50,  currency: "MXN", rateBasis: "16% IVA; nothing under US$50 by courier" },
+  { code: "IN", name: "India",          domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.42, deMinimisUSD: 0,   currency: "INR", rateBasis: "18% IGST charged on top of roughly 20% basic customs duty" },
+  { code: "ZA", name: "South Africa",   domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.60, deMinimisUSD: 0,   currency: "ZAR", rateBasis: "15% VAT charged on top of roughly 45% apparel duty" },
+  { code: "BR", name: "Brazil",         domesticRegion: null,  domesticTaxIncluded: false, importRate: 0.80, deMinimisUSD: 0,   currency: "BRL", rateBasis: "60% import tax plus state ICMS; among the steepest anywhere" },
 ]
 
 export const DEFAULT_DESTINATION = "US"
@@ -182,7 +216,9 @@ export function estimateLandedCost(
     shippingIsEstimated,
     notes: belowDeMinimis
       ? `Import — likely under ${destination.name}'s duty threshold`
-      : `Import — includes estimated duty & tax (~${Math.round(destination.importRate * 100)}%)`,
+      : destination.importRate === 0
+        ? `Import — ${destination.rateBasis}`
+        : `Import — est. ${Math.round(destination.importRate * 100)}%: ${destination.rateBasis}`,
   }
 }
 
