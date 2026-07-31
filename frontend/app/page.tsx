@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowRight, Heart, PackageX, TrendingDown } from "lucide-react"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
+import { LogoMark } from "@/components/ui/logo"
 import { ImageWithLoading } from "@/components/image-with-loading"
 import { useAuth } from "@/lib/auth-context"
 import { asProductId, useWishlist } from "@/lib/wishlist-context"
@@ -235,30 +236,70 @@ export default function TodayPage() {
           {/* The page's single black anchor: the countdown IS the product,
               so it gets the panel and the editorial type. */}
           <section className="pt-6">
-            <div className="panel-dark px-5 sm:px-8 pt-6 pb-7">
-              <p className="label flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-soft" aria-hidden />
-                Next expected drop
-              </p>
-              {/* .num, not proportional figures — this re-renders every second
-                  and anything else wobbles. */}
-              <p className="page-title num mt-3" suppressHydrationWarning>
-                {nowMs === null ? "— — —" : countdownLabel(nowMs)}
-              </p>
-              {/* The instant is fixed (Friday 10:00 UTC); the clock it is read
-                  on is the visitor's. */}
-              <p className="text-[13px] text-primary-foreground/60 mt-4" suppressHydrationWarning>
-                {nowMs === null
-                  ? "Fridays 18:00 Singapore time — typical, measured — not promised."
-                  : `${nextExpectedDrop(nowMs).toLocaleString(undefined, {
-                      weekday: "long",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })} your time (18:00 SGT) — typical, measured — not promised.`}
-              </p>
-              <p className="text-[13px] text-primary-foreground/60 mt-0.5">
-                {lastScrapeAt ? `Catalogue checked ${timeAgo(lastScrapeAt)}` : "Catalogue freshness unknown"}
-              </p>
+            <div className="panel-dark relative overflow-hidden px-5 sm:px-8 pt-7 pb-8">
+              {/* The mark, blown up and bled off the corner — the one piece of
+                  pure graphic weight in the app, and the reason the panel reads
+                  as a cover rather than a status card. */}
+              <span aria-hidden className="pointer-events-none absolute -right-20 -top-16 rotate-12 opacity-[0.05]">
+                <LogoMark className="w-72 h-72" />
+              </span>
+
+              <div className="relative">
+                <p className="label flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-soft" aria-hidden />
+                  Live · six storefronts
+                </p>
+
+                {/* The statement first. A tracker's home page should say what it
+                    knows, not describe itself in a row of explainer tiles. */}
+                <h1 className="page-title mt-4">
+                  Never miss
+                  <br />
+                  the drop.
+                </h1>
+                <p className="text-[13px] sm:text-sm text-primary-foreground/60 mt-4 max-w-sm">
+                  Every Stüssy release, restock and price change across the US, UK, EU,
+                  Japan, Australia and Singapore — with the landed cost to your door.
+                </p>
+
+                {/* The countdown is the hero's payload: the one number a visitor
+                    came for, on the same plate as the promise. */}
+                <div className="mt-7 pt-6 border-t border-primary-foreground/15">
+                  <p className="label">Next expected drop</p>
+                  {/* .num, not proportional figures — this re-renders every
+                      second and anything else wobbles. */}
+                  <p
+                    className="display num text-4xl sm:text-5xl mt-2 tracking-tight"
+                    suppressHydrationWarning
+                  >
+                    {nowMs === null ? "— — —" : countdownLabel(nowMs)}
+                  </p>
+                  {/* The instant is fixed (Friday 10:00 UTC); the clock it is
+                      read on is the visitor's. */}
+                  <p className="text-xs text-primary-foreground/50 mt-2" suppressHydrationWarning>
+                    {nowMs === null
+                      ? "Fridays 18:00 Singapore time — typical, measured, not promised."
+                      : `${nextExpectedDrop(nowMs).toLocaleString(undefined, {
+                          weekday: "long",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })} your time · 18:00 SGT — typical, measured, not promised.`}
+                    {lastScrapeAt ? ` Catalogue checked ${timeAgo(lastScrapeAt)}.` : ""}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 mt-7">
+                  <Link href="/drops" className="btn bg-primary-foreground text-primary hover:opacity-90">
+                    What dropped <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    href="/shop"
+                    className="btn bg-transparent text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/10"
+                  >
+                    Catalogue
+                  </Link>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -401,25 +442,18 @@ export default function TodayPage() {
           ) : authLoading ? null : (
             <section className="section">
               <div className="section-head">
-                <h2 className="label">What this is</h2>
+                <h2 className="label">Saved items</h2>
+              </div>
+              {/* Signed out, the only thing worth saying here is what an
+                  account adds. The hero already said what the app is. */}
+              <div className="card-frame flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+                <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+                  <Heart className="w-4 h-4 shrink-0" strokeWidth={1.8} />
+                  Save a piece and this page tracks its price and stock for you.
+                </p>
                 <Link href="/login" className="btn btn-primary btn-sm shrink-0">
                   Sign in
                 </Link>
-              </div>
-              {/* Three short truths beat a marketing hero — every claim below
-                  is a live feature, not aspiration. Framed like everything
-                  else on the page, not floating grey blobs. */}
-              <div className="grid sm:grid-cols-3 gap-2">
-                {[
-                  ["Six storefronts, one catalogue", "US, UK, EU, Japan, Australia and Singapore, checked daily."],
-                  ["Prices you can compare", "Landed cost to your country — shipping, tax and duty included."],
-                  ["Alerts before it's gone", "Restocks, price cuts and new drops in your size."],
-                ].map(([head, body]) => (
-                  <div key={head} className="card-frame px-4 py-3.5">
-                    <p className="text-[13px] font-semibold">{head}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{body}</p>
-                  </div>
-                ))}
               </div>
             </section>
           )}
