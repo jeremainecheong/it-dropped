@@ -32,6 +32,13 @@
   --ring: #1d1d1f;
   --radius: 0.75rem;
 
+  /* Ink: the brand's black plates — ticker, cover panel, footer, the closing
+   * band. Deliberately NOT --primary: primary inverts with the theme, so in
+   * dark mode every one of those bands turned into a glaring white slab. A
+   * black band is a brand decision, not a semantic surface. */
+  --ink: #0b0b0c;
+  --ink-foreground: #ffffff;
+
   /* Live / alert accent — used sparingly */
   --signal: #e11d2e;
   --signal-foreground: #ffffff;
@@ -63,6 +70,10 @@
   --input: #1c1c1e;
   --ring: #f5f5f7;
 
+  /* Unchanged across themes, by design — see the note in :root. */
+  --ink: #0b0b0c;
+  --ink-foreground: #ffffff;
+
   --signal: #ff453a;
   --signal-foreground: #ffffff;
 
@@ -93,6 +104,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
   --color-signal: var(--signal);
   --color-signal-foreground: var(--signal-foreground);
   --radius-sm: 0.5rem;
@@ -308,12 +321,12 @@ button:focus-visible {
 /* The one black block a page may anchor itself with. More than one and the
  * page turns into a chessboard. */
 .panel-dark {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--ink);
+  color: var(--ink-foreground);
   border-radius: 1.5rem;
 }
 .panel-dark .label {
-  color: color-mix(in srgb, var(--primary-foreground) 60%, transparent);
+  color: color-mix(in srgb, var(--ink-foreground) 60%, transparent);
 }
 
 /* Product imagery: a framed plate on the page surface, not a grey slab.
