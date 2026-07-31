@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { User, Heart, Settings, LogOut, Bell, Shield } from "lucide-react"
+import { User, Heart, Settings, LogOut, Bell, Shield, Globe } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { useWishlist } from "@/lib/wishlist-context"
+import { usePrefs } from "@/lib/prefs"
+import { DESTINATIONS } from "@/lib/landed-cost"
 import { supabase } from "@/lib/supabase"
 import { AuthGuard } from "@/components/auth-guard"
 import { Header } from "@/components/layout/header"
@@ -39,6 +41,7 @@ function ProfileContent() {
     const router = useRouter()
     const { user, logout } = useAuth()
     const { items: wishlistItems } = useWishlist()
+    const { prefs: devicePrefs, setPrefs: setDevicePrefs, isReady: devicePrefsReady } = usePrefs()
     const [activeTab, setActiveTab] = useState<"wishlist" | "settings">("wishlist")
     const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
     const [prefsLoaded, setPrefsLoaded] = useState(false)
@@ -120,7 +123,7 @@ function ProfileContent() {
             {/* Header */}
             <Header />
 
-            <main className="pt-14 max-w-4xl mx-auto px-4 lg:px-8 pb-nav">
+            <main id="main" className="pt-14 max-w-4xl mx-auto px-4 lg:px-8 pb-nav">
                 {/* Profile Header */}
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-6 pb-8 border-b border-border">
                     {/* Avatar. Initials rendered locally — the old fallback
@@ -234,6 +237,78 @@ function ProfileContent() {
                                     <div className="flex items-center justify-between">
                                         <span className="text-muted-foreground">Name</span>
                                         <span>{user?.name || "Not set"}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Preferences — the locale-inferred defaults, made
+                                visible and editable in one place. Before this the
+                                display currency had NO editing surface at all, the
+                                destination hid on product pages, and sizes hid in
+                                the shop nudge. Stored locally (lib/prefs), so this
+                                card works for any visitor on this device. */}
+                            <div className="rounded-2xl bg-secondary p-5">
+                                <h3 className="flex items-center gap-2 text-sm font-medium mb-4">
+                                    <Globe className="w-4 h-4" /> Preferences
+                                </h3>
+                                <div className="space-y-4 text-sm">
+                                    <label className="flex items-center justify-between gap-4">
+                                        <span>
+                                            Show prices in
+                                            <span className="block text-xs text-muted-foreground">Converted figures carry a ≈ — stores charge their own currency</span>
+                                        </span>
+                                        <select
+                                            value={devicePrefs.displayCurrency}
+                                            onChange={(e) => setDevicePrefs({ displayCurrency: e.target.value })}
+                                            disabled={!devicePrefsReady}
+                                            className="rounded-lg bg-background px-3 py-2 text-[13px] disabled:opacity-50"
+                                        >
+                                            <option value="native">Each store's own</option>
+                                            {DESTINATIONS.map((d) => (
+                                                <option key={d.currency + d.code} value={d.currency}>{d.currency}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="flex items-center justify-between gap-4">
+                                        <span>
+                                            Deliver to
+                                            <span className="block text-xs text-muted-foreground">Sets the landed-cost estimate and which listing cards open</span>
+                                        </span>
+                                        <select
+                                            value={devicePrefs.destination}
+                                            onChange={(e) => setDevicePrefs({ destination: e.target.value })}
+                                            disabled={!devicePrefsReady}
+                                            className="rounded-lg bg-background px-3 py-2 text-[13px] disabled:opacity-50"
+                                        >
+                                            {DESTINATIONS.map((d) => (
+                                                <option key={d.code} value={d.code}>{d.name}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <div>
+                                        <span className="block mb-2">
+                                            Your sizes
+                                            <span className="block text-xs text-muted-foreground">Cards, drops and alerts flag anything in these</span>
+                                        </span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {["XS", "S", "M", "L", "XL", "XXL", "28", "30", "32", "34", "36", "38", "OS"].map((sz) => (
+                                                <button
+                                                    key={sz}
+                                                    type="button"
+                                                    aria-pressed={devicePrefs.sizes.includes(sz)}
+                                                    onClick={() =>
+                                                        setDevicePrefs({
+                                                            sizes: devicePrefs.sizes.includes(sz)
+                                                                ? devicePrefs.sizes.filter((x) => x !== sz)
+                                                                : [...devicePrefs.sizes, sz],
+                                                        })
+                                                    }
+                                                    className={`chip !bg-background min-w-9 justify-center ${devicePrefs.sizes.includes(sz) ? "chip-on !bg-primary" : ""}`}
+                                                >
+                                                    {sz}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

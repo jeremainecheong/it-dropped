@@ -1,6 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { DESTINATIONS } from "./landed-cost"
+import { FALLBACK_FX_TO_USD } from "./currency"
 
 /**
  * The shopper's standing preferences, persisted in localStorage.
@@ -12,16 +14,78 @@ import { useCallback, useEffect, useState } from "react"
  */
 export interface Prefs {
   sizes: string[]
-  /** "native" shows each store's own price; "SGD" converts everything. */
-  displayCurrency: "native" | "SGD"
+  /** "native" shows each store's own price; a currency code converts everything. */
+  displayCurrency: "native" | string
   /** Destination country code for landed-cost estimates. */
   destination: string
 }
 
+/**
+ * SSR-deterministic defaults. Deliberately NOT anyone's real locale: the
+ * server cannot know the visitor, so the first paint shows native prices and
+ * no destination bias, and inferLocalePrefs() upgrades on the client for
+ * first-time visitors only. (This app began life hardcoded to Singapore —
+ * every visitor was quoted S$ and a SG landed cost, which for the five other
+ * storefronts' buyers was a stranger's wallet.)
+ */
 export const DEFAULT_PREFS: Prefs = {
   sizes: [],
-  displayCurrency: "SGD",
+  displayCurrency: "native",
   destination: "SG",
+}
+
+/** Currencies conversion can actually honour. */
+const KNOWN_CURRENCIES = new Set(Object.keys(FALLBACK_FX_TO_USD))
+const KNOWN_DESTINATIONS = new Set(DESTINATIONS.map((d) => d.code))
+
+/**
+ * First-visit defaults from the visitor's own clock. The IANA timezone is the
+ * most honest locale signal a browser offers without asking — no permission
+ * prompt, no IP lookup — and it maps cleanly onto the fifteen destinations the
+ * landed-cost table serves.
+ */
+const TZ_EXACT: Record<string, string> = {
+  "Asia/Singapore": "SG",
+  "Asia/Hong_Kong": "HK",
+  "Asia/Kuala_Lumpur": "MY",
+  "Asia/Kuching": "MY",
+  "Asia/Bangkok": "TH",
+  "Asia/Manila": "PH",
+  "Asia/Jakarta": "ID",
+  "Asia/Makassar": "ID",
+  "Asia/Jayapura": "ID",
+  "Asia/Tokyo": "JP",
+  "Asia/Kolkata": "IN",
+  "Europe/London": "GB",
+  "Africa/Johannesburg": "ZA",
+  "America/Mexico_City": "MX",
+  "America/Sao_Paulo": "BR",
+}
+
+function destinationFromTimezone(tz: string): string | null {
+  if (TZ_EXACT[tz]) return TZ_EXACT[tz]
+  if (tz.startsWith("Australia/")) return "AU"
+  if (tz.startsWith("Europe/")) return "EU"
+  // The Americas outside the mapped cities: the US store is the plausible
+  // storefront; Canadian visitors get US defaults, which is at least the
+  // right continent and the right currency ballpark to reason from.
+  if (tz.startsWith("America/") || tz.startsWith("US/") || tz.startsWith("Canada/")) return "US"
+  return null
+}
+
+export function inferLocalePrefs(): Partial<Prefs> {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const dest = tz ? destinationFromTimezone(tz) : null
+    if (!dest) return {}
+    const currency = DESTINATIONS.find((d) => d.code === dest)?.currency
+    return {
+      destination: dest,
+      ...(currency && KNOWN_CURRENCIES.has(currency) ? { displayCurrency: currency } : {}),
+    }
+  } catch {
+    return {}
+  }
 }
 
 const STORAGE_KEY = "itdropped:prefs"
@@ -38,9 +102,14 @@ function sanitise(raw: unknown): Prefs {
     sizes: Array.isArray(p.sizes)
       ? p.sizes.filter((s): s is string => typeof s === "string")
       : [],
-    displayCurrency: p.displayCurrency === "native" ? "native" : "SGD",
+    displayCurrency:
+      p.displayCurrency === "native"
+        ? "native"
+        : typeof p.displayCurrency === "string" && KNOWN_CURRENCIES.has(p.displayCurrency)
+          ? p.displayCurrency
+          : DEFAULT_PREFS.displayCurrency,
     destination:
-      typeof p.destination === "string" && p.destination
+      typeof p.destination === "string" && KNOWN_DESTINATIONS.has(p.destination)
         ? p.destination
         : DEFAULT_PREFS.destination,
   }
@@ -55,7 +124,16 @@ export function getPrefs(): Prefs {
   if (typeof window === "undefined") return { ...DEFAULT_PREFS }
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    return stored ? sanitise(JSON.parse(stored)) : { ...DEFAULT_PREFS }
+    if (stored) return sanitise(JSON.parse(stored))
+    // First visit: seed from the visitor's locale and persist, so the values
+    // are stable and visible in Preferences rather than re-inferred forever.
+    const seeded = sanitise({ ...DEFAULT_PREFS, ...inferLocalePrefs() })
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded))
+    } catch {
+      // private mode: inference still applies for this pageview
+    }
+    return seeded
   } catch {
     // private mode / corrupt JSON — the defaults are fine
     return { ...DEFAULT_PREFS }

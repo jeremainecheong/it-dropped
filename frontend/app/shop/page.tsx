@@ -235,7 +235,7 @@ function ShopPageContent() {
         <div className="min-h-screen bg-background text-foreground">
             <Header />
 
-            <main className="pt-12 pb-nav">
+            <main id="main" className="pt-12 pb-nav">
                 <div className="px-4 lg:px-8 pt-8 pb-5">
                     {/* Not "Latest drops" — that is the other page's name, and the two
                         side by side in the bottom nav read as one page duplicated. */}

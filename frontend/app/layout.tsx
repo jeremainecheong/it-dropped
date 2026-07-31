@@ -84,6 +84,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${sfText.variable} ${sfDisplay.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased bg-background text-foreground">
+        {/* Keyboard users otherwise tab through the whole fixed header and,
+            on mobile widths, the bottom nav, on every single page. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] btn btn-primary btn-sm"
+        >
+          Skip to content
+        </a>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           <AuthProvider>
             <WishlistProvider>{children}</WishlistProvider>
