@@ -2,7 +2,8 @@ import Link from "next/link"
 
 /**
  * It Dropped brand mark — a falling drop with a radar blip.
- * Monochrome drop inherits currentColor; the blip stays signal red.
+ * The drop inherits currentColor; the blip is punched out of it, so the mark
+ * is a single colour and works on any ground.
  */
 export function LogoMark({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -20,7 +21,7 @@ export function LogoMark({ className = "w-5 h-5" }: { className?: string }) {
         fill="currentColor"
       />
       {/* radar blip */}
-      <circle cx="12" cy="16.1" r="2.5" fill="var(--signal)" />
+      <circle cx="12" cy="16.1" r="2.5" fill="var(--background)" />
     </svg>
   )
 }
