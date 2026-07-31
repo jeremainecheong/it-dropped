@@ -379,6 +379,42 @@ button:focus-visible {
   animation: pulse-soft 2.4s ease-in-out infinite;
 }
 
+/* ---------- Ticker ----------
+ *
+ * A continuously scrolling band of live numbers. The track holds the same
+ * content twice and slides exactly half its width, so the seam never shows.
+ * Under prefers-reduced-motion the global override lands it on the second
+ * copy — identical content, simply static. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 45s linear infinite;
+}
+.ticker:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* ---------- Cover ----------
+ *
+ * The full-bleed opening plate. The scrim is a hard-bottomed gradient rather
+ * than a flat overlay: product photography is mostly light, and type laid on
+ * an evenly dimmed image is still unreadable at the top of the garment. */
+.cover-scrim {
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.92) 0%,
+    rgb(0 0 0 / 0.85) 18%,
+    rgb(0 0 0 / 0.6) 34%,
+    rgb(0 0 0 / 0.25) 52%,
+    rgb(0 0 0 / 0.05) 74%,
+    transparent 100%
+  );
+}
+
 /* ---------- Images ---------- */
 .product-image-zoom {
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);

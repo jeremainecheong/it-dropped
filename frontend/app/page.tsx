@@ -227,315 +227,333 @@ export default function TodayPage() {
     [items, currentPrices],
   )
 
+  // The ticker's contents: every figure live, none decorative. This is where
+  // the old stats row went — a number that scrolls past is read; a number in a
+  // grid at the bottom of the page is not.
+  const tickerItems = useMemo(() => {
+    const out: string[] = []
+    if (nowMs !== null) out.push(`Next drop in ${countdownLabel(nowMs)}`)
+    const tracked = stats[0]?.value
+    if (tracked && tracked !== "—") out.push(`${tracked} styles tracked`)
+    out.push("6 storefronts")
+    const witnessed = stats[1]?.value
+    if (witnessed && witnessed !== "—") out.push(`${witnessed} changes witnessed`)
+    if (lastScrapeAt) out.push(`Checked ${timeAgo(lastScrapeAt)}`)
+    if (cuts.length > 0) out.push(`${cuts.length} price cuts`)
+    return out
+  }, [nowMs, stats, lastScrapeAt, cuts.length])
+
+  const cover = latest[0]
+  const rest = latest.slice(1, 7)
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
       <main id="main" className="flex-1 pt-12">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          {/* The page's single black anchor: the countdown IS the product,
-              so it gets the panel and the editorial type. */}
-          <section className="pt-6">
-            <div className="panel-dark relative overflow-hidden px-5 sm:px-8 pt-7 pb-8">
-              {/* The mark, blown up and bled off the corner — the one piece of
-                  pure graphic weight in the app, and the reason the panel reads
-                  as a cover rather than a status card. */}
-              <span aria-hidden className="pointer-events-none absolute -right-20 -top-16 rotate-12 opacity-[0.05]">
-                <LogoMark className="w-72 h-72" />
+        {/* The band of live numbers. Pauses on hover so a figure can actually
+            be read, and holds its content twice so the loop has no seam. */}
+        <div className="ticker bg-primary text-primary-foreground overflow-hidden py-2.5">
+          <div className="marquee-track">
+            {[0, 1].map((copy) => (
+              <span key={copy} className="flex items-center" aria-hidden={copy === 1}>
+                {tickerItems.map((t, i) => (
+                  <span key={`${copy}-${i}`} className="flex items-center">
+                    <span className="num px-5 text-[11px] font-medium uppercase tracking-[0.14em] whitespace-nowrap">
+                      {t}
+                    </span>
+                    <span className="w-1 h-1 rounded-full bg-signal shrink-0" aria-hidden />
+                  </span>
+                ))}
               </span>
+            ))}
+          </div>
+        </div>
 
-              <div className="relative">
-                <p className="label flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-soft" aria-hidden />
-                  Live · six storefronts
-                </p>
+        {/* THE COVER — the newest piece, full bleed. Six storefronts of
+            lookbook photography is the best asset this app has; it used to be
+            rendered at 160px inside a scroll strip. */}
+        {cover ? (
+          <Link href={`/product/${cover.id}`} className="group relative block">
+            <div className="relative aspect-[4/5] w-full overflow-hidden bg-secondary sm:aspect-[3/4] lg:aspect-[16/9] lg:max-h-[760px]">
+              {/* Plain img, not ImageWithLoading: this one has to fill a
+                  viewport-sized box and own its object-fit. */}
+              <img
+                src={cover.image_url}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-[1.03]"
+              />
+              <div className="cover-scrim absolute inset-0" aria-hidden />
 
-                {/* The statement first. A tracker's home page should say what it
-                    knows, not describe itself in a row of explainer tiles. */}
-                <h1 className="page-title mt-4">
-                  Never miss
-                  <br />
-                  the drop.
-                </h1>
-                <p className="text-[13px] sm:text-sm text-primary-foreground/60 mt-4 max-w-sm">
-                  Every Stüssy release, restock and price change across the US, UK, EU,
-                  Japan, Australia and Singapore — with the landed cost to your door.
-                </p>
-
-                {/* The countdown is the hero's payload: the one number a visitor
-                    came for, on the same plate as the promise. */}
-                <div className="mt-7 pt-6 border-t border-primary-foreground/15">
-                  <p className="label">Next expected drop</p>
-                  {/* .num, not proportional figures — this re-renders every
-                      second and anything else wobbles. */}
-                  <p
-                    className="display num text-4xl sm:text-5xl mt-2 tracking-tight"
-                    suppressHydrationWarning
-                  >
-                    {nowMs === null ? "— — —" : countdownLabel(nowMs)}
+              <div className="absolute inset-x-0 bottom-0 px-4 pb-8 sm:px-6 sm:pb-10 lg:px-10 lg:pb-14">
+                <div className="mx-auto max-w-6xl">
+                  <p className="label flex items-center gap-2 text-white [text-shadow:0_1px_12px_rgb(0_0_0/0.6)]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-signal animate-pulse-soft" aria-hidden />
+                    Just dropped · {cover.region.toUpperCase()}
                   </p>
-                  {/* The instant is fixed (Friday 10:00 UTC); the clock it is
-                      read on is the visitor's. */}
-                  <p className="text-xs text-primary-foreground/50 mt-2" suppressHydrationWarning>
-                    {nowMs === null
-                      ? "Fridays 18:00 Singapore time — typical, measured, not promised."
-                      : `${nextExpectedDrop(nowMs).toLocaleString(undefined, {
-                          weekday: "long",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })} your time · 18:00 SGT — typical, measured, not promised.`}
-                    {lastScrapeAt ? ` Catalogue checked ${timeAgo(lastScrapeAt)}.` : ""}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 mt-7">
-                  <Link href="/drops" className="btn bg-primary-foreground text-primary hover:opacity-90">
-                    What dropped <ArrowRight className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    href="/shop"
-                    className="btn bg-transparent text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/10"
-                  >
-                    Catalogue
-                  </Link>
+                  <h1 className="page-title mt-3 max-w-[14ch] text-white [text-shadow:0_2px_24px_rgb(0_0_0/0.45)] sm:max-w-[18ch]">
+                    {cleanTitle(cover.title).name}
+                  </h1>
+                  <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+                    <span className="num display text-2xl text-white sm:text-3xl">
+                      {fmt(cover.price, cover.currency)}
+                    </span>
+                    <span className="btn bg-white text-black group-hover:opacity-90">
+                      See the piece <ArrowRight className="h-4 w-4" />
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </section>
+          </Link>
+        ) : (
+          // No catalogue to lead with — say so on the same plate rather than
+          // collapsing the page's opening statement to nothing.
+          <div className="flex h-[52vh] min-h-[340px] flex-col items-center justify-center bg-primary px-6 text-center text-primary-foreground">
+            <span aria-hidden className="opacity-20">
+              <LogoMark className="h-16 w-16" />
+            </span>
+            <p className="page-title mt-6">Never miss<br />the drop.</p>
+            <p className="mt-4 max-w-sm text-[13px] text-primary-foreground/60">
+              {latestLoading
+                ? "Reading the storefronts…"
+                : "Nothing live in the catalogue right now. The next scrape will fill this."}
+            </p>
+          </div>
+        )}
 
-          {/* Latest drops */}
-          <section className="section">
-            <div className="section-head">
-              <h2 className="label">Latest drops</h2>
-              <Link href="/drops" className="btn btn-ghost btn-sm -mr-3.5">
-                All drops <ArrowRight className="w-3.5 h-3.5" />
+        {/* THE REST OF THE DROP — an editorial grid, numbered like a
+            lookbook. The lead piece runs double width; nothing is 160px. */}
+        {rest.length > 0 && (
+          <section className="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
+            <div className="flex items-end justify-between gap-4">
+              <h2 className="page-title text-[clamp(2rem,7vw,3.25rem)]">Also live</h2>
+              <Link href="/drops" className="btn btn-ghost btn-sm -mr-3.5 shrink-0">
+                All drops <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
+            <hr className="hairline-signal mt-4" />
 
-            {latestLoading ? (
-              <div className="flex gap-4 overflow-hidden">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="w-40 sm:w-44 shrink-0">
-                    <div className="aspect-[3/4] rounded-2xl image-loading" />
-                  </div>
-                ))}
-              </div>
-            ) : latest.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">
-                Nothing live right now —{" "}
-                <Link href="/drops" className="underline underline-offset-2 hover:text-foreground">
-                  see the full feed
-                </Link>
-                .
-              </p>
-            ) : (
-              <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:-mx-6 sm:px-6 pb-1">
-                {latest.map((p, i) => (
+            <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 lg:grid-cols-3">
+              {rest.map((p, i) => {
+                const { name, colour } = cleanTitle(p.title)
+                return (
                   <Link
                     key={p.id}
                     href={`/product/${p.id}`}
-                    className="group w-40 sm:w-44 shrink-0 animate-rise"
-                    // "both" so a delayed card holds the from-state instead of
-                    // flashing in before its turn.
-                    style={{ animationDelay: `${Math.min(i * 50, 300)}ms`, animationFillMode: "both" }}
+                    className={`group animate-rise ${i === 0 ? "col-span-2 lg:col-span-2" : ""}`}
+                    style={{ animationDelay: `${Math.min(i * 60, 360)}ms`, animationFillMode: "both" }}
                   >
-                    <div className="card-lift card-frame relative aspect-[3/4]">
+                    <div
+                      className={`relative overflow-hidden bg-secondary ${
+                        i === 0 ? "aspect-[16/10]" : "aspect-[3/4]"
+                      }`}
+                    >
                       <ImageWithLoading
                         src={p.image_url}
-                        alt={p.title}
-                        className="w-full h-full object-cover product-image-zoom"
+                        alt={name}
+                        className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
                       />
-                      <span className="pill absolute top-2.5 left-2.5 bg-background/90 backdrop-blur px-2 py-0.5 text-[10px] font-medium uppercase">
+                      {/* The index, set into the plate — the lookbook device
+                          that makes a grid read as a sequence. */}
+                      <span className="num absolute left-3 top-3 text-[11px] font-semibold tracking-widest text-white mix-blend-difference">
+                        {String(i + 2).padStart(2, "0")}
+                      </span>
+                      <span className="absolute right-3 top-3 text-[10px] font-semibold uppercase tracking-widest text-white mix-blend-difference">
                         {p.region}
                       </span>
                     </div>
-                    <h3 className="text-[13px] font-medium truncate mt-2.5 px-0.5">{cleanTitle(p.title).name}</h3>
-                    <p className="num text-[13px] text-muted-foreground px-0.5">{fmt(p.price, p.currency)}</p>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Saved movers (signed in) / slim sign-in banner (signed out) */}
-          {user ? (
-            <section className="section">
-              <div className="section-head">
-                <h2 className="label">Your saved items</h2>
-                <Link href="/wishlist" className="btn btn-ghost btn-sm -mr-3.5">
-                  View saved <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-
-              {movers.length === 0 ? (
-                <p className="text-[13px] text-muted-foreground">
-                  {items.length === 0 ? "Nothing saved yet — " : "No movement among your saved items — "}
-                  <Link href="/wishlist" className="underline underline-offset-2 hover:text-foreground">
-                    {items.length === 0 ? "start on your wishlist" : "see them all"}
-                  </Link>
-                  .
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {movers.map(({ item, current, delta, priceMoved }) => {
-                    const href = asProductId(item.id) ? `/product/${item.id}` : null
-                    const inner = (
-                      <>
-                        <div className="w-12 h-14 rounded-lg overflow-hidden bg-secondary/50 shrink-0">
-                          <ImageWithLoading
-                            src={item.image}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-[13px] font-medium truncate">{item.name}</h3>
-                          <p className="num text-[12px] text-muted-foreground">
-                            {priceMoved ? (
-                              <>
-                                <span className="line-through">{formatNative(item.price, item.currency)}</span>{" "}
-                                <span className={delta < 0 ? "text-signal font-medium" : undefined}>
-                                  {formatNative(current.price, current.currency)}
-                                </span>
-                              </>
-                            ) : (
-                              formatNative(current.price, current.currency)
-                            )}
-                            <span className="uppercase"> · {item.region}</span>
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {priceMoved && (
-                            <span
-                              className={`pill num inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold ${
-                                delta < 0 ? "bg-signal text-signal-foreground" : "bg-secondary text-muted-foreground"
-                              }`}
-                            >
-                              <TrendingDown className={`w-3 h-3 ${delta > 0 ? "rotate-180" : ""}`} />
-                              {delta < 0 ? "−" : "+"}
-                              {formatNative(Math.abs(delta), current.currency)}
-                            </span>
-                          )}
-                          {!current.isAvailable && (
-                            <span className="pill inline-flex items-center gap-1 bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                              <PackageX className="w-3 h-3" />
-                              Sold out
-                            </span>
-                          )}
-                        </div>
-                      </>
-                    )
-                    const rowClass = "card-lift card-frame flex items-center gap-4 p-3 pr-4"
-                    return href ? (
-                      <Link key={item.id} href={href} className={rowClass}>
-                        {inner}
-                      </Link>
-                    ) : (
-                      <div key={item.id} className={rowClass}>
-                        {inner}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
-          ) : authLoading ? null : (
-            <section className="section">
-              <div className="section-head">
-                <h2 className="label">Saved items</h2>
-              </div>
-              {/* Signed out, the only thing worth saying here is what an
-                  account adds. The hero already said what the app is. */}
-              <div className="card-frame flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-                <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
-                  <Heart className="w-4 h-4 shrink-0" strokeWidth={1.8} />
-                  Save a piece and this page tracks its price and stock for you.
-                </p>
-                <Link href="/login" className="btn btn-primary btn-sm shrink-0">
-                  Sign in
-                </Link>
-              </div>
-            </section>
-          )}
-
-          {/* Price cuts */}
-          <section className="section">
-            <div className="section-head">
-              <h2 className="label">Price cuts</h2>
-              <Link href="/drops?type=price_drop" className="btn btn-ghost btn-sm -mr-3.5">
-                All cuts <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            {cutsLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-4 rounded-2xl bg-secondary p-3">
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3 w-1/3 rounded image-loading" />
-                      <div className="h-3 w-1/5 rounded image-loading" />
+                    <div className="mt-3 flex items-baseline justify-between gap-3">
+                      <h3 className="text-[13px] font-medium leading-snug line-clamp-2">
+                        {name}
+                        {colour && <span className="font-normal text-muted-foreground"> · {colour}</span>}
+                      </h3>
+                      <p className="num shrink-0 text-[13px] text-muted-foreground">
+                        {fmt(p.price, p.currency)}
+                      </p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : cuts.length === 0 ? (
-              // A quiet feed is a true statement — this only holds cuts a
-              // scrape actually witnessed.
-              <p className="text-[13px] text-muted-foreground">No price cuts witnessed recently.</p>
-            ) : (
-              <div className="space-y-2">
-                {cuts.map((cut) => {
-                  const oldPrice = parseFloat(cut.old_value)
-                  const inner = (
-                    <>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-[13px] font-medium truncate">{cleanTitle(cut.title).name}</h3>
-                        <p className="num text-[12px] text-muted-foreground">
-                          {Number.isFinite(oldPrice) && (
-                            <>
-                              <span className="line-through">{formatNative(oldPrice, cut.currency)}</span>{" "}
-                              <ArrowRight className="inline w-3 h-3 align-[-1px]" />{" "}
-                            </>
-                          )}
-                          <span className="text-signal font-medium">{formatNative(cut.price, cut.currency)}</span>
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[11px] uppercase text-muted-foreground">{cut.region}</p>
-                        <p className="text-[11px] text-muted-foreground">{timeAgo(cut.detected_at)}</p>
-                      </div>
-                    </>
-                  )
-                  const rowClass = "card-lift card-frame flex items-center gap-4 p-3 pr-4"
-                  return cut.product_id ? (
-                    <Link key={cut.id} href={`/product/${cut.product_id}`} className={rowClass}>
-                      {inner}
-                    </Link>
-                  ) : (
-                    <a key={cut.id} href={cut.product_url} target="_blank" rel="noopener noreferrer" className={rowClass}>
-                      {inner}
-                    </a>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Stats: a ruled ledger row, not floating numerals. */}
-          <section className="section mb-16">
-            <div className="section-head">
-              <h2 className="label">The tracker</h2>
+                  </Link>
+                )
+              })}
             </div>
-            <div className="grid grid-cols-3 divide-x divide-border card-frame">
-              {stats.map((stat) => (
-                <div key={stat.label} className="px-4 py-5 text-center">
-                  <p className="display num text-3xl sm:text-4xl">{stat.value}</p>
-                  <p className="text-[11px] sm:text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
+          </section>
+        )}
+
+        {/* PRICE CUTS — a poster, not a table. The whole point of the page is
+            that a number moved; the number should be the biggest thing in the
+            row. */}
+        <section className="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
+          <div className="flex items-end justify-between gap-4">
+            <h2 className="page-title text-[clamp(2rem,7vw,3.25rem)]">Price cuts</h2>
+            <Link href="/drops?type=price_drop" className="btn btn-ghost btn-sm -mr-3.5 shrink-0">
+              All cuts <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <hr className="hairline-signal mt-4" />
+
+          {cutsLoading ? (
+            <div className="mt-2 divide-y divide-border">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-2 py-5">
+                  <div className="image-loading h-4 w-1/2 rounded" />
+                  <div className="image-loading h-3 w-1/4 rounded" />
                 </div>
               ))}
             </div>
-          </section>
-        </div>
+          ) : cuts.length === 0 ? (
+            // A quiet feed is a true statement — this only holds cuts a scrape
+            // actually witnessed.
+            <p className="py-6 text-[13px] text-muted-foreground">No price cuts witnessed recently.</p>
+          ) : (
+            <div className="mt-2 divide-y divide-border">
+              {cuts.map((cut) => {
+                const oldPrice = parseFloat(cut.old_value)
+                const pct =
+                  Number.isFinite(oldPrice) && oldPrice > 0
+                    ? Math.round((1 - cut.price / oldPrice) * 100)
+                    : null
+                const inner = (
+                  <>
+                    <div className="min-w-0 flex-1">
+                      <p className="label">
+                        {cut.region.toUpperCase()} · {timeAgo(cut.detected_at)}
+                      </p>
+                      <h3 className="mt-1 truncate text-[15px] font-medium sm:text-lg">
+                        {cleanTitle(cut.title).name}
+                      </h3>
+                    </div>
+                    <div className="flex shrink-0 items-baseline gap-3">
+                      {Number.isFinite(oldPrice) && (
+                        <span className="num text-[13px] text-muted-foreground line-through">
+                          {formatNative(oldPrice, cut.currency)}
+                        </span>
+                      )}
+                      <span className="num display text-xl text-signal sm:text-2xl">
+                        {formatNative(cut.price, cut.currency)}
+                      </span>
+                      {pct !== null && pct > 0 && (
+                        <span className="num pill bg-signal px-2 py-0.5 text-[10px] font-semibold text-signal-foreground">
+                          −{pct}%
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )
+                const rowClass =
+                  "flex items-center gap-4 py-5 transition-colors hover:bg-secondary/60 -mx-4 px-4 sm:-mx-6 sm:px-6"
+                return cut.product_id ? (
+                  <Link key={cut.id} href={`/product/${cut.product_id}`} className={rowClass}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <a
+                    key={cut.id}
+                    href={cut.product_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={rowClass}
+                  >
+                    {inner}
+                  </a>
+                )
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* THE PERSONAL BAND — what moved among the pieces you saved, or, for
+            a visitor, the one thing an account adds. Full bleed black, so the
+            page closes on the same weight the ticker opened it with. */}
+        <section className="mt-16 bg-primary text-primary-foreground">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+            {user ? (
+              <>
+                <div className="flex items-end justify-between gap-4">
+                  <h2 className="page-title text-[clamp(2rem,7vw,3.25rem)]">Your watch</h2>
+                  <Link
+                    href="/wishlist"
+                    className="btn btn-sm -mr-3.5 shrink-0 bg-transparent text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  >
+                    All saved <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+
+                {movers.length === 0 ? (
+                  <p className="mt-5 text-[13px] text-primary-foreground/60">
+                    {items.length === 0
+                      ? "Nothing saved yet. Save a piece and this is where its price and stock report in."
+                      : "No movement among your saved pieces since you last looked."}
+                  </p>
+                ) : (
+                  <div className="mt-5 divide-y divide-primary-foreground/15">
+                    {movers.map(({ item, current, delta, priceMoved }) => {
+                      const href = asProductId(item.id) ? `/product/${item.id}` : null
+                      const inner = (
+                        <>
+                          <div className="min-w-0 flex-1">
+                            <p className="label text-primary-foreground/50">{item.region.toUpperCase()}</p>
+                            <h3 className="mt-1 truncate text-[15px] font-medium">{item.name}</h3>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-3">
+                            {priceMoved && (
+                              <span className="num text-[13px] text-primary-foreground/50 line-through">
+                                {formatNative(item.price, item.currency)}
+                              </span>
+                            )}
+                            <span
+                              className={`num display text-lg ${delta < 0 ? "text-signal" : "text-primary-foreground"}`}
+                            >
+                              {formatNative(current.price, current.currency)}
+                            </span>
+                            {priceMoved && (
+                              <span className="num inline-flex items-center gap-1 text-[11px] font-semibold text-primary-foreground/70">
+                                <TrendingDown className={`h-3 w-3 ${delta > 0 ? "rotate-180" : ""}`} />
+                                {delta < 0 ? "−" : "+"}
+                                {formatNative(Math.abs(delta), current.currency)}
+                              </span>
+                            )}
+                            {!current.isAvailable && (
+                              <span className="pill inline-flex items-center gap-1 bg-primary-foreground/10 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground/70">
+                                <PackageX className="h-3 w-3" />
+                                Gone
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )
+                      const rowClass = "flex items-center gap-4 py-4"
+                      return href ? (
+                        <Link key={item.id} href={href} className={rowClass}>
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div key={item.id} className={rowClass}>
+                          {inner}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            ) : authLoading ? null : (
+              <div className="flex flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <h2 className="page-title text-[clamp(2rem,7vw,3.25rem)]">
+                    Track a piece.
+                  </h2>
+                  <p className="mt-4 max-w-md text-[13px] text-primary-foreground/60">
+                    <Heart className="mr-1.5 inline h-4 w-4 align-[-3px]" strokeWidth={1.8} />
+                    Save anything in the catalogue and this page reports back when its price
+                    moves, when a size returns, and when it is gone.
+                  </p>
+                </div>
+                <Link href="/login" className="btn btn-lg shrink-0 bg-primary-foreground text-primary hover:opacity-90">
+                  Sign in <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
 
       <Footer />
