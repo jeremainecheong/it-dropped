@@ -225,7 +225,7 @@ function buildClusters(drops: Drop[], live: Map<string, LiveState>, mySizes: str
 function ClusterCard({ card, fmt }: { card: DropCard; fmt: (price: number, currency: string) => string }) {
   return (
     <div className={card.gone ? "opacity-60" : ""}>
-      <div className="card-lift relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
+      <div className="card-lift card-frame relative aspect-[3/4]">
         <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5">
           <div className="flex flex-wrap gap-1">
             {card.regions.map((r) => (
@@ -402,46 +402,52 @@ export default function DropsPage() {
       <main id="main" className="flex-1 pt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="pt-8 pb-6">
-            <p className="label mb-1.5 flex items-center gap-1.5">
-              <span className="w-1 h-1 rounded-full bg-signal" aria-hidden />
-              Live feed
+            <h1 className="page-title">Drops</h1>
+            <p className="text-[13px] text-muted-foreground mt-2">
+              <span className="inline-block w-1 h-1 rounded-full bg-signal align-[2px] mr-1.5" aria-hidden />
+              Every release, restock and price change across six stores.
             </p>
-            <h1 className="display text-2xl md:text-3xl">What dropped</h1>
-            <p className="text-[13px] text-muted-foreground mt-1">
-              Every new release, restock and price change across six regions.
-            </p>
-            <hr className="hairline-signal mt-5" />
+            <hr className="hairline-signal mt-4" />
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-1.5 pb-8">
-            {INTENTS.map((t) => (
-              <button
-                key={t.id || "all"}
-                onClick={() => setChangeType(t.id)}
-                className={`chip ${changeType === t.id ? "chip-on" : ""}`}
-              >
-                {t.label}
-              </button>
-            ))}
-            <span className="w-px h-4 bg-border mx-1.5" />
-            {REGIONS.map((r) => (
-              <button
-                key={r || "all"}
-                onClick={() => setRegion(r)}
-                className={`chip uppercase ${region === r ? "chip-on" : ""}`}
-              >
-                {r || "All"}
-              </button>
-            ))}
+          {/* One instrument, one labelled row per filter axis. */}
+          <div className="toolbar">
+            <div className="toolbar-row">
+              <span className="toolbar-label" id="filter-show">Show</span>
+              <div role="group" aria-labelledby="filter-show" className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+                {INTENTS.map((t) => (
+                  <button
+                    key={t.id || "all"}
+                    onClick={() => setChangeType(t.id)}
+                    className={`chip shrink-0 ${changeType === t.id ? "chip-on" : ""}`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="toolbar-row">
+              <span className="toolbar-label" id="filter-region">Region</span>
+              <div role="group" aria-labelledby="filter-region" className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+                {REGIONS.map((r) => (
+                  <button
+                    key={r || "all"}
+                    onClick={() => setRegion(r)}
+                    className={`chip shrink-0 uppercase ${region === r ? "chip-on" : ""}`}
+                  >
+                    {r || "All"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {isLoading || !filtersReady ? (
-            <div className="pb-16">
+            <div className="pt-8 pb-16">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 pb-10">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="space-y-3">
-                    <div className="aspect-[3/4] rounded-2xl image-loading" />
+                    <div className="aspect-[3/4] card-frame image-loading" />
                     <div className="h-3 w-2/3 rounded image-loading" />
                   </div>
                 ))}
@@ -464,7 +470,7 @@ export default function DropsPage() {
             // newly-covered region (SG's catalogue was backfilled without
             // fabricating events) legitimately has none. Say that, rather
             // than a generic "nothing here" that reads as broken.
-            <div className="text-center py-24">
+            <section className="section text-center py-24">
               <Sparkles className="w-9 h-9 mx-auto text-muted-foreground mb-4" strokeWidth={1.5} />
               <p className="text-[15px] font-semibold mb-1">
                 {region
@@ -488,14 +494,14 @@ export default function DropsPage() {
                   Clear filters
                 </button>
               )}
-            </div>
+            </section>
           ) : (
             <div className="pb-16">
               {/* Hero: the most recent drop cluster, dated honestly */}
               {hero && (
-                <section className="pb-12">
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-5">
-                    <h2 className="display text-xl md:text-2xl">Drop — {dayLabel(hero.endIso)}</h2>
+                <section className="section">
+                  <div className="section-head">
+                    <h2 className="label">Drop — {dayLabel(hero.endIso)}</h2>
                     <p className="num text-[13px] text-muted-foreground">
                       {hero.cards.length} piece{hero.cards.length === 1 ? "" : "s"} ·{" "}
                       <span className="uppercase">{hero.regions.join(" · ")}</span>
@@ -517,8 +523,10 @@ export default function DropsPage() {
 
               {/* Earlier drops, collapsed */}
               {earlier.length > 0 && (
-                <section className="pb-12">
-                  <p className="label mb-3">Earlier drops</p>
+                <section className="section">
+                  <div className="section-head">
+                    <h2 className="label">Earlier drops</h2>
+                  </div>
                   <div className="space-y-2">
                     {earlier.map((cluster) => {
                       const isOpen = expanded.has(cluster.key)
@@ -539,10 +547,12 @@ export default function DropsPage() {
                             </span>
                           </button>
                           {isOpen && (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 pt-4 pb-6">
-                              {cluster.cards.map((card) => (
-                                <ClusterCard key={card.key} card={card} fmt={fmt} />
-                              ))}
+                            <div className="section pb-6">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8">
+                                {cluster.cards.map((card) => (
+                                  <ClusterCard key={card.key} card={card} fmt={fmt} />
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -552,80 +562,77 @@ export default function DropsPage() {
                 </section>
               )}
 
-              {/* Telemetry: everything that isn't a release */}
-              {showTelemetry && (
-                <section>
-                  {clusters.length > 0 && <p className="label mb-3">Telemetry</p>}
-                  <div className="space-y-6">
-                    {telemetryDays.map((day) => (
-                      <div key={day.key}>
-                        <p className="label mb-2">{day.label}</p>
-                        <div className="space-y-2">
-                          {day.rows.map((drop) => {
-                            const meta = TYPE_META[drop.change_type] || UNKNOWN_META
-                            const Icon = meta.icon
-                            const href = drop.product_id ? `/product/${drop.product_id}` : drop.product_url
-                            const oldPrice =
-                              drop.change_type === "price_drop" && drop.old_value
-                                ? parseFloat(drop.old_value)
-                                : null
-                            const pctOff =
-                              oldPrice && oldPrice > drop.price
-                                ? Math.round((1 - drop.price / oldPrice) * 100)
-                                : 0
-                            return (
-                              <Link
-                                key={drop.id}
-                                href={href}
-                                className="card-lift flex items-center gap-4 rounded-2xl bg-secondary p-3 pr-5"
-                              >
-                                <div className="w-14 h-16 rounded-xl overflow-hidden bg-background shrink-0">
-                                  <ImageWithLoading
-                                    src={drop.image_url}
-                                    alt={drop.title}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
+              {/* Telemetry: everything that isn't a release, ruled by day */}
+              {showTelemetry &&
+                telemetryDays.map((day) => (
+                  <section key={day.key} className="section">
+                    <div className="section-head">
+                      <h2 className="label">{day.label}</h2>
+                    </div>
+                    <div className="space-y-2">
+                      {day.rows.map((drop) => {
+                        const meta = TYPE_META[drop.change_type] || UNKNOWN_META
+                        const Icon = meta.icon
+                        const href = drop.product_id ? `/product/${drop.product_id}` : drop.product_url
+                        const oldPrice =
+                          drop.change_type === "price_drop" && drop.old_value
+                            ? parseFloat(drop.old_value)
+                            : null
+                        const pctOff =
+                          oldPrice && oldPrice > drop.price
+                            ? Math.round((1 - drop.price / oldPrice) * 100)
+                            : 0
+                        return (
+                          <Link
+                            key={drop.id}
+                            href={href}
+                            className="card-lift card-frame flex items-center gap-4 p-3 pr-5"
+                          >
+                            {/* On the card-frame's white plate the image well needs its own ground. */}
+                            <div className="w-14 h-16 rounded-xl overflow-hidden bg-secondary/50 shrink-0">
+                              <ImageWithLoading
+                                src={drop.image_url}
+                                alt={drop.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
 
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span
-                                      className={`pill inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold ${meta.tone}`}
-                                    >
-                                      <Icon className="w-3 h-3" />
-                                      {meta.label}
-                                    </span>
-                                    <span className="text-[11px] uppercase text-muted-foreground">{drop.region}</span>
-                                  </div>
-                                  <h3 className="text-[13px] font-medium truncate">{cleanTitle(drop.title).name}</h3>
-                                  {oldPrice !== null && (
-                                    <p className="num text-[12px] text-muted-foreground">
-                                      <span className="line-through">{fmt(oldPrice, drop.currency)}</span>
-                                      {" → "}
-                                      <span className="text-signal font-medium">{fmt(drop.price, drop.currency)}</span>
-                                      {pctOff > 0 && (
-                                        <span className="text-signal font-medium"> · {pctOff}% off</span>
-                                      )}
-                                    </p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span
+                                  className={`pill inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold ${meta.tone}`}
+                                >
+                                  <Icon className="w-3 h-3" />
+                                  {meta.label}
+                                </span>
+                                <span className="text-[11px] uppercase text-muted-foreground">{drop.region}</span>
+                              </div>
+                              <h3 className="text-[13px] font-medium truncate">{cleanTitle(drop.title).name}</h3>
+                              {oldPrice !== null && (
+                                <p className="num text-[12px] text-muted-foreground">
+                                  <span className="line-through">{fmt(oldPrice, drop.currency)}</span>
+                                  {" → "}
+                                  <span className="text-signal font-medium">{fmt(drop.price, drop.currency)}</span>
+                                  {pctOff > 0 && (
+                                    <span className="text-signal font-medium"> · {pctOff}% off</span>
                                   )}
-                                  {drop.change_type === "size_restock" && drop.new_value && (
-                                    <p className="text-[12px] text-muted-foreground">Sizes back: {drop.new_value}</p>
-                                  )}
-                                </div>
+                                </p>
+                              )}
+                              {drop.change_type === "size_restock" && drop.new_value && (
+                                <p className="text-[12px] text-muted-foreground">Sizes back: {drop.new_value}</p>
+                              )}
+                            </div>
 
-                                <div className="text-right shrink-0">
-                                  <p className="num text-[13px] font-medium">{fmt(drop.price, drop.currency)}</p>
-                                  <p className="num text-[11px] text-muted-foreground">{timeAgo(drop.detected_at)}</p>
-                                </div>
-                              </Link>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+                            <div className="text-right shrink-0">
+                              <p className="num text-[13px] font-medium">{fmt(drop.price, drop.currency)}</p>
+                              <p className="num text-[11px] text-muted-foreground">{timeAgo(drop.detected_at)}</p>
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ))}
             </div>
           )}
         </div>

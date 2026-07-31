@@ -229,10 +229,10 @@ export default function WishlistPage() {
 
       <main id="main" className="pt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-nav">
-          <div className="flex items-end justify-between mb-6">
+          <div className="flex items-end justify-between gap-4">
             <div>
-              <h1 className="display text-2xl md:text-3xl">Saved</h1>
-              <p className="num text-[13px] text-muted-foreground mt-1">{items.length} {items.length === 1 ? "item" : "items"}</p>
+              <h1 className="page-title">Saved</h1>
+              <p className="num text-[13px] text-muted-foreground mt-2">{items.length} {items.length === 1 ? "item" : "items"}</p>
             </div>
             {/* Display utilities live in the utilities layer and lose to the
                 unlayered .btn rules, so the responsive hide sits on a wrapper. */}
@@ -242,8 +242,32 @@ export default function WishlistPage() {
               </Link>
             </span>
           </div>
+          <hr className="hairline-signal mt-4" />
 
           <CategoryWatchPanel />
+
+          <section className="section">
+            <div className="section-head">
+              <h2 className="label">Your items</h2>
+              {items.length > 0 && (
+                <div className="flex items-center gap-1.5" role="group" aria-label="Sort saved items">
+                  {([
+                    ["recent", "Recent"],
+                    ["movers", "Movers"],
+                  ] as const).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setSortMode(mode)}
+                      aria-pressed={sortMode === mode}
+                      className={`chip ${sortMode === mode ? "chip-on" : ""}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
           {items.length === 0 ? (
             <div
@@ -260,24 +284,6 @@ export default function WishlistPage() {
               </Link>
             </div>
           ) : (
-            <>
-              <div className="flex items-center gap-1.5 mb-4" role="group" aria-label="Sort saved items">
-                {([
-                  ["recent", "Recent"],
-                  ["movers", "Movers"],
-                ] as const).map(([mode, label]) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setSortMode(mode)}
-                    aria-pressed={sortMode === mode}
-                    className={`chip ${sortMode === mode ? "chip-on" : ""}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-8">
               {sortedItems.map((item, index) => {
                 const current = currentPrices[item.id]
@@ -304,7 +310,7 @@ export default function WishlistPage() {
                     className={`group transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`}
                     style={{ transitionDelay: `${Math.min(index * 20, 200)}ms` }}
                   >
-                    <div className="relative aspect-[3/4] bg-secondary rounded-2xl mb-3 overflow-hidden">
+                    <div className="card-lift card-frame relative aspect-[3/4] mb-3">
                       <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
                         {storeUrl && (
                           <a
@@ -391,8 +397,8 @@ export default function WishlistPage() {
                 )
               })}
               </div>
-            </>
           )}
+          </section>
         </div>
       </main>
     </div>
