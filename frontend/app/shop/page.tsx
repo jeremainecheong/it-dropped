@@ -236,71 +236,81 @@ function ShopPageContent() {
             <Header />
 
             <main id="main" className="pt-12 pb-nav">
-                <div className="px-4 lg:px-8 pt-8 pb-5">
+                <div className="px-4 lg:px-8 pt-6 pb-5">
                     {/* Not "Latest drops" — that is the other page's name, and the two
                         side by side in the bottom nav read as one page duplicated. */}
-                    <h1 className="display text-2xl md:text-3xl">Catalogue</h1>
-                    <p className="num text-[13px] text-muted-foreground mt-1">
+                    <h1 className="page-title">Catalogue</h1>
+                    <p className="num text-[13px] text-muted-foreground mt-2">
                         {totalStyles !== null ? `${totalStyles.toLocaleString()} styles across 6 stores` : "Every garment, every store"}
                     </p>
-                    <hr className="hairline-signal mt-5" />
+                    <hr className="hairline-signal mt-4" />
                 </div>
 
-                {/* Filters: chip rows that scroll sideways on a phone. Regions are
-                    attributes on the cards now, not a filter axis. */}
-                <div className="space-y-2.5 pb-5">
-                    <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-4 lg:px-8">
-                        <button onClick={() => setParams({ category: null })} className={chip(!category)}>
-                            All
-                        </button>
-                        {CATEGORIES.map((cat) => (
-                            <button
-                                key={cat.key}
-                                onClick={() => setParams({ category: category === cat.key ? null : cat.key })}
-                                className={chip(category === cat.key)}
-                            >
-                                {cat.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-4 lg:px-8">
-                        {SIZE_CHIPS.map((s) => (
-                            <button
-                                key={s}
-                                onClick={() => setParams({ size: size === s ? null : s })}
-                                className={`${chip(size === s)} min-w-9 justify-center`}
-                            >
-                                {s}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-4 lg:px-8">
-                        <button onClick={() => setParams({ stock: inStockOnly ? null : "1" })} className={chip(inStockOnly)}>
-                            In stock
-                        </button>
-                        <span className="shrink-0 w-px h-4 bg-border mx-1" aria-hidden />
-                        {(
-                            [
-                                ["newest", "Newest"],
-                                ["price_asc", "Price ↑"],
-                                ["price_desc", "Price ↓"],
-                            ] as const
-                        ).map(([value, label]) => (
-                            <button
-                                key={value}
-                                onClick={() => setParams({ sort: value === "newest" ? null : value })}
-                                className={chip(sortBy === value)}
-                            >
-                                {label}
-                            </button>
-                        ))}
-                        {hasActiveFilters && (
-                            <button onClick={clearFilters} className="btn btn-ghost btn-sm shrink-0">
-                                Clear
-                            </button>
-                        )}
+                {/* One instrument, one labelled row per filter axis — the
+                    grouping IS the design. Regions are attributes on the
+                    cards, not a filter axis. */}
+                <div className="px-4 lg:px-8 pb-5">
+                    <div className="toolbar">
+                        <div className="toolbar-row">
+                            <span className="toolbar-label" id="filter-category">Category</span>
+                            <div role="group" aria-labelledby="filter-category" className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+                                <button onClick={() => setParams({ category: null })} className={chip(!category)}>
+                                    All
+                                </button>
+                                {CATEGORIES.map((cat) => (
+                                    <button
+                                        key={cat.key}
+                                        onClick={() => setParams({ category: category === cat.key ? null : cat.key })}
+                                        className={chip(category === cat.key)}
+                                    >
+                                        {cat.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="toolbar-row">
+                            <span className="toolbar-label" id="filter-size">Size</span>
+                            <div role="group" aria-labelledby="filter-size" className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+                                {SIZE_CHIPS.map((s) => (
+                                    <button
+                                        key={s}
+                                        onClick={() => setParams({ size: size === s ? null : s })}
+                                        className={`${chip(size === s)} min-w-9 justify-center`}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="toolbar-row">
+                            <span className="toolbar-label" id="filter-view">View</span>
+                            <div role="group" aria-labelledby="filter-view" className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1">
+                                <button onClick={() => setParams({ stock: inStockOnly ? null : "1" })} className={chip(inStockOnly)}>
+                                    In stock
+                                </button>
+                                <span className="shrink-0 w-px h-4 bg-border mx-1" aria-hidden />
+                                {(
+                                    [
+                                        ["newest", "Newest"],
+                                        ["price_asc", "Price ↑"],
+                                        ["price_desc", "Price ↓"],
+                                    ] as const
+                                ).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        onClick={() => setParams({ sort: value === "newest" ? null : value })}
+                                        className={chip(sortBy === value)}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                                {hasActiveFilters && (
+                                    <button onClick={clearFilters} className="btn btn-ghost btn-sm shrink-0 ml-auto">
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -341,7 +351,7 @@ function ShopPageContent() {
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
                             {Array.from({ length: 8 }).map((_, i) => (
                                 <div key={i} className="space-y-2">
-                                    <div className="aspect-[3/4] bg-muted animate-pulse rounded-2xl" />
+                                    <div className="aspect-[3/4] card-frame image-loading" />
                                     <div className="h-3 bg-muted animate-pulse w-3/4 rounded" />
                                     <div className="h-3 bg-muted animate-pulse w-1/3 rounded" />
                                 </div>
@@ -394,7 +404,7 @@ function ShopPageContent() {
                                         className={`group transition-opacity duration-300 ${isPageLoaded ? "opacity-100" : "opacity-0"}`}
                                         style={{ transitionDelay: `${Math.min(index * 15, 150)}ms` }}
                                     >
-                                        <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
+                                        <div className="card-lift card-frame relative aspect-[3/4]">
                                             {inMySize && (
                                                 <span className="pill absolute top-3 left-3 z-20 bg-primary text-primary-foreground px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">
                                                     In your size
