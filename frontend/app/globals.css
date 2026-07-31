@@ -32,13 +32,6 @@
   --ring: #1d1d1f;
   --radius: 0.75rem;
 
-  /* Ink: the brand's black plates — ticker, cover panel, footer, the closing
-   * band. Deliberately NOT --primary: primary inverts with the theme, so in
-   * dark mode every one of those bands turned into a glaring white slab. A
-   * black band is a brand decision, not a semantic surface. */
-  --ink: #0b0b0c;
-  --ink-foreground: #ffffff;
-
   /* Live / alert accent — used sparingly */
   --signal: #e11d2e;
   --signal-foreground: #ffffff;
@@ -70,10 +63,6 @@
   --input: #1c1c1e;
   --ring: #f5f5f7;
 
-  /* Unchanged across themes, by design — see the note in :root. */
-  --ink: #0b0b0c;
-  --ink-foreground: #ffffff;
-
   --signal: #ff453a;
   --signal-foreground: #ffffff;
 
@@ -104,8 +93,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-ink: var(--ink);
-  --color-ink-foreground: var(--ink-foreground);
   --color-signal: var(--signal);
   --color-signal-foreground: var(--signal-foreground);
   --radius-sm: 0.5rem;
@@ -260,16 +247,15 @@ button:focus-visible {
  *   .page-title    — the one big editorial headline per page
  *   .section       — a ruled band: hairline on top, uppercase label, content
  *   .toolbar       — grouped filter rows, each row labelled
- *   .panel-dark    — the single black anchor block a page may carry
+ *   .panel         — a quiet framed block; the app carries no filled colour
  */
 
 .page-title {
   font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 0.95;
-  font-size: clamp(2.5rem, 9vw, 4rem);
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  font-size: clamp(2rem, 6.5vw, 3.25rem);
 }
 
 /* A ruled section: the rule and label do the grouping that padding alone
@@ -320,13 +306,10 @@ button:focus-visible {
 
 /* The one black block a page may anchor itself with. More than one and the
  * page turns into a chessboard. */
-.panel-dark {
-  background: var(--ink);
-  color: var(--ink-foreground);
+.panel {
+  background: var(--background);
+  border: 1px solid var(--border);
   border-radius: 1.5rem;
-}
-.panel-dark .label {
-  color: color-mix(in srgb, var(--ink-foreground) 60%, transparent);
 }
 
 /* Product imagery: a framed plate on the page surface, not a grey slab.
@@ -405,28 +388,12 @@ button:focus-visible {
 .marquee-track {
   display: inline-flex;
   white-space: nowrap;
-  animation: marquee 45s linear infinite;
+  animation: marquee 60s linear infinite;
 }
 .ticker:hover .marquee-track {
   animation-play-state: paused;
 }
 
-/* ---------- Cover ----------
- *
- * The full-bleed opening plate. The scrim is a hard-bottomed gradient rather
- * than a flat overlay: product photography is mostly light, and type laid on
- * an evenly dimmed image is still unreadable at the top of the garment. */
-.cover-scrim {
-  background: linear-gradient(
-    to top,
-    rgb(0 0 0 / 0.92) 0%,
-    rgb(0 0 0 / 0.85) 18%,
-    rgb(0 0 0 / 0.6) 34%,
-    rgb(0 0 0 / 0.25) 52%,
-    rgb(0 0 0 / 0.05) 74%,
-    transparent 100%
-  );
-}
 
 /* ---------- Images ---------- */
 .product-image-zoom {
