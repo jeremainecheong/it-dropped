@@ -153,10 +153,9 @@ export default function TodayPage() {
 
   const currentPrices = useCurrentPrices(useMemo(() => items.map((i) => i.id), [items]))
 
-  // Which of the newest pieces the cover is showing. The cover rotates rather
-  // than pinning the single newest listing: one flat studio shot would
-  // otherwise be the whole first impression for a week, and a lookbook turns
-  // its page.
+  // Which of the newest pieces the cover is showing. It used to advance on a
+  // timer; a page that rearranges itself while you are reading it is a page
+  // arguing with you. The rules below step it, nothing else does.
   const [coverIdx, setCoverIdx] = useState(0)
 
   // Live countdown tick; also keeps the "checked Xm ago" line current.
@@ -256,12 +255,6 @@ export default function TodayPage() {
   const coverPool = useMemo(() => latest.slice(0, 3), [latest])
   const rest = latest.slice(3, 9)
 
-  useEffect(() => {
-    if (coverPool.length < 2) return
-    const id = setInterval(() => setCoverIdx((i) => (i + 1) % coverPool.length), 7000)
-    return () => clearInterval(id)
-  }, [coverPool.length])
-
   const cover = coverPool[Math.min(coverIdx, Math.max(coverPool.length - 1, 0))]
   const coverSizes = (cover?.available_sizes_normalised?.length
     ? cover.available_sizes_normalised
@@ -273,29 +266,22 @@ export default function TodayPage() {
       <Header />
 
       <main id="main" className="flex-1 pt-12">
-        {/* The band of live numbers. A rule and quiet type, not a filled bar —
-            pauses on hover so a figure can be read, and holds its content
-            twice so the loop has no seam. */}
-        <div className="ticker overflow-hidden border-y border-border py-2.5">
-          <div className="marquee-track">
-            {[0, 1].map((copy) => (
-              <span key={copy} className="flex items-center" aria-hidden={copy === 1}>
-                {tickerItems.map((t, i) => (
-                  <span key={`${copy}-${i}`} className="flex items-center">
-                    <span className="num whitespace-nowrap px-5 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      {t}
-                    </span>
-                    <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-border" aria-hidden />
-                  </span>
-                ))}
+        {/* Status. It was a scrolling marquee; motion for its own sake in the
+            one place a reader wants to take a number in at a glance. Now a
+            single quiet line that holds still. */}
+        <div className="border-b border-border">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-6">
+            {tickerItems.map((t) => (
+              <span
+                key={t}
+                className="num text-[10px] uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                {t}
               </span>
             ))}
           </div>
         </div>
 
-        {/* THE COVER — the newest piece, full bleed. Six storefronts of
-            lookbook photography is the best asset this app has; it used to be
-            rendered at 160px inside a scroll strip. */}
         {cover ? (
           <section className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:pt-12">
             <Link
@@ -312,7 +298,7 @@ export default function TodayPage() {
                     src={p.image_url}
                     alt=""
                     aria-hidden={i !== coverIdx}
-                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${
+                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ease-out ${
                       i === coverIdx ? "opacity-100" : "opacity-0"
                     }`}
                   />
