@@ -20,6 +20,7 @@ import { Footer } from "@/components/layout/footer"
 import { toUSD } from "@/lib/currency"
 import { useDisplayPrice } from "@/lib/display-price"
 import { usePrefs } from "@/lib/prefs"
+import { cleanTitle } from "@/lib/title"
 import { supabase } from "@/lib/supabase"
 
 interface Drop {
@@ -249,7 +250,15 @@ function ClusterCard({ card, fmt }: { card: DropCard; fmt: (price: number, curre
         </Link>
       </div>
       <Link href={card.href} className="flex items-baseline justify-between gap-3 mt-3 px-1">
-        <h3 className="text-[13px] font-medium leading-snug line-clamp-1">{card.title}</h3>
+        {(() => {
+          const { name, colour } = cleanTitle(card.title)
+          return (
+            <h3 className="text-[13px] font-medium leading-snug line-clamp-2">
+              {name}
+              {colour && <span className="text-muted-foreground font-normal"> · {colour}</span>}
+            </h3>
+          )
+        })()}
         <p className="num text-[13px] text-muted-foreground shrink-0">{fmt(card.price, card.currency)}</p>
       </Link>
     </div>
@@ -588,7 +597,7 @@ export default function DropsPage() {
                                     </span>
                                     <span className="text-[11px] uppercase text-muted-foreground">{drop.region}</span>
                                   </div>
-                                  <h3 className="text-[13px] font-medium truncate">{drop.title}</h3>
+                                  <h3 className="text-[13px] font-medium truncate">{cleanTitle(drop.title).name}</h3>
                                   {oldPrice !== null && (
                                     <p className="num text-[12px] text-muted-foreground">
                                       <span className="line-through">{fmt(oldPrice, drop.currency)}</span>

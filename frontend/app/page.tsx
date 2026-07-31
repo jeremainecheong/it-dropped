@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context"
 import { asProductId, useWishlist } from "@/lib/wishlist-context"
 import { supabase } from "@/lib/supabase"
 import { formatNative, useDisplayPrice } from "@/lib/display-price"
+import { cleanTitle } from "@/lib/title"
 
 interface LatestProduct {
   id: string
@@ -232,7 +233,7 @@ export default function TodayPage() {
       <main className="flex-1 pt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           {/* Next expected drop + freshness */}
-          <section className="pt-8 pb-10">
+          <section className="pt-8 pb-7">
             <p className="label mb-1.5 flex items-center gap-1.5">
               <span className="w-1 h-1 rounded-full bg-signal" aria-hidden />
               Today
@@ -298,7 +299,7 @@ export default function TodayPage() {
                         {p.region}
                       </span>
                     </div>
-                    <h3 className="text-[13px] font-medium truncate mt-2.5 px-0.5">{p.title}</h3>
+                    <h3 className="text-[13px] font-medium truncate mt-2.5 px-0.5">{cleanTitle(p.title).name}</h3>
                     <p className="num text-[13px] text-muted-foreground px-0.5">{fmt(p.price, p.currency)}</p>
                   </Link>
                 ))}
@@ -395,7 +396,7 @@ export default function TodayPage() {
                   <Heart className="w-4 h-4 shrink-0" strokeWidth={1.8} />
                   Sign in to save items and see when their prices move.
                 </p>
-                <Link href="/login" className="btn btn-primary shrink-0">
+                <Link href="/login" className="btn btn-primary btn-sm shrink-0">
                   Sign in
                 </Link>
               </div>
@@ -433,7 +434,7 @@ export default function TodayPage() {
                   const inner = (
                     <>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-[13px] font-medium truncate">{cut.title}</h3>
+                        <h3 className="text-[13px] font-medium truncate">{cleanTitle(cut.title).name}</h3>
                         <p className="num text-[12px] text-muted-foreground">
                           {Number.isFinite(oldPrice) && (
                             <>

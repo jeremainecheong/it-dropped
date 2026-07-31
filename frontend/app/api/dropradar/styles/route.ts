@@ -90,8 +90,13 @@ function groupRows(rows: Row[]): StyleGroup[] {
 
   const groups: StyleGroup[] = []
   for (const [styleKey, listings] of byKey) {
-    // Regional titles carry store prefixes ("Stüssy UK | Basic Tee"), so the
-    // shortest spelling across regions is the one closest to the garment's name.
+    // Regional titles carry store prefixes ("Stüssy - Basic Tee"), so the
+    // shortest spelling across regions is the one closest to the garment's
+    // name — except the US store publishes in FULL CAPS, and preferring its
+    // (often shortest) spelling handed the whole grid a shouting voice. A
+    // mixed-case title beats a shorter all-caps one; length breaks ties
+    // within the same case class.
+    const isShouting = (t: string) => t === t.toUpperCase() && /[A-Z]/.test(t)
     let title = listings[0].title
     let image: string | null = null
     let publishedAt: string | null = null
@@ -100,7 +105,14 @@ function groupRows(rows: Row[]): StyleGroup[] {
     const availableSizes = new Set<string>()
 
     for (const row of listings) {
-      if (row.title && row.title.length < title.length) title = row.title
+      if (
+        row.title &&
+        (isShouting(title) !== isShouting(row.title)
+          ? isShouting(title)
+          : row.title.length < title.length)
+      ) {
+        title = row.title
+      }
       if (!image && row.image_url) image = row.image_url
       if (row.published_at && (!publishedAt || row.published_at > publishedAt)) {
         publishedAt = row.published_at

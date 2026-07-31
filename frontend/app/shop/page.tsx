@@ -10,6 +10,7 @@ import { useWishlist } from "@/lib/wishlist-context"
 import { Header } from "@/components/layout/header"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { CATEGORIES } from "@/lib/categories"
+import { cleanTitle } from "@/lib/title"
 import { usePrefs } from "@/lib/prefs"
 import { useDisplayPrice } from "@/lib/display-price"
 import { toUSD } from "@/lib/currency"
@@ -236,7 +237,9 @@ function ShopPageContent() {
 
             <main className="pt-12 pb-nav">
                 <div className="px-4 lg:px-8 pt-8 pb-5">
-                    <h1 className="display text-2xl md:text-3xl">{sortBy === "newest" ? "Latest drops" : "All styles"}</h1>
+                    {/* Not "Latest drops" — that is the other page's name, and the two
+                        side by side in the bottom nav read as one page duplicated. */}
+                    <h1 className="display text-2xl md:text-3xl">Catalogue</h1>
                     <p className="num text-[13px] text-muted-foreground mt-1">
                         {totalStyles !== null ? `${totalStyles.toLocaleString()} styles across 6 stores` : "Every garment, every store"}
                     </p>
@@ -302,16 +305,34 @@ function ShopPageContent() {
                 </div>
 
                 {nudgeOpen && (
-                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-4 lg:px-8 pb-5">
-                        <span className="label shrink-0">Your sizes?</span>
-                        {SIZE_CHIPS.map((s) => (
-                            <button key={s} onClick={() => toggleMySize(s)} className={`${chip(prefs.sizes.includes(s))} min-w-9 justify-center`}>
-                                {s}
+                    // A card, not another chip row — rendered as a bare row it sat
+                    // directly under the size FILTER row and read as the same
+                    // control duplicated.
+                    <div className="mx-4 lg:mx-8 mb-6 rounded-2xl bg-secondary p-4">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <p className="text-[13px] font-semibold">What sizes do you wear?</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Cards, drops and alerts will flag anything in your size.
+                                </p>
+                            </div>
+                            <button onClick={dismissNudge} aria-label="Dismiss" className="btn btn-ghost btn-icon shrink-0 -mt-1 -mr-1">
+                                <X className="w-3.5 h-3.5" />
                             </button>
-                        ))}
-                        <button onClick={dismissNudge} aria-label="Dismiss" className="btn btn-secondary btn-icon shrink-0">
-                            <X className="w-3.5 h-3.5" />
-                        </button>
+                        </div>
+                        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide mt-3">
+                            {SIZE_CHIPS.map((s) => (
+                                <button
+                                    key={s}
+                                    onClick={() => toggleMySize(s)}
+                                    // On the card's bg-secondary surface the resting chip
+                                    // needs its own ground or it disappears.
+                                    className={`${chip(prefs.sizes.includes(s))} min-w-9 justify-center ${prefs.sizes.includes(s) ? "" : "!bg-background"}`}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 
@@ -355,9 +376,18 @@ function ShopPageContent() {
                                 const inWishlist = isInWishlist(chosenId)
                                 const inMySize =
                                     prefs.sizes.length > 0 && prefs.sizes.some((s) => group.availableSizes.includes(s))
-                                const regions = [...group.listings].sort(
-                                    (a, b) => REGION_ORDER.indexOf(a.region) - REGION_ORDER.indexOf(b.region),
-                                )
+                                // One chip per REGION, not per listing — a garment in four
+                                // colourways per store rendered "US US US US UK UK…", which
+                                // reads as a bug because it was one. A region counts as
+                                // available if any of its colourways is.
+                                const regionAvail = new Map<string, boolean>()
+                                for (const l of group.listings) {
+                                    regionAvail.set(l.region, (regionAvail.get(l.region) ?? false) || l.isAvailable)
+                                }
+                                const regions = [...regionAvail.entries()]
+                                    .map(([region, isAvailable]) => ({ region, isAvailable }))
+                                    .sort((a, b) => REGION_ORDER.indexOf(a.region) - REGION_ORDER.indexOf(b.region))
+                                const { name: cardName, colour: cardColour } = cleanTitle(group.title)
                                 return (
                                     <div
                                         key={group.styleKey}
@@ -396,7 +426,12 @@ function ShopPageContent() {
                                         </div>
                                         <Link href={`/product/${chosenId}`} className="block mt-3 px-1">
                                             <div className="flex items-baseline justify-between gap-3">
-                                                <h3 className="text-[13px] font-medium leading-snug line-clamp-1">{group.title}</h3>
+                                                <h3 className="text-[13px] font-medium leading-snug line-clamp-2">
+                                                    {cardName}
+                                                    {cardColour && (
+                                                        <span className="text-muted-foreground font-normal"> · {cardColour}</span>
+                                                    )}
+                                                </h3>
                                                 <p className={`num text-[13px] shrink-0 ${group.anyAvailable ? "text-muted-foreground" : "text-muted-foreground/60"}`}>
                                                     {fmt(priced.price, priced.currency)}
                                                 </p>
