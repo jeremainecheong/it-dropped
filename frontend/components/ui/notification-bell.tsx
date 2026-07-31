@@ -139,13 +139,13 @@ export function NotificationBell() {
                         : "Notifications"
                 }
                 aria-expanded={isOpen}
-                className="relative p-2 hover:bg-muted rounded transition-colors"
+                className="btn btn-ghost btn-icon relative"
             >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
                     <span
                         aria-hidden
-                        className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[10px] flex items-center justify-center rounded-full"
+                        className="num absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] flex items-center justify-center rounded-full"
                     >
                         {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
@@ -158,14 +158,14 @@ export function NotificationBell() {
                         className="fixed inset-0 z-40"
                         onClick={() => setIsOpen(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-background border border-border shadow-lg z-50">
+                    <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-2xl bg-background border border-border shadow-[var(--shadow-pop)] z-50">
                         <div className="sticky top-0 flex items-center justify-between p-3 border-b border-border bg-background">
                             <span className="text-xs uppercase tracking-widest">Notifications</span>
                             {unreadCount > 0 && (
                                 <button
                                     onClick={markAllAsRead}
                                     aria-label="Mark all notifications as read"
-                                    className="text-xs text-muted-foreground hover:text-foreground"
+                                    className="btn btn-ghost btn-sm -mr-2"
                                 >
                                     Mark all read
                                 </button>
@@ -195,7 +195,7 @@ export function NotificationBell() {
                                                     {notification.body}
                                                 </p>
                                             )}
-                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                            <p className="num text-[10px] text-muted-foreground mt-1">
                                                 {formatTime(notification.created_at)}
                                             </p>
                                         </>
@@ -235,7 +235,7 @@ export function NotificationBell() {
                                                     <button
                                                         onClick={() => markAsRead(notification.id)}
                                                         aria-label={`Mark "${notification.title}" as read`}
-                                                        className="p-1 hover:bg-muted rounded shrink-0"
+                                                        className="btn btn-ghost btn-icon shrink-0"
                                                     >
                                                         <Check className="w-3 h-3" />
                                                     </button>

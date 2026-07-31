@@ -89,11 +89,14 @@ export function Header({ actions }: HeaderProps) {
                     <div className="flex items-center gap-1">
                         {actions}
 
-                        {/* Compact search trigger (mobile) */}
+                        {/* Compact search trigger (mobile). The display utilities
+                            need the important flag: .btn's unlayered
+                            display:inline-flex outranks anything in the
+                            utilities layer. */}
                         <button
                             onClick={() => setSearchOpen(true)}
                             aria-label="Search"
-                            className="sm:hidden flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                            className="btn btn-ghost btn-icon sm:hidden!"
                         >
                             <Search className="w-4 h-4" />
                         </button>
@@ -121,8 +124,8 @@ export function Header({ actions }: HeaderProps) {
                                 <Link
                                     href="/wishlist"
                                     aria-label="Wishlist"
-                                    className={`hidden sm:flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                                        isActive("/wishlist") ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                                    className={`btn btn-ghost btn-icon hidden! sm:inline-flex! ${
+                                        isActive("/wishlist") ? "text-foreground!" : ""
                                     }`}
                                 >
                                     <Heart className="w-4 h-4" />

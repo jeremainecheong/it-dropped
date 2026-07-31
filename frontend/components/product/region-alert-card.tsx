@@ -101,10 +101,7 @@ export function RegionAlertCard({
           </p>
 
           {!user ? (
-            <Link
-              href="/login"
-              className="pill inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold"
-            >
+            <Link href="/login" className="btn btn-primary btn-sm">
               Sign in to get notified
             </Link>
           ) : state === "watching" ? (
@@ -126,7 +123,7 @@ export function RegionAlertCard({
             <button
               onClick={handleWatch}
               disabled={state === "saving"}
-              className="pill inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold disabled:opacity-60"
+              className="btn btn-primary btn-sm"
             >
               {state === "saving" ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

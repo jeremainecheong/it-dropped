@@ -138,7 +138,7 @@ function AlertsContent() {
         <div className="min-h-screen bg-background text-foreground">
             <Header
                 actions={
-                    <button onClick={fetchAlerts} aria-label="Refresh alerts" className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={fetchAlerts} aria-label="Refresh alerts" className="btn btn-ghost btn-icon">
                         <RefreshCw className="w-4 h-4" />
                     </button>
                 }
@@ -146,17 +146,18 @@ function AlertsContent() {
 
             <main className="pt-14 pb-nav">
                 <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8">
-                    <div className="flex items-center gap-3 mb-8">
+                    <div className="flex items-center gap-3 mb-3">
                         <Bell className="w-6 h-6" />
                         <h1 className="text-2xl font-medium">Alerts</h1>
                     </div>
+                    <div className="hairline-signal mb-8" />
 
                     {isLoading ? (
                         <div className="space-y-4">
                             {[1, 2, 3].map((i) => (
-                                <div key={i} className="p-4 border border-border animate-pulse">
+                                <div key={i} className="rounded-2xl bg-secondary p-4 animate-pulse">
                                     <div className="flex gap-4">
-                                        <div className="w-16 h-20 bg-muted" />
+                                        <div className="w-16 h-20 rounded-lg bg-muted" />
                                         <div className="flex-1 space-y-2">
                                             <div className="h-4 bg-muted w-3/4" />
                                             <div className="h-3 bg-muted w-1/2" />
@@ -169,25 +170,29 @@ function AlertsContent() {
                         <div className="text-center py-16">
                             <Bell className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                             <p className="text-muted-foreground mb-4">No alerts set</p>
-                            <Link href="/shop" className="px-6 py-3 bg-foreground text-background text-sm">
+                            <Link href="/shop" className="btn btn-primary">
                                 Browse Products
                             </Link>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {alerts.map((alert) => (
+                            {alerts.map((alert, index) => (
                                 <div
                                     key={alert.id}
-                                    className={`border p-4 transition-colors ${alert.is_active ? "border-border" : "border-border/50 opacity-60"
-                                        }`}
+                                    className="rounded-2xl bg-secondary p-4 animate-rise"
+                                    // "both" so a delayed card holds the from-state instead
+                                    // of flashing in before its turn.
+                                    style={{ animationDelay: `${Math.min(index * 40, 200)}ms`, animationFillMode: "both" }}
                                 >
-                                    <div className="flex gap-4">
+                                    {/* Dimming lives a level below animate-rise — the
+                                        animation's fill pins the card's own opacity at 1. */}
+                                    <div className={`flex gap-4 transition-opacity ${alert.is_active ? "" : "opacity-60"}`}>
                                         {alert.imageUrl && (
                                             <MaybeLink productId={alert.productId}>
                                                 <img
                                                     src={alert.imageUrl}
                                                     alt=""
-                                                    className="w-16 h-20 object-cover bg-muted"
+                                                    className="w-16 h-20 rounded-lg object-cover bg-muted"
                                                 />
                                             </MaybeLink>
                                         )}
@@ -200,29 +205,30 @@ function AlertsContent() {
                                                 </span>
                                             </MaybeLink>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <span className="px-2 py-0.5 bg-muted text-xs">{alert.label}</span>
+                                                {/* bg-background, not bg-muted: muted and the
+                                                    card surface are the same token. */}
+                                                <span className="pill px-2.5 py-0.5 bg-background text-xs">{alert.label}</span>
                                                 {alert.triggered && (
-                                                    <span className="px-2 py-0.5 bg-green-500/10 text-green-600 text-xs">
+                                                    <span className="pill px-2.5 py-0.5 bg-green-500/10 text-green-600 text-xs">
                                                         Triggered
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-muted-foreground mt-2">{alert.detail}</p>
+                                            <p className="num text-xs text-muted-foreground mt-2">{alert.detail}</p>
                                         </div>
-                                        <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col items-end gap-2">
                                             <button
                                                 onClick={() => toggleAlert(alert)}
-                                                className={`px-3 py-1 text-xs border transition-colors ${alert.is_active
-                                                        ? "border-foreground"
-                                                        : "border-border hover:border-foreground"
-                                                    }`}
+                                                className={`chip ${alert.is_active ? "chip-on" : ""}`}
                                             >
                                                 {alert.is_active ? "Active" : "Paused"}
                                             </button>
+                                            {/* Bare .btn, no variant: variant colours are unlayered
+                                                CSS and would beat the destructive utilities. */}
                                             <button
                                                 onClick={() => deleteAlert(alert)}
                                                 aria-label="Delete alert"
-                                                className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded"
+                                                className="btn btn-icon text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>

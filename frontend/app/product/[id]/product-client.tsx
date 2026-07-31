@@ -270,7 +270,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-[15px] font-semibold">Product not found</p>
         <p className="text-[13px] text-muted-foreground max-w-xs">It may have been delisted, or the link is out of date.</p>
-        <Link href="/shop" className="pill px-5 py-2.5 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85">
+        <Link href="/shop" className="btn btn-primary">
           Back to shop
         </Link>
       </div>
@@ -282,13 +282,13 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
       <Header
         actions={
           <>
-            <button onClick={handleShare} aria-label="Share" className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={handleShare} aria-label="Share" className="btn btn-ghost btn-icon">
               <Share2 className="w-4 h-4" />
             </button>
             <button
               onClick={handleWishlist}
               aria-label="Toggle wishlist"
-              className={`pill flex items-center justify-center w-8 h-8 transition-colors ${isWishlisted ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`btn btn-icon ${isWishlisted ? "btn-primary" : "btn-ghost"}`}
             >
               <Heart className={`w-4 h-4 ${isWishlisted ? "fill-current" : ""}`} />
             </button>
@@ -337,6 +337,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                   {product.vendor} / {product.product_type}
                 </p>
                 <h1 className="display text-2xl lg:text-3xl">{product.title}</h1>
+                <hr className="hairline-signal mt-4" />
               </div>
 
               {/* One sentence composed entirely from data already on the page:
@@ -394,7 +395,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 }
                 if (clauses.length === 0) return null
                 return (
-                  <div className="bg-secondary rounded-2xl px-4 py-3 text-[13px] text-muted-foreground">
+                  <div className="num bg-secondary rounded-2xl px-4 py-3 text-[13px] text-muted-foreground">
                     {clauses.map((clause, i) => (
                       <span key={i}>
                         {i > 0 && " · "}
@@ -406,7 +407,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
               })()}
 
               <div className="flex items-center gap-4">
-                <span className="display text-2xl">
+                <span className="display num text-2xl">
                   {formatPrice(product.price, product.currency)}
                 </span>
                 {/* The struck-through figure is the highest price we have
@@ -414,12 +415,12 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                     — that number is theirs to set and routinely describes a
                     price the garment never sold at. */}
                 {verdict.isLow && priceStats && (
-                  <span className="text-muted-foreground line-through">
+                  <span className="num text-muted-foreground line-through">
                     {formatPrice(priceStats.high, product.currency)}
                   </span>
                 )}
                 {verdict.label && (
-                  <span className={`pill px-2.5 py-1 text-xs font-medium ${verdict.isLow ? "bg-signal text-signal-foreground" : "bg-secondary text-foreground"}`}>
+                  <span className={`pill num px-2.5 py-1 text-xs font-medium ${verdict.isLow ? "bg-signal text-signal-foreground" : "bg-secondary text-foreground"}`}>
                     {verdict.label}
                   </span>
                 )}
@@ -442,7 +443,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
               {bestOffer?.is_available && savingsUSD >= 1 && (
                 <Link
                   href={`/product/${bestOffer.id}`}
-                  className="pill inline-flex items-center gap-2 px-4 py-2 bg-signal/10 text-signal text-[13px] font-medium hover:bg-signal hover:text-signal-foreground transition-colors"
+                  className="pill num inline-flex items-center gap-2 px-4 py-2 bg-signal/10 text-signal text-[13px] font-medium hover:bg-signal hover:text-signal-foreground transition-colors"
                 >
                   <Globe className="w-3.5 h-3.5" />
                   Cheaper from {REGION_FLAGS[bestOffer.region] || bestOffer.region.toUpperCase()} —{" "}
@@ -492,14 +493,14 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                   href={product.product_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="pill flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-primary-foreground text-sm font-medium hover:opacity-85"
+                  className="btn btn-primary btn-lg w-full"
                 >
                   <ExternalLink className="w-4 h-4" />
                   Buy on Stüssy
                 </a>
                 <button
                   onClick={() => setAlertModalOpen(true)}
-                  className="pill flex items-center justify-center gap-2 w-full py-3.5 text-sm font-medium bg-secondary text-muted-foreground hover:text-foreground"
+                  className="btn btn-secondary btn-lg w-full"
                 >
                   <Bell className="w-4 h-4" />
                   Set price alert
@@ -620,14 +621,14 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                           on orders that cannot be placed. */}
                       {undeliverable ? (
                         <>
-                          <p className="text-[15px] font-semibold">{formatPrice(p.price, p.currency)}</p>
+                          <p className="num text-[15px] font-semibold">{formatPrice(p.price, p.currency)}</p>
                           <p className={`text-[11px] ${isBest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                             in store{isCurrent ? " · viewing" : ""}
                           </p>
                         </>
                       ) : (
                         <>
-                          <p className="text-[15px] font-semibold">~{formatDisplay(cost.total, cost)}</p>
+                          <p className="num text-[15px] font-semibold">~{formatDisplay(cost.total, cost)}</p>
                           <p className={`text-[11px] ${isBest ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                             delivered{isCurrent ? " · viewing" : ""}
                           </p>
@@ -639,7 +640,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                           price is a separate line rather than the Item row: it
                           is what gets charged at checkout, which is worth
                           knowing, but it is not a term in this sum. */}
-                      <div className={`mt-2.5 pt-2.5 space-y-0.5 text-[11px] border-t ${isBest ? "border-primary-foreground/15 text-primary-foreground/60" : "border-border text-muted-foreground"}`}>
+                      <div className={`num mt-2.5 pt-2.5 space-y-0.5 text-[11px] border-t ${isBest ? "border-primary-foreground/15 text-primary-foreground/60" : "border-border text-muted-foreground"}`}>
                         {undeliverable ? (
                           <div>{landed.notes}</div>
                         ) : (
@@ -700,7 +701,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
       <div className="md:hidden fixed left-0 right-0 z-40 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] bg-background/90 backdrop-blur-xl border-t border-border">
         <div className="flex items-center gap-3 px-4 py-2.5">
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold truncate">
+            <p className="num text-[15px] font-semibold truncate">
               {displayPrice(product.price, product.currency)}
             </p>
             <p className="text-[11px] text-muted-foreground truncate">
@@ -708,13 +709,13 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
               {product.is_available ? "In stock" : "Sold out"}
             </p>
           </div>
+          {/* w-10! because .btn-icon's unlayered 2rem would outrank the layered
+              width utility — and 32px is too small a thumb target down here. */}
           <button
             onClick={handleWishlist}
             aria-label="Toggle wishlist"
-            className={`pill flex items-center justify-center w-10 h-10 shrink-0 transition-colors ${
-              isWishlisted
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
+            className={`btn btn-icon w-10! h-10! shrink-0 ${
+              isWishlisted ? "btn-primary" : "btn-secondary"
             }`}
           >
             <Heart className={`w-4 h-4 ${isWishlisted ? "fill-current" : ""}`} />
@@ -723,7 +724,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
             href={product.product_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="pill flex items-center justify-center gap-2 px-5 py-2.5 shrink-0 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
+            className="btn btn-primary shrink-0"
           >
             <ExternalLink className="w-4 h-4" />
             Open store

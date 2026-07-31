@@ -232,11 +232,15 @@ export default function WishlistPage() {
           <div className="flex items-end justify-between mb-6">
             <div>
               <h1 className="display text-2xl md:text-3xl">Saved</h1>
-              <p className="text-[13px] text-muted-foreground mt-1">{items.length} {items.length === 1 ? "item" : "items"}</p>
+              <p className="num text-[13px] text-muted-foreground mt-1">{items.length} {items.length === 1 ? "item" : "items"}</p>
             </div>
-            <Link href="/shop" className="hidden sm:inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to shop
-            </Link>
+            {/* Display utilities live in the utilities layer and lose to the
+                unlayered .btn rules, so the responsive hide sits on a wrapper. */}
+            <span className="hidden sm:block">
+              <Link href="/shop" className="btn btn-ghost btn-sm -mr-3.5">
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to shop
+              </Link>
+            </span>
           </div>
 
           <CategoryWatchPanel />
@@ -251,10 +255,7 @@ export default function WishlistPage() {
               <p className="text-[13px] text-muted-foreground mb-6 max-w-xs">
                 Items you save will appear here. Start browsing to find something you like.
               </p>
-              <Link
-                href="/shop"
-                className="pill px-6 py-2.5 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
-              >
+              <Link href="/shop" className="btn btn-primary">
                 Shop now
               </Link>
             </div>
@@ -270,10 +271,7 @@ export default function WishlistPage() {
                     type="button"
                     onClick={() => setSortMode(mode)}
                     aria-pressed={sortMode === mode}
-                    className={`pill px-3 py-1.5 text-xs font-medium transition-colors ${sortMode === mode
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-muted-foreground hover:text-foreground"
-                      }`}
+                    className={`chip ${sortMode === mode ? "chip-on" : ""}`}
                   >
                     {label}
                   </button>
@@ -354,13 +352,13 @@ export default function WishlistPage() {
                         {item.name}
                       </h3>
                       <div className="flex items-center justify-between text-[13px]">
-                        <span className={changed && delta < 0 ? "text-signal font-medium" : "text-muted-foreground"}>
+                        <span className={`num ${changed && delta < 0 ? "text-signal font-medium" : "text-muted-foreground"}`}>
                           {fmt(current ? current.price : item.price, current?.currency || item.currency)}
                         </span>
                         <span className="text-muted-foreground uppercase text-[11px]">{item.region}</span>
                       </div>
                       {changed && (
-                        <p className="text-[11px] mt-0.5 text-muted-foreground">
+                        <p className="num text-[11px] mt-0.5 text-muted-foreground">
                           <span className="line-through">{fmt(item.price, item.currency)}</span>{" "}
                           <span className={delta < 0 ? "text-signal" : undefined}>
                             {delta < 0 ? "↓" : "↑"} {fmt(Math.abs(delta), current?.currency || item.currency)}
