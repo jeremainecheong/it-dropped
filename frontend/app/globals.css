@@ -377,25 +377,6 @@ button:focus-visible {
   animation: pulse-soft 2.4s ease-in-out infinite;
 }
 
-/* ---------- Ticker ----------
- *
- * A continuously scrolling band of live numbers. The track holds the same
- * content twice and slides exactly half its width, so the seam never shows.
- * Under prefers-reduced-motion the global override lands it on the second
- * copy — identical content, simply static. */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-.marquee-track {
-  display: inline-flex;
-  white-space: nowrap;
-  animation: marquee 60s linear infinite;
-}
-.ticker:hover .marquee-track {
-  animation-play-state: paused;
-}
-
 
 /* ---------- Images ---------- */
 .product-image-zoom {
