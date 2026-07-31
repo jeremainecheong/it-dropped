@@ -230,7 +230,7 @@ export default function TodayPage() {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
-      <main className="flex-1 pt-12">
+      <main id="main" className="flex-1 pt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           {/* Next expected drop + freshness */}
           <section className="pt-8 pb-7">
@@ -244,8 +244,17 @@ export default function TodayPage() {
             <p className="display num text-5xl sm:text-6xl mt-4" suppressHydrationWarning>
               {nowMs === null ? "—" : countdownLabel(nowMs)}
             </p>
-            <p className="text-[13px] text-muted-foreground mt-2.5">
-              Fridays 18:00 Singapore time — typical, measured — not promised.
+            {/* The instant is fixed (Friday 10:00 UTC); the clock it is read on
+                is the visitor's. A Londoner was being told 18:00 Singapore time
+                and left to do the arithmetic themselves. */}
+            <p className="text-[13px] text-muted-foreground mt-2.5" suppressHydrationWarning>
+              {nowMs === null
+                ? "Fridays 18:00 Singapore time — typical, measured — not promised."
+                : `${nextExpectedDrop(nowMs).toLocaleString(undefined, {
+                    weekday: "long",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })} your time (18:00 SGT) — typical, measured — not promised.`}
             </p>
             <p className="text-[13px] text-muted-foreground mt-1">
               {lastScrapeAt ? `Catalogue checked ${timeAgo(lastScrapeAt)}` : "Catalogue freshness unknown"}
@@ -391,6 +400,21 @@ export default function TodayPage() {
             </section>
           ) : authLoading ? null : (
             <section className="pb-12">
+              {/* A first-time visitor lands here with zero context. Three
+                  short truths beat a marketing hero — every claim below is a
+                  live feature, not aspiration. */}
+              <div className="grid sm:grid-cols-3 gap-2 mb-2">
+                {[
+                  ["Six storefronts, one catalogue", "US, UK, EU, Japan, Australia and Singapore, checked daily."],
+                  ["Prices you can compare", "Landed cost to your country — shipping, tax and duty included."],
+                  ["Alerts before it's gone", "Restocks, price cuts and new drops in your size."],
+                ].map(([head, body]) => (
+                  <div key={head} className="rounded-2xl bg-secondary px-4 py-3.5">
+                    <p className="text-[13px] font-semibold">{head}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{body}</p>
+                  </div>
+                ))}
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-secondary px-5 py-4">
                 <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
                   <Heart className="w-4 h-4 shrink-0" strokeWidth={1.8} />

@@ -399,7 +399,7 @@ export default function DropsPage() {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
-      <main className="flex-1 pt-12">
+      <main id="main" className="flex-1 pt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="pt-8 pb-6">
             <p className="label mb-1.5 flex items-center gap-1.5">

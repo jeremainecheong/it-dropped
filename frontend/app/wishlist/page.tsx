@@ -227,7 +227,7 @@ export default function WishlistPage() {
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <main className="pt-12">
+      <main id="main" className="pt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-nav">
           <div className="flex items-end justify-between mb-6">
             <div>

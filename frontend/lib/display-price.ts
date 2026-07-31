@@ -1,17 +1,18 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { formatPrice, type FxRates } from "./currency"
+import { CURRENCY_SYMBOLS, formatPrice, type FxRates } from "./currency"
 import { usePrefs } from "./prefs"
 
 /**
  * Price display that honours the shopper's currency preference.
  *
- * With displayCurrency "SGD", foreign prices are converted through the rates
- * from /api/dropradar/fx and shown as "≈S$187" — the ≈ and the whole-dollar
- * rounding both mark the number as computed, never to be mistaken for a price
- * a store actually quoted. SGD prices, and everything under the "native"
- * preference, render exactly as quoted via formatPrice.
+ * With a currency code set (seeded from the visitor's locale on first visit,
+ * editable in Preferences), foreign prices convert through the rates from
+ * /api/dropradar/fx and render as "≈S$187" / "≈£142" — the ≈ and the
+ * whole-unit rounding both mark the number as computed, never to be mistaken
+ * for a price a store actually quoted. Prices already in the preferred
+ * currency, and everything under "native", render exactly as quoted.
  */
 
 // The fx endpoint returns { rates, live, date } where rates is USD per one
@@ -53,14 +54,16 @@ export function useDisplayPrice(): (price: number, currency: string) => string {
 
   return useCallback(
     (price: number, currency: string) => {
-      if (prefs.displayCurrency !== "SGD" || currency === "SGD") {
+      const target = prefs.displayCurrency
+      if (target === "native" || currency === target) {
         return formatPrice(price, currency)
       }
       const usdPerUnit = rates?.[currency]
-      const usdPerSGD = rates?.["SGD"]
-      if (!usdPerUnit || !usdPerSGD) return formatPrice(price, currency)
-      const sgd = (price * usdPerUnit) / usdPerSGD
-      return `≈S$${Math.round(sgd).toLocaleString()}`
+      const usdPerTarget = rates?.[target]
+      if (!usdPerUnit || !usdPerTarget) return formatPrice(price, currency)
+      const converted = (price * usdPerUnit) / usdPerTarget
+      const symbol = CURRENCY_SYMBOLS[target] || target
+      return `≈${symbol}${Math.round(converted).toLocaleString()}`
     },
     [prefs.displayCurrency, rates],
   )
