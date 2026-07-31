@@ -232,40 +232,40 @@ export default function TodayPage() {
 
       <main id="main" className="flex-1 pt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          {/* Next expected drop + freshness */}
-          <section className="pt-8 pb-7">
-            <p className="label mb-1.5 flex items-center gap-1.5">
-              <span className="w-1 h-1 rounded-full bg-signal" aria-hidden />
-              Today
-            </p>
-            <h1 className="display text-2xl md:text-3xl">Next expected drop</h1>
-            {/* .num, not proportional figures — this line re-renders every
-                second and anything else wobbles. */}
-            <p className="display num text-5xl sm:text-6xl mt-4" suppressHydrationWarning>
-              {nowMs === null ? "—" : countdownLabel(nowMs)}
-            </p>
-            {/* The instant is fixed (Friday 10:00 UTC); the clock it is read on
-                is the visitor's. A Londoner was being told 18:00 Singapore time
-                and left to do the arithmetic themselves. */}
-            <p className="text-[13px] text-muted-foreground mt-2.5" suppressHydrationWarning>
-              {nowMs === null
-                ? "Fridays 18:00 Singapore time — typical, measured — not promised."
-                : `${nextExpectedDrop(nowMs).toLocaleString(undefined, {
-                    weekday: "long",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })} your time (18:00 SGT) — typical, measured — not promised.`}
-            </p>
-            <p className="text-[13px] text-muted-foreground mt-1">
-              {lastScrapeAt ? `Catalogue checked ${timeAgo(lastScrapeAt)}` : "Catalogue freshness unknown"}
-            </p>
-            <hr className="hairline-signal mt-5" />
+          {/* The page's single black anchor: the countdown IS the product,
+              so it gets the panel and the editorial type. */}
+          <section className="pt-6">
+            <div className="panel-dark px-5 sm:px-8 pt-6 pb-7">
+              <p className="label flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-soft" aria-hidden />
+                Next expected drop
+              </p>
+              {/* .num, not proportional figures — this re-renders every second
+                  and anything else wobbles. */}
+              <p className="page-title num mt-3" suppressHydrationWarning>
+                {nowMs === null ? "— — —" : countdownLabel(nowMs)}
+              </p>
+              {/* The instant is fixed (Friday 10:00 UTC); the clock it is read
+                  on is the visitor's. */}
+              <p className="text-[13px] text-primary-foreground/60 mt-4" suppressHydrationWarning>
+                {nowMs === null
+                  ? "Fridays 18:00 Singapore time — typical, measured — not promised."
+                  : `${nextExpectedDrop(nowMs).toLocaleString(undefined, {
+                      weekday: "long",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })} your time (18:00 SGT) — typical, measured — not promised.`}
+              </p>
+              <p className="text-[13px] text-primary-foreground/60 mt-0.5">
+                {lastScrapeAt ? `Catalogue checked ${timeAgo(lastScrapeAt)}` : "Catalogue freshness unknown"}
+              </p>
+            </div>
           </section>
 
           {/* Latest drops */}
-          <section className="pb-12">
-            <div className="flex items-end justify-between mb-4">
-              <h2 className="display text-xl sm:text-2xl">Latest drops</h2>
+          <section className="section">
+            <div className="section-head">
+              <h2 className="label">Latest drops</h2>
               <Link href="/drops" className="btn btn-ghost btn-sm -mr-3.5">
                 All drops <ArrowRight className="w-3.5 h-3.5" />
               </Link>
@@ -298,7 +298,7 @@ export default function TodayPage() {
                     // flashing in before its turn.
                     style={{ animationDelay: `${Math.min(i * 50, 300)}ms`, animationFillMode: "both" }}
                   >
-                    <div className="card-lift relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
+                    <div className="card-lift card-frame relative aspect-[3/4]">
                       <ImageWithLoading
                         src={p.image_url}
                         alt={p.title}
@@ -318,9 +318,9 @@ export default function TodayPage() {
 
           {/* Saved movers (signed in) / slim sign-in banner (signed out) */}
           {user ? (
-            <section className="pb-12">
-              <div className="flex items-end justify-between mb-4">
-                <h2 className="display text-xl sm:text-2xl">Your saved items</h2>
+            <section className="section">
+              <div className="section-head">
+                <h2 className="label">Your saved items</h2>
                 <Link href="/wishlist" className="btn btn-ghost btn-sm -mr-3.5">
                   View saved <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
@@ -340,7 +340,7 @@ export default function TodayPage() {
                     const href = asProductId(item.id) ? `/product/${item.id}` : null
                     const inner = (
                       <>
-                        <div className="w-12 h-14 rounded-xl overflow-hidden bg-background shrink-0">
+                        <div className="w-12 h-14 rounded-lg overflow-hidden bg-secondary/50 shrink-0">
                           <ImageWithLoading
                             src={item.image}
                             alt={item.name}
@@ -384,7 +384,7 @@ export default function TodayPage() {
                         </div>
                       </>
                     )
-                    const rowClass = "card-lift flex items-center gap-4 rounded-2xl bg-secondary p-3 pr-4"
+                    const rowClass = "card-lift card-frame flex items-center gap-4 p-3 pr-4"
                     return href ? (
                       <Link key={item.id} href={href} className={rowClass}>
                         {inner}
@@ -399,38 +399,35 @@ export default function TodayPage() {
               )}
             </section>
           ) : authLoading ? null : (
-            <section className="pb-12">
-              {/* A first-time visitor lands here with zero context. Three
-                  short truths beat a marketing hero — every claim below is a
-                  live feature, not aspiration. */}
-              <div className="grid sm:grid-cols-3 gap-2 mb-2">
+            <section className="section">
+              <div className="section-head">
+                <h2 className="label">What this is</h2>
+                <Link href="/login" className="btn btn-primary btn-sm shrink-0">
+                  Sign in
+                </Link>
+              </div>
+              {/* Three short truths beat a marketing hero — every claim below
+                  is a live feature, not aspiration. Framed like everything
+                  else on the page, not floating grey blobs. */}
+              <div className="grid sm:grid-cols-3 gap-2">
                 {[
                   ["Six storefronts, one catalogue", "US, UK, EU, Japan, Australia and Singapore, checked daily."],
                   ["Prices you can compare", "Landed cost to your country — shipping, tax and duty included."],
                   ["Alerts before it's gone", "Restocks, price cuts and new drops in your size."],
                 ].map(([head, body]) => (
-                  <div key={head} className="rounded-2xl bg-secondary px-4 py-3.5">
+                  <div key={head} className="card-frame px-4 py-3.5">
                     <p className="text-[13px] font-semibold">{head}</p>
                     <p className="text-xs text-muted-foreground mt-1">{body}</p>
                   </div>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-secondary px-5 py-4">
-                <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
-                  <Heart className="w-4 h-4 shrink-0" strokeWidth={1.8} />
-                  Sign in to save items and see when their prices move.
-                </p>
-                <Link href="/login" className="btn btn-primary btn-sm shrink-0">
-                  Sign in
-                </Link>
-              </div>
             </section>
           )}
 
           {/* Price cuts */}
-          <section className="pb-12">
-            <div className="flex items-end justify-between mb-4">
-              <h2 className="display text-xl sm:text-2xl">Price cuts</h2>
+          <section className="section">
+            <div className="section-head">
+              <h2 className="label">Price cuts</h2>
               <Link href="/drops?type=price_drop" className="btn btn-ghost btn-sm -mr-3.5">
                 All cuts <ArrowRight className="w-3.5 h-3.5" />
               </Link>
@@ -475,7 +472,7 @@ export default function TodayPage() {
                       </div>
                     </>
                   )
-                  const rowClass = "card-lift flex items-center gap-4 rounded-2xl bg-secondary p-3 pr-4"
+                  const rowClass = "card-lift card-frame flex items-center gap-4 p-3 pr-4"
                   return cut.product_id ? (
                     <Link key={cut.id} href={`/product/${cut.product_id}`} className={rowClass}>
                       {inner}
@@ -490,13 +487,16 @@ export default function TodayPage() {
             )}
           </section>
 
-          {/* Stats */}
-          <section className="pb-16">
-            <div className="flex flex-wrap justify-center gap-x-24 gap-y-8 py-2">
+          {/* Stats: a ruled ledger row, not floating numerals. */}
+          <section className="section mb-16">
+            <div className="section-head">
+              <h2 className="label">The tracker</h2>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-border card-frame">
               {stats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <p className="display num text-4xl sm:text-5xl">{stat.value}</p>
-                  <p className="text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
+                <div key={stat.label} className="px-4 py-5 text-center">
+                  <p className="display num text-3xl sm:text-4xl">{stat.value}</p>
+                  <p className="text-[11px] sm:text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
                 </div>
               ))}
             </div>

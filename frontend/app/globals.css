@@ -238,6 +238,94 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* ---------- Layout grammar ----------
+ *
+ * The page structure vocabulary. Every page composes the same four pieces, in
+ * the same order, so the app reads as one publication instead of a pile of
+ * floating grey boxes:
+ *
+ *   .page-title    — the one big editorial headline per page
+ *   .section       — a ruled band: hairline on top, uppercase label, content
+ *   .toolbar       — grouped filter rows, each row labelled
+ *   .panel-dark    — the single black anchor block a page may carry
+ */
+
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  font-size: clamp(2.5rem, 9vw, 4rem);
+  text-transform: uppercase;
+}
+
+/* A ruled section: the rule and label do the grouping that padding alone
+ * never managed. Content hangs from the label; the next section's rule closes
+ * this one. */
+.section {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 2rem;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.section-head .label {
+  color: var(--foreground);
+}
+
+/* Filters live in one bordered instrument, one labelled row per axis —
+ * "properly grouped" is a container with names, not three anonymous chip
+ * rows stacked in whitespace. */
+.toolbar {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+}
+.toolbar-row + .toolbar-row {
+  border-top: 1px solid var(--border);
+}
+.toolbar-label {
+  flex-shrink: 0;
+  width: 3.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-foreground);
+}
+
+/* The one black block a page may anchor itself with. More than one and the
+ * page turns into a chessboard. */
+.panel-dark {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 1.5rem;
+}
+.panel-dark .label {
+  color: color-mix(in srgb, var(--primary-foreground) 60%, transparent);
+}
+
+/* Product imagery: a framed plate on the page surface, not a grey slab.
+ * Shopify shots sit on white; a border defines them, a grey fill entombs
+ * them. */
+.card-frame {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--background);
+  overflow: hidden;
+}
+
 /* ---------- Cards ---------- */
 .card-hover {
   transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
