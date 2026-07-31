@@ -146,11 +146,16 @@ function AlertsContent() {
 
             <main id="main" className="pt-14 pb-nav">
                 <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8">
-                    <div className="flex items-center gap-3 mb-3">
-                        <Bell className="w-6 h-6" />
-                        <h1 className="text-2xl font-medium">Alerts</h1>
+                    <h1 className="page-title">Alerts</h1>
+                    <p className="text-[13px] text-muted-foreground mt-2">
+                        Price drops, restocks and region launches you&apos;re watching
+                    </p>
+                    <hr className="hairline-signal mt-4" />
+
+                    <section className="section">
+                    <div className="section-head">
+                        <h2 className="label">Your alerts</h2>
                     </div>
-                    <div className="hairline-signal mb-8" />
 
                     {isLoading ? (
                         <div className="space-y-4">
@@ -179,7 +184,7 @@ function AlertsContent() {
                             {alerts.map((alert, index) => (
                                 <div
                                     key={alert.id}
-                                    className="rounded-2xl bg-secondary p-4 animate-rise"
+                                    className="card-frame p-4 animate-rise"
                                     // "both" so a delayed card holds the from-state instead
                                     // of flashing in before its turn.
                                     style={{ animationDelay: `${Math.min(index * 40, 200)}ms`, animationFillMode: "both" }}
@@ -205,9 +210,10 @@ function AlertsContent() {
                                                 </span>
                                             </MaybeLink>
                                             <div className="flex items-center gap-2 mt-1">
-                                                {/* bg-background, not bg-muted: muted and the
-                                                    card surface are the same token. */}
-                                                <span className="pill px-2.5 py-0.5 bg-background text-xs">{alert.label}</span>
+                                                {/* bg-secondary, not bg-background: the card is
+                                                    now a .card-frame plate on the page surface,
+                                                    so a background-coloured pill would vanish. */}
+                                                <span className="pill px-2.5 py-0.5 bg-secondary text-xs">{alert.label}</span>
                                                 {alert.triggered && (
                                                     <span className="pill px-2.5 py-0.5 bg-green-500/10 text-green-600 text-xs">
                                                         Triggered
@@ -238,6 +244,7 @@ function AlertsContent() {
                             ))}
                         </div>
                     )}
+                    </section>
                 </div>
             </main>
         </div>

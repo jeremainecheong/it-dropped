@@ -314,7 +314,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
         </div>
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 py-8">
-            <div className="aspect-[3/4] bg-secondary rounded-3xl overflow-hidden">
+            <div className="aspect-[3/4] card-frame">
               {/* Hotlinked straight from the retailer's CDN, so a delisted or
                   moved asset is normal wear rather than an exception. Degrade
                   to the placeholder instead of a broken-image icon on what is
@@ -336,7 +336,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 <p className="label mb-2">
                   {product.vendor} / {product.product_type}
                 </p>
-                <h1 className="display text-2xl lg:text-3xl">{product.title}</h1>
+                <h1 className="display text-3xl md:text-5xl tracking-tight">{product.title}</h1>
                 <hr className="hairline-signal mt-4" />
               </div>
 
@@ -395,7 +395,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 }
                 if (clauses.length === 0) return null
                 return (
-                  <div className="num bg-secondary rounded-2xl px-4 py-3 text-[13px] text-muted-foreground">
+                  <div className="num card-frame px-4 py-3 text-[13px] text-muted-foreground">
                     {clauses.map((clause, i) => (
                       <span key={i}>
                         {i > 0 && " · "}
@@ -536,17 +536,22 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
             </div>
           </div>
 
-          <div className="py-8 border-t border-border">
-            <h2 className="label mb-6">
-              Price History
-            </h2>
+          <section className="section">
+            <div className="section-head">
+              <h2 className="label">Price history</h2>
+            </div>
             <div className="max-w-2xl">
               <PriceHistoryChart productId={productId} currency={product.currency} />
             </div>
-          </div>
+          </section>
 
           {localRegion !== null && !stockedLocally && (
-            <div className="py-8 border-t border-border">
+            <section className="section">
+              <div className="section-head">
+                <h2 className="label">Availability</h2>
+              </div>
+              {/* An interruption card, so it keeps bg-secondary rather than
+                  taking a frame like the content plates. */}
               <RegionAlertCard
                 styleCode={product.style_code || product.handle}
                 region={localRegion}
@@ -555,7 +560,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 imageUrl={product.image_url}
                 stockedIn={stockedRegions}
               />
-            </div>
+            </section>
           )}
 
           {rankedOffers.length > 1 && (
@@ -577,8 +582,8 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
               currentRegion={product.region}
             />
 
-            <div className="py-8 border-t border-border">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <section className="section">
+              <div className="section-head flex-wrap items-center">
                 <h2 className="label">Compare regions</h2>
                 <DestinationSelect value={destination.code} onChange={setDestination} />
               </div>
@@ -597,8 +602,11 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                     <Link
                       key={p.id}
                       href={isCurrent ? "#" : `/product/${p.id}`}
-                      className={`card-lift relative rounded-2xl p-4 ${
-                        isBest ? "bg-primary text-primary-foreground" : "bg-secondary"
+                      // The best card keeps its own rounding: card-frame clips
+                      // overflow, and its "Best delivered" pill overhangs the top
+                      // edge.
+                      className={`card-lift relative p-4 ${
+                        isBest ? "rounded-2xl bg-primary text-primary-foreground" : "card-frame"
                       } ${p.is_available === false ? "opacity-55" : ""}`}
                     >
                       {isBest && (
@@ -683,7 +691,7 @@ function ProductDetailContent({ initialProduct, initialSiblings }: ProductDetail
                 are estimated and are not a quote — the final amount is assessed by customs when
                 the parcel clears.
               </p>
-            </div>
+            </section>
             </>
           )}
 

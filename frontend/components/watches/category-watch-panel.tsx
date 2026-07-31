@@ -27,9 +27,11 @@ export function CategoryWatchPanel() {
   )
 
   return (
-    <section className="mb-8">
-      <h2 className="text-[15px] font-semibold">Watch whole categories</h2>
-      <p className="text-[13px] text-muted-foreground mt-0.5 mb-3">
+    <section className="section">
+      <div className="section-head">
+        <h2 className="label">Watch categories</h2>
+      </div>
+      <p className="text-[13px] text-muted-foreground -mt-2 mb-3">
         Get one digest when new pieces land in a watched category
       </p>
       <div className="flex flex-wrap gap-2">

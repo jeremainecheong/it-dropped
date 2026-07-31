@@ -202,7 +202,7 @@ function ProfileContent() {
                                             // of flashing in before its turn.
                                             style={{ animationDelay: `${Math.min(index * 40, 200)}ms`, animationFillMode: "both" }}
                                         >
-                                            <div className="card-lift aspect-[3/4] bg-secondary rounded-2xl mb-2 overflow-hidden">
+                                            <div className="card-lift card-frame aspect-[3/4] mb-2">
                                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                             </div>
                                             <h4 className="text-sm font-medium truncate">{item.name}</h4>
@@ -223,13 +223,17 @@ function ProfileContent() {
 
                     {/* Settings Tab */}
                     {activeTab === "settings" && (
-                        <div className="space-y-6">
-                            {/* Account */}
-                            <div className="rounded-2xl bg-secondary p-5">
-                                <h3 className="flex items-center gap-2 text-sm font-medium mb-4">
-                                    <User className="w-4 h-4" /> Account
-                                </h3>
-                                <div className="space-y-4 text-sm">
+                        <div>
+                            {/* Each card is a ruled section: the uppercase label
+                                does the naming, a .card-frame plate holds the
+                                controls. The icons ride inside the labels. */}
+                            <section className="section">
+                                <div className="section-head">
+                                    <h3 className="label flex items-center gap-1.5">
+                                        <User className="w-3.5 h-3.5" /> Account
+                                    </h3>
+                                </div>
+                                <div className="card-frame p-5 space-y-4 text-sm">
                                     <div className="flex items-center justify-between">
                                         <span className="text-muted-foreground">Email</span>
                                         <span>{user?.email}</span>
@@ -239,7 +243,7 @@ function ProfileContent() {
                                         <span>{user?.name || "Not set"}</span>
                                     </div>
                                 </div>
-                            </div>
+                            </section>
 
                             {/* Preferences — the locale-inferred defaults, made
                                 visible and editable in one place. Before this the
@@ -247,11 +251,13 @@ function ProfileContent() {
                                 destination hid on product pages, and sizes hid in
                                 the shop nudge. Stored locally (lib/prefs), so this
                                 card works for any visitor on this device. */}
-                            <div className="rounded-2xl bg-secondary p-5">
-                                <h3 className="flex items-center gap-2 text-sm font-medium mb-4">
-                                    <Globe className="w-4 h-4" /> Preferences
-                                </h3>
-                                <div className="space-y-4 text-sm">
+                            <section className="section">
+                                <div className="section-head">
+                                    <h3 className="label flex items-center gap-1.5">
+                                        <Globe className="w-3.5 h-3.5" /> Preferences
+                                    </h3>
+                                </div>
+                                <div className="card-frame p-5 space-y-4 text-sm">
                                     <label className="flex items-center justify-between gap-4">
                                         <span>
                                             Show prices in
@@ -261,7 +267,7 @@ function ProfileContent() {
                                             value={devicePrefs.displayCurrency}
                                             onChange={(e) => setDevicePrefs({ displayCurrency: e.target.value })}
                                             disabled={!devicePrefsReady}
-                                            className="rounded-lg bg-background px-3 py-2 text-[13px] disabled:opacity-50"
+                                            className="rounded-lg bg-secondary px-3 py-2 text-[13px] disabled:opacity-50"
                                         >
                                             <option value="native">Each store's own</option>
                                             {DESTINATIONS.map((d) => (
@@ -278,7 +284,7 @@ function ProfileContent() {
                                             value={devicePrefs.destination}
                                             onChange={(e) => setDevicePrefs({ destination: e.target.value })}
                                             disabled={!devicePrefsReady}
-                                            className="rounded-lg bg-background px-3 py-2 text-[13px] disabled:opacity-50"
+                                            className="rounded-lg bg-secondary px-3 py-2 text-[13px] disabled:opacity-50"
                                         >
                                             {DESTINATIONS.map((d) => (
                                                 <option key={d.code} value={d.code}>{d.name}</option>
@@ -303,7 +309,7 @@ function ProfileContent() {
                                                                 : [...devicePrefs.sizes, sz],
                                                         })
                                                     }
-                                                    className={`chip !bg-background min-w-9 justify-center ${devicePrefs.sizes.includes(sz) ? "chip-on !bg-primary" : ""}`}
+                                                    className={`chip min-w-9 justify-center ${devicePrefs.sizes.includes(sz) ? "chip-on" : ""}`}
                                                 >
                                                     {sz}
                                                 </button>
@@ -311,13 +317,16 @@ function ProfileContent() {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </section>
 
                             {/* Notifications */}
-                            <div className="rounded-2xl bg-secondary p-5">
-                                <h3 className="flex items-center gap-2 text-sm font-medium mb-4">
-                                    <Bell className="w-4 h-4" /> Notifications
-                                </h3>
+                            <section className="section">
+                                <div className="section-head">
+                                    <h3 className="label flex items-center gap-1.5">
+                                        <Bell className="w-3.5 h-3.5" /> Notifications
+                                    </h3>
+                                </div>
+                                <div className="card-frame p-5">
                                 <div className="space-y-3 text-sm">
                                     {PREF_CONTROLS.map((control) => (
                                         <label key={control.key} className="flex items-center justify-between gap-4 cursor-pointer">
@@ -337,31 +346,36 @@ function ProfileContent() {
                                 </div>
 
                                 {/* /profile/alerts had no inbound link anywhere in the app. */}
-                                {/* bg-background, not btn-secondary: the card behind it is
-                                    already --secondary, which would swallow the button. */}
+                                {/* btn-secondary now works: the plate behind it is
+                                    .card-frame on the page background, not --secondary. */}
                                 <Link
                                     href="/profile/alerts"
-                                    className="btn btn-sm mt-4 bg-background hover:bg-border"
+                                    className="btn btn-sm btn-secondary mt-4"
                                 >
                                     <Bell className="w-4 h-4" />
                                     Manage your alerts
                                 </Link>
-                            </div>
+                                </div>
+                            </section>
 
                             {/* Danger Zone */}
-                            <div className="rounded-2xl bg-secondary p-5">
-                                <h3 className="flex items-center gap-2 text-sm font-medium text-destructive mb-4">
-                                    <Shield className="w-4 h-4" /> Danger Zone
-                                </h3>
-                                {/* Bare .btn, no variant: variant colours are unlayered CSS
-                                    and would beat the destructive utilities. */}
-                                <button
-                                    onClick={handleLogout}
-                                    className="btn btn-sm border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                >
-                                    Sign Out
-                                </button>
-                            </div>
+                            <section className="section">
+                                <div className="section-head">
+                                    <h3 className="label flex items-center gap-1.5">
+                                        <Shield className="w-3.5 h-3.5" /> Danger Zone
+                                    </h3>
+                                </div>
+                                <div className="card-frame p-5">
+                                    {/* Bare .btn, no variant: variant colours are unlayered CSS
+                                        and would beat the destructive utilities. */}
+                                    <button
+                                        onClick={handleLogout}
+                                        className="btn btn-sm border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                    >
+                                        Sign Out
+                                    </button>
+                                </div>
+                            </section>
                         </div>
                     )}
                 </div>

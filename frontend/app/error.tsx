@@ -37,25 +37,19 @@ export default function Error({
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center gap-5 px-6 text-center">
       <LogoMark className="w-6 h-6" />
-      <div className="space-y-2">
-        <p className="text-[15px] font-semibold">Something broke on this page</p>
-        <p className="text-[13px] text-muted-foreground max-w-sm">
+      <div className="space-y-3">
+        <p className="page-title max-w-lg">Something broke on this page</p>
+        <p className="text-[13px] text-muted-foreground max-w-sm mx-auto">
           Not your fault. Trying again often works — the catalogue is read live and a
           request can simply fail.
         </p>
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          onClick={reset}
-          className="pill px-5 py-2.5 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85 transition-opacity"
-        >
+        <button onClick={reset} className="btn btn-primary">
           Try again
         </button>
-        <Link
-          href="/shop"
-          className="pill px-5 py-2.5 bg-secondary text-foreground text-[13px] font-medium hover:opacity-85 transition-opacity"
-        >
+        <Link href="/shop" className="btn btn-secondary">
           Back to shop
         </Link>
       </div>
