@@ -35,6 +35,11 @@
   /* Live / alert accent — used sparingly */
   --signal: #e11d2e;
   --signal-foreground: #ffffff;
+
+  /* Elevation. Two stops only: soft for resting surfaces, pop for things
+   * that respond (hovered primary buttons, active chips, lifted cards). */
+  --shadow-soft: 0 2px 12px -4px rgb(0 0 0 / 0.08);
+  --shadow-pop: 0 8px 24px -12px rgb(0 0 0 / 0.28);
 }
 
 .dark {
@@ -60,6 +65,9 @@
 
   --signal: #ff453a;
   --signal-foreground: #ffffff;
+
+  --shadow-soft: 0 2px 12px -4px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 8px 24px -12px rgb(0 0 0 / 0.85);
 }
 
 @theme inline {
@@ -133,10 +141,101 @@
 /* ---------- Buttons ---------- */
 .pill {
   border-radius: 9999px;
-  transition: background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .pill:active {
   transform: scale(0.98);
+}
+
+/* THE button system. Every interactive control in the app is one of these
+ * (or a bare .pill for one-off shapes like the badge dots). The rival
+ * vocabularies this replaces: shadcn's components/ui/button.tsx (deleted,
+ * never imported) and v0's square `bg-foreground text-background` blocks
+ * that survived on /profile.
+ *
+ * Compose: .btn + one variant (+ one size, default md).
+ *   <button className="btn btn-primary">Save</button>
+ *   <button className="btn btn-ghost btn-icon" aria-label="Close">…
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  height: 2.5rem;
+  padding: 0 1.25rem;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease,
+    transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.btn-primary:hover {
+  opacity: 0.9;
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: scale(0.97) translateY(0); }
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.btn-secondary:hover { background: var(--border); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+.btn-ghost:hover { background: var(--secondary); color: var(--foreground); }
+
+.btn-sm { height: 2rem; padding: 0 0.875rem; font-size: 0.75rem; }
+.btn-lg { height: 3rem; padding: 0 1.75rem; font-size: 0.875rem; }
+.btn-icon { width: 2rem; height: 2rem; padding: 0; }
+
+/* Filter/toggle chips — the selected state gets the pop shadow so an active
+ * filter reads as pressed-in ink, not just a colour swap. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  height: 2rem;
+  padding: 0 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.chip:hover { color: var(--foreground); }
+.chip:active { transform: scale(0.95); }
+.chip-on {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-pop);
+}
+.chip-on:hover { color: var(--primary-foreground); }
+
+/* Keyboard focus — visible on every control, invisible to the mouse. The
+ * design leaned entirely on colour changes before, which is nothing at all
+ * when tabbing. */
+.btn:focus-visible,
+.chip:focus-visible,
+.pill:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* ---------- Cards ---------- */
@@ -165,6 +264,22 @@
 .text-outline {
   color: transparent;
   -webkit-text-stroke: 2px var(--foreground);
+}
+
+/* Prices, deltas, countdowns: digits that don't jitter as they change. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Section-header accent: a hairline that starts signal-red and dissolves.
+ * The one permitted decorative use of the signal colour — everywhere else it
+ * means "live" or "price moved", and diluting that would cost more than any
+ * amount of decoration buys. */
+.hairline-signal {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, var(--signal) 0%, var(--border) 35%, transparent 100%);
 }
 
 /* Slow pulse for the brand dot */
