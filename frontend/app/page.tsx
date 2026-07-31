@@ -273,18 +273,19 @@ export default function TodayPage() {
       <Header />
 
       <main id="main" className="flex-1 pt-12">
-        {/* The band of live numbers. Pauses on hover so a figure can actually
-            be read, and holds its content twice so the loop has no seam. */}
-        <div className="ticker bg-ink text-ink-foreground overflow-hidden py-2.5">
+        {/* The band of live numbers. A rule and quiet type, not a filled bar —
+            pauses on hover so a figure can be read, and holds its content
+            twice so the loop has no seam. */}
+        <div className="ticker overflow-hidden border-y border-border py-2.5">
           <div className="marquee-track">
             {[0, 1].map((copy) => (
               <span key={copy} className="flex items-center" aria-hidden={copy === 1}>
                 {tickerItems.map((t, i) => (
                   <span key={`${copy}-${i}`} className="flex items-center">
-                    <span className="num px-5 text-[11px] font-medium uppercase tracking-[0.14em] whitespace-nowrap">
+                    <span className="num whitespace-nowrap px-5 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                       {t}
                     </span>
-                    <span className="w-1 h-1 rounded-full bg-signal shrink-0" aria-hidden />
+                    <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-border" aria-hidden />
                   </span>
                 ))}
               </span>
@@ -296,102 +297,87 @@ export default function TodayPage() {
             lookbook photography is the best asset this app has; it used to be
             rendered at 160px inside a scroll strip. */}
         {cover ? (
-          <Link
-            href={`/product/${cover.id}`}
-            className="group relative block lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
-          >
-            {/* The plate. Every piece in the pool is stacked and cross-faded,
-                so the rotation never reflows the layout and the next image is
-                already decoded when its turn comes. */}
-            <div className="relative aspect-[4/5] w-full overflow-hidden bg-secondary sm:aspect-[3/4] lg:aspect-auto lg:min-h-[600px]">
-              {coverPool.map((p, i) => (
-                <img
-                  key={p.id}
-                  src={p.image_url}
-                  alt=""
-                  aria-hidden={i !== coverIdx}
-                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${
-                    i === coverIdx ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-              ))}
-              {/* Mobile lays the type over the image; the desktop split gives
-                  it its own black column, so the scrim is only needed here. */}
-              <div className="cover-scrim absolute inset-0 lg:hidden" aria-hidden />
-            </div>
-
-            <div className="absolute inset-x-0 bottom-0 px-4 pb-8 sm:px-6 sm:pb-10 lg:static lg:flex lg:flex-col lg:justify-end lg:bg-ink lg:px-10 lg:pb-12 lg:pt-12">
-              <p className="label flex items-center gap-2 text-white [text-shadow:0_1px_12px_rgb(0_0_0/0.6)] lg:[text-shadow:none]">
-                <span className="h-1.5 w-1.5 rounded-full bg-signal animate-pulse-soft" aria-hidden />
-                Just dropped · {cover.region.toUpperCase()}
-              </p>
-              <h1 className="page-title mt-3 max-w-[14ch] text-white [text-shadow:0_2px_24px_rgb(0_0_0/0.45)] sm:max-w-[18ch] lg:text-[clamp(2.25rem,3.4vw,3.25rem)] lg:[text-shadow:none]">
-                {cleanTitle(cover.title).name}
-              </h1>
-
-              {/* What is actually gettable, at a glance. The one piece of hard
-                  utility a cover can carry without becoming a spec sheet. */}
-              {coverSizes.length > 0 && (
-                <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                  {coverSizes.map((sz) => (
-                    <span
-                      key={sz}
-                      className="pill border border-white/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/90"
-                    >
-                      {sz}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
-                <span className="num display text-2xl text-white sm:text-3xl">
-                  {fmt(cover.price, cover.currency)}
-                </span>
-                <span className="btn bg-white text-black group-hover:opacity-90">
-                  See the piece <ArrowRight className="h-4 w-4" />
-                </span>
+          <section className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:pt-12">
+            <Link
+              href={`/product/${cover.id}`}
+              className="group block lg:grid lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:items-center lg:gap-14"
+            >
+              {/* The photograph, on the page's own ground. No scrim, no type
+                  over it — a garment shot on white does not need help, and
+                  laying a headline across it was the loudest thing here. */}
+              <div className="relative aspect-[4/5] w-full overflow-hidden bg-secondary/40 sm:aspect-[4/3] lg:aspect-[5/6] lg:max-h-[600px]">
+                {coverPool.map((p, i) => (
+                  <img
+                    key={p.id}
+                    src={p.image_url}
+                    alt=""
+                    aria-hidden={i !== coverIdx}
+                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${
+                      i === coverIdx ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                ))}
               </div>
 
-              {/* Which of the rotation we are on — and a way to steer it. */}
-              {coverPool.length > 1 && (
-                <div className="mt-6 flex items-center gap-2">
-                  {coverPool.map((p, i) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      aria-label={`Show piece ${i + 1} of ${coverPool.length}`}
-                      aria-current={i === coverIdx}
-                      onClick={(e) => {
-                        // Inside the cover's <Link>; without this the dot
-                        // navigates to the product instead of switching.
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setCoverIdx(i)
-                      }}
-                      className={`h-0.5 w-8 rounded-full transition-colors ${
-                        i === coverIdx ? "bg-white" : "bg-white/30 hover:bg-white/60"
-                      }`}
-                    />
-                  ))}
+              <div className="pt-6 lg:pt-0">
+                <p className="label flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-signal animate-pulse-soft" aria-hidden />
+                  Just dropped · {cover.region.toUpperCase()}
+                </p>
+                <h1 className="page-title mt-3 max-w-[16ch]">{cleanTitle(cover.title).name}</h1>
+
+                <div className="mt-5 flex items-baseline gap-4">
+                  <span className="num display text-xl sm:text-2xl">{fmt(cover.price, cover.currency)}</span>
+                  <span className="text-[13px] text-muted-foreground underline-offset-4 group-hover:underline">
+                    See the piece
+                  </span>
                 </div>
-              )}
-            </div>
-          </Link>
+
+                {/* What is actually gettable — plain letters and a rule, not
+                    a row of outlined pills. */}
+                {coverSizes.length > 0 && (
+                  <p className="num mt-5 border-t border-border pt-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    {coverSizes.join("  ·  ")}
+                  </p>
+                )}
+
+                {/* Which of the rotation we are on — and a way to steer it. */}
+                {coverPool.length > 1 && (
+                  <div className="mt-5 flex items-center gap-2">
+                    {coverPool.map((p, i) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        aria-label={`Show piece ${i + 1} of ${coverPool.length}`}
+                        aria-current={i === coverIdx}
+                        onClick={(e) => {
+                          // Inside the cover's <Link>; without this the rule
+                          // navigates to the product instead of switching.
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setCoverIdx(i)
+                        }}
+                        className={`h-px w-8 transition-colors ${
+                          i === coverIdx ? "bg-foreground" : "bg-border hover:bg-muted-foreground"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Link>
+          </section>
         ) : (
-          // No catalogue to lead with — say so on the same plate rather than
-          // collapsing the page's opening statement to nothing.
-          <div className="flex h-[52vh] min-h-[340px] flex-col items-center justify-center bg-ink px-6 text-center text-ink-foreground">
-            <span aria-hidden className="opacity-20">
-              <LogoMark className="h-16 w-16" />
-            </span>
-            <p className="page-title mt-6">Never miss<br />the drop.</p>
-            <p className="mt-4 max-w-sm text-[13px] text-ink-foreground/60">
+          // No catalogue to lead with — say so quietly rather than collapsing
+          // the page's opening to nothing.
+          <section className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6">
+            <p className="page-title">Nothing live yet.</p>
+            <p className="mx-auto mt-4 max-w-sm text-[13px] text-muted-foreground">
               {latestLoading
                 ? "Reading the storefronts…"
-                : "Nothing live in the catalogue right now. The next scrape will fill this."}
+                : "The catalogue is empty right now. The next scrape will fill this."}
             </p>
-          </div>
+          </section>
         )}
 
         {/* THE REST OF THE DROP — an editorial grid, numbered like a
@@ -416,8 +402,19 @@ export default function TodayPage() {
                     className={`group animate-rise ${i === 0 ? "col-span-2 lg:col-span-2" : ""}`}
                     style={{ animationDelay: `${Math.min(i * 60, 360)}ms`, animationFillMode: "both" }}
                   >
+                    {/* The index and store, above the plate — the lookbook
+                        device that makes a grid read as a sequence, without
+                        printing anything over the garment. */}
+                    <div className="mb-2 flex items-baseline justify-between">
+                      <span className="num text-[10px] tracking-[0.16em] text-muted-foreground">
+                        {String(i + coverPool.length + 1).padStart(2, "0")}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                        {p.region}
+                      </span>
+                    </div>
                     <div
-                      className={`relative overflow-hidden bg-secondary ${
+                      className={`relative overflow-hidden bg-secondary/40 ${
                         i === 0 ? "aspect-[16/10]" : "aspect-[3/4]"
                       }`}
                     >
@@ -426,14 +423,7 @@ export default function TodayPage() {
                         alt={name}
                         className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
                       />
-                      {/* The index, set into the plate — the lookbook device
-                          that makes a grid read as a sequence. */}
-                      <span className="num absolute left-3 top-3 text-[11px] font-semibold tracking-widest text-white mix-blend-difference">
-                        {String(i + coverPool.length + 1).padStart(2, "0")}
-                      </span>
-                      <span className="absolute right-3 top-3 text-[10px] font-semibold uppercase tracking-widest text-white mix-blend-difference">
-                        {p.region}
-                      </span>
+
                     </div>
                     <div className="mt-3 flex items-baseline justify-between gap-3">
                       <h3 className="text-[13px] font-medium leading-snug line-clamp-2">
@@ -536,7 +526,7 @@ export default function TodayPage() {
         {/* THE PERSONAL BAND — what moved among the pieces you saved, or, for
             a visitor, the one thing an account adds. Full bleed black, so the
             page closes on the same weight the ticker opened it with. */}
-        <section className="mt-16 bg-ink text-ink-foreground">
+        <section className="mt-16 border-t border-border">
           <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
             {user ? (
               <>
@@ -544,48 +534,48 @@ export default function TodayPage() {
                   <h2 className="page-title text-[clamp(2rem,7vw,3.25rem)]">Your watch</h2>
                   <Link
                     href="/wishlist"
-                    className="btn btn-sm -mr-3.5 shrink-0 bg-transparent text-ink-foreground/70 hover:bg-ink-foreground/10 hover:text-ink-foreground"
+                    className="btn btn-ghost btn-sm -mr-3.5 shrink-0"
                   >
                     All saved <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
                 {movers.length === 0 ? (
-                  <p className="mt-5 text-[13px] text-ink-foreground/60">
+                  <p className="mt-5 text-[13px] text-muted-foreground">
                     {items.length === 0
                       ? "Nothing saved yet. Save a piece and this is where its price and stock report in."
                       : "No movement among your saved pieces since you last looked."}
                   </p>
                 ) : (
-                  <div className="mt-5 divide-y divide-ink-foreground/15">
+                  <div className="mt-5 divide-y divide-border">
                     {movers.map(({ item, current, delta, priceMoved }) => {
                       const href = asProductId(item.id) ? `/product/${item.id}` : null
                       const inner = (
                         <>
                           <div className="min-w-0 flex-1">
-                            <p className="label text-ink-foreground/50">{item.region.toUpperCase()}</p>
+                            <p className="label text-muted-foreground">{item.region.toUpperCase()}</p>
                             <h3 className="mt-1 truncate text-[15px] font-medium">{item.name}</h3>
                           </div>
                           <div className="flex shrink-0 items-center gap-3">
                             {priceMoved && (
-                              <span className="num text-[13px] text-ink-foreground/50 line-through">
+                              <span className="num text-[13px] text-muted-foreground line-through">
                                 {formatNative(item.price, item.currency)}
                               </span>
                             )}
                             <span
-                              className={`num display text-lg ${delta < 0 ? "text-signal" : "text-ink-foreground"}`}
+                              className={`num display text-lg ${delta < 0 ? "text-signal" : "text-foreground"}`}
                             >
                               {formatNative(current.price, current.currency)}
                             </span>
                             {priceMoved && (
-                              <span className="num inline-flex items-center gap-1 text-[11px] font-semibold text-ink-foreground/70">
+                              <span className="num inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
                                 <TrendingDown className={`h-3 w-3 ${delta > 0 ? "rotate-180" : ""}`} />
                                 {delta < 0 ? "−" : "+"}
                                 {formatNative(Math.abs(delta), current.currency)}
                               </span>
                             )}
                             {!current.isAvailable && (
-                              <span className="pill inline-flex items-center gap-1 bg-ink-foreground/10 px-2 py-0.5 text-[10px] font-semibold text-ink-foreground/70">
+                              <span className="pill inline-flex items-center gap-1 bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                                 <PackageX className="h-3 w-3" />
                                 Gone
                               </span>
@@ -613,13 +603,13 @@ export default function TodayPage() {
                   <h2 className="page-title text-[clamp(2rem,7vw,3.25rem)]">
                     Track a piece.
                   </h2>
-                  <p className="mt-4 max-w-md text-[13px] text-ink-foreground/60">
+                  <p className="mt-4 max-w-md text-[13px] text-muted-foreground">
                     <Heart className="mr-1.5 inline h-4 w-4 align-[-3px]" strokeWidth={1.8} />
                     Save anything in the catalogue and this page reports back when its price
                     moves, when a size returns, and when it is gone.
                   </p>
                 </div>
-                <Link href="/login" className="btn btn-lg shrink-0 bg-ink-foreground text-ink hover:opacity-90">
+                <Link href="/login" className="btn btn-primary btn-lg shrink-0">
                   Sign in <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
