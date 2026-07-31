@@ -224,7 +224,7 @@ function buildClusters(drops: Drop[], live: Map<string, LiveState>, mySizes: str
 function ClusterCard({ card, fmt }: { card: DropCard; fmt: (price: number, currency: string) => string }) {
   return (
     <div className={card.gone ? "opacity-60" : ""}>
-      <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
+      <div className="card-lift relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
         <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5">
           <div className="flex flex-wrap gap-1">
             {card.regions.map((r) => (
@@ -250,7 +250,7 @@ function ClusterCard({ card, fmt }: { card: DropCard; fmt: (price: number, curre
       </div>
       <Link href={card.href} className="flex items-baseline justify-between gap-3 mt-3 px-1">
         <h3 className="text-[13px] font-medium leading-snug line-clamp-1">{card.title}</h3>
-        <p className="text-[13px] text-muted-foreground shrink-0">{fmt(card.price, card.currency)}</p>
+        <p className="num text-[13px] text-muted-foreground shrink-0">{fmt(card.price, card.currency)}</p>
       </Link>
     </div>
   )
@@ -401,6 +401,7 @@ export default function DropsPage() {
             <p className="text-[13px] text-muted-foreground mt-1">
               Every new release, restock and price change across six regions.
             </p>
+            <hr className="hairline-signal mt-5" />
           </div>
 
           {/* Filters */}
@@ -409,11 +410,7 @@ export default function DropsPage() {
               <button
                 key={t.id || "all"}
                 onClick={() => setChangeType(t.id)}
-                className={`pill px-3.5 py-1.5 text-xs transition-colors ${
-                  changeType === t.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
+                className={`chip ${changeType === t.id ? "chip-on" : ""}`}
               >
                 {t.label}
               </button>
@@ -423,11 +420,7 @@ export default function DropsPage() {
               <button
                 key={r || "all"}
                 onClick={() => setRegion(r)}
-                className={`pill px-3 py-1.5 text-xs uppercase transition-colors ${
-                  region === r
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
+                className={`chip uppercase ${region === r ? "chip-on" : ""}`}
               >
                 {r || "All"}
               </button>
@@ -481,7 +474,7 @@ export default function DropsPage() {
                     setChangeType("")
                     setRegion("")
                   }}
-                  className="pill mt-5 px-4 py-2 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground"
+                  className="btn btn-secondary btn-sm mt-5"
                 >
                   Clear filters
                 </button>
@@ -494,14 +487,20 @@ export default function DropsPage() {
                 <section className="pb-12">
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-5">
                     <h2 className="display text-xl md:text-2xl">Drop — {dayLabel(hero.endIso)}</h2>
-                    <p className="text-[13px] text-muted-foreground">
+                    <p className="num text-[13px] text-muted-foreground">
                       {hero.cards.length} piece{hero.cards.length === 1 ? "" : "s"} ·{" "}
                       <span className="uppercase">{hero.regions.join(" · ")}</span>
                     </p>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8">
-                    {hero.cards.map((card) => (
-                      <ClusterCard key={card.key} card={card} fmt={fmt} />
+                    {hero.cards.map((card, i) => (
+                      <div
+                        key={card.key}
+                        className="opacity-0 animate-rise"
+                        style={{ animationDelay: `${Math.min(i * 60, 360)}ms` }}
+                      >
+                        <ClusterCard card={card} fmt={fmt} />
+                      </div>
                     ))}
                   </div>
                 </section>
@@ -519,9 +518,9 @@ export default function DropsPage() {
                         <div key={cluster.key}>
                           <button
                             onClick={() => toggleCluster(cluster.key)}
-                            className="w-full flex items-center justify-between gap-3 rounded-2xl bg-secondary px-4 py-3 text-left hover:bg-border transition-colors"
+                            className="btn btn-secondary btn-lg w-full justify-between gap-3 px-4 text-left"
                           >
-                            <span className="text-[13px] font-medium">
+                            <span className="num text-[13px] font-medium">
                               {dayLabel(cluster.endIso)} — {cluster.cards.length} piece
                               {cluster.cards.length === 1 ? "" : "s"}
                             </span>
@@ -591,7 +590,7 @@ export default function DropsPage() {
                                   </div>
                                   <h3 className="text-[13px] font-medium truncate">{drop.title}</h3>
                                   {oldPrice !== null && (
-                                    <p className="text-[12px] text-muted-foreground">
+                                    <p className="num text-[12px] text-muted-foreground">
                                       <span className="line-through">{fmt(oldPrice, drop.currency)}</span>
                                       {" → "}
                                       <span className="text-signal font-medium">{fmt(drop.price, drop.currency)}</span>
@@ -606,8 +605,8 @@ export default function DropsPage() {
                                 </div>
 
                                 <div className="text-right shrink-0">
-                                  <p className="text-[13px] font-medium">{fmt(drop.price, drop.currency)}</p>
-                                  <p className="text-[11px] text-muted-foreground">{timeAgo(drop.detected_at)}</p>
+                                  <p className="num text-[13px] font-medium">{fmt(drop.price, drop.currency)}</p>
+                                  <p className="num text-[11px] text-muted-foreground">{timeAgo(drop.detected_at)}</p>
                                 </div>
                               </Link>
                             )

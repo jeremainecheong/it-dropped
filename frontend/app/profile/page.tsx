@@ -145,10 +145,11 @@ function ProfileContent() {
                     {/* Info */}
                     <div className="flex-1">
                         <h1 className="text-2xl lg:text-3xl font-medium mb-1">{user?.name || "User"}</h1>
+                        <div className="hairline-signal mb-2" />
                         <p className="text-muted-foreground mb-4">{user?.email}</p>
                         <div className="flex flex-wrap gap-6 text-sm">
                             <div>
-                                <span className="text-2xl font-medium">{stats.wishlist}</span>
+                                <span className="num text-2xl font-medium">{stats.wishlist}</span>
                                 <span className="text-muted-foreground ml-2">Saved</span>
                             </div>
                         </div>
@@ -156,7 +157,7 @@ function ProfileContent() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex items-center gap-1 py-4 border-b border-border overflow-x-auto">
+                <div className="flex items-center gap-2 py-4 border-b border-border overflow-x-auto">
                     {[
                         { id: "wishlist", label: "Wishlist", icon: Heart },
                         { id: "settings", label: "Settings", icon: Settings },
@@ -164,12 +165,9 @@ function ProfileContent() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${activeTab === tab.id
-                                ? "bg-foreground text-background"
-                                : "hover:bg-muted"
-                                }`}
+                            className={`chip ${activeTab === tab.id ? "chip-on" : ""}`}
                         >
-                            <tab.icon className="w-4 h-4" />
+                            <tab.icon className="w-3.5 h-3.5" />
                             {tab.label}
                         </button>
                     ))}
@@ -184,27 +182,38 @@ function ProfileContent() {
                                 <div className="text-center py-12">
                                     <Heart className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                                     <p className="text-muted-foreground">No saved items</p>
-                                    <Link href="/shop" className="inline-block mt-4 px-6 py-2 bg-foreground text-background text-sm">
+                                    <Link href="/shop" className="btn btn-primary mt-4">
                                         Browse Shop
                                     </Link>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    {wishlistItems.slice(0, 6).map((item) => (
-                                        <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer" className="group">
-                                            <div className="aspect-[3/4] bg-muted mb-2 overflow-hidden">
+                                    {wishlistItems.slice(0, 6).map((item, index) => (
+                                        <a
+                                            key={item.id}
+                                            href={item.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group animate-rise"
+                                            // "both" so a delayed card holds the from-state instead
+                                            // of flashing in before its turn.
+                                            style={{ animationDelay: `${Math.min(index * 40, 200)}ms`, animationFillMode: "both" }}
+                                        >
+                                            <div className="card-lift aspect-[3/4] bg-secondary rounded-2xl mb-2 overflow-hidden">
                                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                             </div>
                                             <h4 className="text-sm font-medium truncate">{item.name}</h4>
-                                            <p className="text-xs text-muted-foreground">{item.currency} {item.price}</p>
+                                            <p className="num text-xs text-muted-foreground">{item.currency} {item.price}</p>
                                         </a>
                                     ))}
                                 </div>
                             )}
                             {wishlistItems.length > 6 && (
-                                <Link href="/wishlist" className="block text-center mt-6 text-sm text-muted-foreground hover:text-foreground">
-                                    View all {wishlistItems.length} items →
-                                </Link>
+                                <div className="text-center mt-6">
+                                    <Link href="/wishlist" className="btn btn-ghost num">
+                                        View all {wishlistItems.length} items →
+                                    </Link>
+                                </div>
                             )}
                         </div>
                     )}
@@ -213,7 +222,7 @@ function ProfileContent() {
                     {activeTab === "settings" && (
                         <div className="space-y-6">
                             {/* Account */}
-                            <div className="p-4 border border-border">
+                            <div className="rounded-2xl bg-secondary p-5">
                                 <h3 className="flex items-center gap-2 text-sm font-medium mb-4">
                                     <User className="w-4 h-4" /> Account
                                 </h3>
@@ -230,7 +239,7 @@ function ProfileContent() {
                             </div>
 
                             {/* Notifications */}
-                            <div className="p-4 border border-border">
+                            <div className="rounded-2xl bg-secondary p-5">
                                 <h3 className="flex items-center gap-2 text-sm font-medium mb-4">
                                     <Bell className="w-4 h-4" /> Notifications
                                 </h3>
@@ -253,9 +262,11 @@ function ProfileContent() {
                                 </div>
 
                                 {/* /profile/alerts had no inbound link anywhere in the app. */}
+                                {/* bg-background, not btn-secondary: the card behind it is
+                                    already --secondary, which would swallow the button. */}
                                 <Link
                                     href="/profile/alerts"
-                                    className="inline-flex items-center gap-2 mt-4 px-4 py-2 border border-border text-sm hover:border-foreground transition-colors"
+                                    className="btn btn-sm mt-4 bg-background hover:bg-border"
                                 >
                                     <Bell className="w-4 h-4" />
                                     Manage your alerts
@@ -263,13 +274,15 @@ function ProfileContent() {
                             </div>
 
                             {/* Danger Zone */}
-                            <div className="p-4 border border-destructive/30">
+                            <div className="rounded-2xl bg-secondary p-5">
                                 <h3 className="flex items-center gap-2 text-sm font-medium text-destructive mb-4">
                                     <Shield className="w-4 h-4" /> Danger Zone
                                 </h3>
+                                {/* Bare .btn, no variant: variant colours are unlayered CSS
+                                    and would beat the destructive utilities. */}
                                 <button
                                     onClick={handleLogout}
-                                    className="px-4 py-2 border border-destructive text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                                    className="btn btn-sm border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                                 >
                                     Sign Out
                                 </button>

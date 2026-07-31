@@ -42,11 +42,7 @@ export function CategoryWatchPanel() {
               onClick={() => toggle(cat.key)}
               disabled={loading}
               aria-pressed={on}
-              className={`pill inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${
-                on
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
+              className={`chip disabled:opacity-50 ${on ? "chip-on" : ""}`}
             >
               <Bell className={`w-3.5 h-3.5 ${on ? "fill-current" : ""}`} />
               {cat.label}

@@ -162,17 +162,19 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                         placeholder="Search every region…"
                         className="flex-1 min-w-0 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
                     />
+                    {/* px-0! — .chip's unlayered padding outranks the layered
+                        utility; this one holds an icon, nothing else. */}
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         aria-label="Filters"
-                        className={`pill flex items-center justify-center w-8 h-8 transition-colors ${showFilters ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`chip w-8 justify-center px-0! ${showFilters ? "chip-on" : ""}`}
                     >
                         <Filter className="w-4 h-4" />
                     </button>
                     <button
                         onClick={onClose}
                         aria-label="Close search"
-                        className="pill flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-foreground transition-colors"
+                        className="btn btn-ghost btn-icon"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -187,10 +189,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                                     <button
                                         key={r.code}
                                         onClick={() => setRegion(r.code)}
-                                        className={`pill px-3 py-1 text-xs transition-colors ${region === r.code
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-secondary text-muted-foreground hover:text-foreground"
-                                            }`}
+                                        className={`chip ${region === r.code ? "chip-on" : ""}`}
                                     >
                                         {r.name}
                                     </button>
@@ -199,10 +198,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                         </div>
                         <button
                             onClick={() => setAvailableOnly(!availableOnly)}
-                            className={`pill px-3 py-1 text-xs transition-colors ${availableOnly
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-secondary text-muted-foreground hover:text-foreground"
-                                }`}
+                            className={`chip ${availableOnly ? "chip-on" : ""}`}
                         >
                             In stock only
                         </button>
@@ -223,8 +219,12 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                         </div>
                     ) : results.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                            {results.map((item) => (
-                                <div key={item.id} className="group relative">
+                            {results.map((item, i) => (
+                                <div
+                                    key={item.id}
+                                    className="group relative opacity-0 animate-rise"
+                                    style={{ animationDelay: `${Math.min(i * 40, 240)}ms` }}
+                                >
                                     <Link href={`/product/${item.id}`} onClick={onClose}>
                                         <div className="aspect-[3/4] bg-secondary rounded-2xl mb-2.5 overflow-hidden relative">
                                             <ImageWithLoading
@@ -240,16 +240,16 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                                         </div>
                                         <h3 className="text-[13px] font-medium line-clamp-1 px-0.5">{item.title}</h3>
                                         <div className="flex items-center justify-between text-[13px] text-muted-foreground px-0.5">
-                                            <span>{formatPrice(item.price, item.currency)}</span>
+                                            <span className="num">{formatPrice(item.price, item.currency)}</span>
                                             <span className="uppercase text-[11px]">{item.region}</span>
                                         </div>
                                     </Link>
                                     <button
                                         onClick={(e) => handleWishlist(item, e)}
                                         aria-label="Toggle wishlist"
-                                        className={`pill absolute top-3 right-3 w-8 h-8 flex items-center justify-center transition-all ${isWishlisted(item.id)
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-background/90 backdrop-blur text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-foreground"
+                                        className={`btn btn-icon absolute top-3 right-3 ${isWishlisted(item.id)
+                                            ? "btn-primary"
+                                            : "btn-secondary opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                             }`}
                                     >
                                         <Heart className={`w-3.5 h-3.5 ${isWishlisted(item.id) ? "fill-current" : ""}`} />

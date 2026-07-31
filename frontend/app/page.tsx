@@ -238,7 +238,9 @@ export default function TodayPage() {
               Today
             </p>
             <h1 className="display text-2xl md:text-3xl">Next expected drop</h1>
-            <p className="display text-5xl sm:text-6xl mt-4 tabular-nums" suppressHydrationWarning>
+            {/* .num, not proportional figures — this line re-renders every
+                second and anything else wobbles. */}
+            <p className="display num text-5xl sm:text-6xl mt-4" suppressHydrationWarning>
               {nowMs === null ? "—" : countdownLabel(nowMs)}
             </p>
             <p className="text-[13px] text-muted-foreground mt-2.5">
@@ -247,16 +249,14 @@ export default function TodayPage() {
             <p className="text-[13px] text-muted-foreground mt-1">
               {lastScrapeAt ? `Catalogue checked ${timeAgo(lastScrapeAt)}` : "Catalogue freshness unknown"}
             </p>
+            <hr className="hairline-signal mt-5" />
           </section>
 
           {/* Latest drops */}
           <section className="pb-12">
             <div className="flex items-end justify-between mb-4">
               <h2 className="display text-xl sm:text-2xl">Latest drops</h2>
-              <Link
-                href="/drops"
-                className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <Link href="/drops" className="btn btn-ghost btn-sm -mr-3.5">
                 All drops <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -279,8 +279,15 @@ export default function TodayPage() {
               </p>
             ) : (
               <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:-mx-6 sm:px-6 pb-1">
-                {latest.map((p) => (
-                  <Link key={p.id} href={`/product/${p.id}`} className="group w-40 sm:w-44 shrink-0">
+                {latest.map((p, i) => (
+                  <Link
+                    key={p.id}
+                    href={`/product/${p.id}`}
+                    className="group w-40 sm:w-44 shrink-0 animate-rise"
+                    // "both" so a delayed card holds the from-state instead of
+                    // flashing in before its turn.
+                    style={{ animationDelay: `${Math.min(i * 50, 300)}ms`, animationFillMode: "both" }}
+                  >
                     <div className="card-lift relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
                       <ImageWithLoading
                         src={p.image_url}
@@ -292,7 +299,7 @@ export default function TodayPage() {
                       </span>
                     </div>
                     <h3 className="text-[13px] font-medium truncate mt-2.5 px-0.5">{p.title}</h3>
-                    <p className="text-[13px] text-muted-foreground px-0.5">{fmt(p.price, p.currency)}</p>
+                    <p className="num text-[13px] text-muted-foreground px-0.5">{fmt(p.price, p.currency)}</p>
                   </Link>
                 ))}
               </div>
@@ -304,10 +311,7 @@ export default function TodayPage() {
             <section className="pb-12">
               <div className="flex items-end justify-between mb-4">
                 <h2 className="display text-xl sm:text-2xl">Your saved items</h2>
-                <Link
-                  href="/wishlist"
-                  className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <Link href="/wishlist" className="btn btn-ghost btn-sm -mr-3.5">
                   View saved <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -335,7 +339,7 @@ export default function TodayPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-[13px] font-medium truncate">{item.name}</h3>
-                          <p className="text-[12px] text-muted-foreground">
+                          <p className="num text-[12px] text-muted-foreground">
                             {priceMoved ? (
                               <>
                                 <span className="line-through">{formatNative(item.price, item.currency)}</span>{" "}
@@ -352,7 +356,7 @@ export default function TodayPage() {
                         <div className="flex items-center gap-1.5 shrink-0">
                           {priceMoved && (
                             <span
-                              className={`pill inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold ${
+                              className={`pill num inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold ${
                                 delta < 0 ? "bg-signal text-signal-foreground" : "bg-secondary text-muted-foreground"
                               }`}
                             >
@@ -391,10 +395,7 @@ export default function TodayPage() {
                   <Heart className="w-4 h-4 shrink-0" strokeWidth={1.8} />
                   Sign in to save items and see when their prices move.
                 </p>
-                <Link
-                  href="/login"
-                  className="pill shrink-0 px-5 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-85"
-                >
+                <Link href="/login" className="btn btn-primary shrink-0">
                   Sign in
                 </Link>
               </div>
@@ -405,10 +406,7 @@ export default function TodayPage() {
           <section className="pb-12">
             <div className="flex items-end justify-between mb-4">
               <h2 className="display text-xl sm:text-2xl">Price cuts</h2>
-              <Link
-                href="/drops?type=price_drop"
-                className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <Link href="/drops?type=price_drop" className="btn btn-ghost btn-sm -mr-3.5">
                 All cuts <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -436,7 +434,7 @@ export default function TodayPage() {
                     <>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-[13px] font-medium truncate">{cut.title}</h3>
-                        <p className="text-[12px] text-muted-foreground">
+                        <p className="num text-[12px] text-muted-foreground">
                           {Number.isFinite(oldPrice) && (
                             <>
                               <span className="line-through">{formatNative(oldPrice, cut.currency)}</span>{" "}
@@ -472,7 +470,7 @@ export default function TodayPage() {
             <div className="flex flex-wrap justify-center gap-x-24 gap-y-8 py-2">
               {stats.map((stat) => (
                 <div key={stat.label} className="text-center">
-                  <p className="display text-4xl sm:text-5xl">{stat.value}</p>
+                  <p className="display num text-4xl sm:text-5xl">{stat.value}</p>
                   <p className="text-[13px] text-muted-foreground mt-1.5">{stat.label}</p>
                 </div>
               ))}

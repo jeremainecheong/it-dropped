@@ -228,10 +228,7 @@ function ShopPageContent() {
     const clearFilters = () => router.replace("/shop", { scroll: false })
     const hasActiveFilters = !!category || !!size || inStockOnly
 
-    const chip = (active: boolean) =>
-        `pill shrink-0 px-3.5 py-1.5 text-xs transition-colors ${
-            active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
-        }`
+    const chip = (active: boolean) => `chip shrink-0 ${active ? "chip-on" : ""}`
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -240,9 +237,10 @@ function ShopPageContent() {
             <main className="pt-12 pb-nav">
                 <div className="px-4 lg:px-8 pt-8 pb-5">
                     <h1 className="display text-2xl md:text-3xl">{sortBy === "newest" ? "Latest drops" : "All styles"}</h1>
-                    <p className="text-[13px] text-muted-foreground mt-1">
+                    <p className="num text-[13px] text-muted-foreground mt-1">
                         {totalStyles !== null ? `${totalStyles.toLocaleString()} styles across 6 stores` : "Every garment, every store"}
                     </p>
+                    <hr className="hairline-signal mt-5" />
                 </div>
 
                 {/* Filters: chip rows that scroll sideways on a phone. Regions are
@@ -268,7 +266,7 @@ function ShopPageContent() {
                             <button
                                 key={s}
                                 onClick={() => setParams({ size: size === s ? null : s })}
-                                className={`${chip(size === s)} min-w-9`}
+                                className={`${chip(size === s)} min-w-9 justify-center`}
                             >
                                 {s}
                             </button>
@@ -296,10 +294,7 @@ function ShopPageContent() {
                             </button>
                         ))}
                         {hasActiveFilters && (
-                            <button
-                                onClick={clearFilters}
-                                className="shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                            >
+                            <button onClick={clearFilters} className="btn btn-ghost btn-sm shrink-0">
                                 Clear
                             </button>
                         )}
@@ -310,15 +305,11 @@ function ShopPageContent() {
                     <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-4 lg:px-8 pb-5">
                         <span className="label shrink-0">Your sizes?</span>
                         {SIZE_CHIPS.map((s) => (
-                            <button key={s} onClick={() => toggleMySize(s)} className={`${chip(prefs.sizes.includes(s))} min-w-9`}>
+                            <button key={s} onClick={() => toggleMySize(s)} className={`${chip(prefs.sizes.includes(s))} min-w-9 justify-center`}>
                                 {s}
                             </button>
                         ))}
-                        <button
-                            onClick={dismissNudge}
-                            aria-label="Dismiss"
-                            className="pill shrink-0 w-7 h-7 flex items-center justify-center bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                        >
+                        <button onClick={dismissNudge} aria-label="Dismiss" className="btn btn-secondary btn-icon shrink-0">
                             <X className="w-3.5 h-3.5" />
                         </button>
                     </div>
@@ -340,10 +331,7 @@ function ShopPageContent() {
                             <Package className="w-10 h-10 mx-auto text-muted-foreground mb-4" strokeWidth={1.5} />
                             <p className="text-sm text-muted-foreground">No styles found</p>
                             {hasActiveFilters && (
-                                <button
-                                    onClick={clearFilters}
-                                    className="pill mt-5 px-5 py-2 bg-secondary text-[13px] font-medium hover:bg-border transition-colors"
-                                >
+                                <button onClick={clearFilters} className="btn btn-secondary mt-5">
                                     Clear filters
                                 </button>
                             )}
@@ -378,7 +366,7 @@ function ShopPageContent() {
                                     >
                                         <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden">
                                             {inMySize && (
-                                                <span className="pill absolute top-3 left-3 z-20 bg-foreground text-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">
+                                                <span className="pill absolute top-3 left-3 z-20 bg-primary text-primary-foreground px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">
                                                     In your size
                                                 </span>
                                             )}
@@ -409,7 +397,7 @@ function ShopPageContent() {
                                         <Link href={`/product/${chosenId}`} className="block mt-3 px-1">
                                             <div className="flex items-baseline justify-between gap-3">
                                                 <h3 className="text-[13px] font-medium leading-snug line-clamp-1">{group.title}</h3>
-                                                <p className={`text-[13px] shrink-0 ${group.anyAvailable ? "text-muted-foreground" : "text-muted-foreground/60"}`}>
+                                                <p className={`num text-[13px] shrink-0 ${group.anyAvailable ? "text-muted-foreground" : "text-muted-foreground/60"}`}>
                                                     {fmt(priced.price, priced.currency)}
                                                 </p>
                                             </div>
@@ -442,10 +430,7 @@ function ShopPageContent() {
                             {isLoadingMore ? (
                                 <div className="text-[13px] text-muted-foreground">Loading…</div>
                             ) : (
-                                <button
-                                    onClick={() => loadMore()}
-                                    className="pill px-6 py-2.5 bg-secondary text-[13px] font-medium hover:bg-border transition-colors"
-                                >
+                                <button onClick={() => loadMore()} className="btn btn-secondary">
                                     Load more
                                 </button>
                             )}

@@ -130,8 +130,12 @@ export function TrendingProducts({ limit = 8, title = "Trending" }: TrendingProd
                 </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {products.map((product) => (
-                    <div key={product.id} className="group relative">
+                {products.map((product, i) => (
+                    <div
+                        key={product.id}
+                        className="group relative opacity-0 animate-rise"
+                        style={{ animationDelay: `${Math.min(i * 50, 300)}ms` }}
+                    >
                         <Link href={`/product/${product.id}`}>
                             <div className="aspect-[3/4] bg-muted mb-2 overflow-hidden relative">
                                 <ImageWithLoading
@@ -144,23 +148,25 @@ export function TrendingProducts({ limit = 8, title = "Trending" }: TrendingProd
                                         <span className="text-xs uppercase tracking-widest">Sold Out</span>
                                     </div>
                                 )}
-                                <span className="absolute top-2 left-2 px-2 py-0.5 bg-background text-foreground text-[10px] uppercase">
+                                <span className="pill absolute top-2 left-2 px-2 py-0.5 bg-background text-foreground text-[10px] uppercase">
                                     {product.region}
                                 </span>
                             </div>
                             <h3 className="text-xs uppercase tracking-wide line-clamp-1 mb-0.5">
                                 {product.title}
                             </h3>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="num text-xs text-muted-foreground">
                                 {formatPrice(product.price, product.currency)}
                             </p>
                         </Link>
+                        {/* px-0! — .chip's unlayered padding outranks the layered
+                            utility, and an icon-only chip needs none of it. */}
                         <button
                             onClick={(e) => handleWishlist(product, e)}
-                            className={`absolute top-2 right-2 p-2 rounded transition-all opacity-0 group-hover:opacity-100 ${isWishlisted(product.id)
-                                    ? "bg-foreground text-background"
-                                    : "bg-background/80 hover:bg-foreground hover:text-background"
-                                }`}
+                            aria-label="Toggle wishlist"
+                            className={`chip w-8 justify-center px-0! absolute top-2 right-2 opacity-0 group-hover:opacity-100 ${
+                                isWishlisted(product.id) ? "chip-on" : ""
+                            }`}
                         >
                             <Heart className={`w-4 h-4 ${isWishlisted(product.id) ? "fill-current" : ""}`} />
                         </button>

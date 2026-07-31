@@ -171,7 +171,7 @@ export function PriceAlertModal({
                         <Bell className="w-4 h-4" />
                         <span className="text-[15px] font-semibold">Set alert</span>
                     </div>
-                    <button onClick={onClose} aria-label="Close" className="pill w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">
+                    <button onClick={onClose} aria-label="Close" className="btn btn-ghost btn-icon">
                         <X className="w-4 h-4" />
                     </button>
                 </div>
@@ -180,7 +180,7 @@ export function PriceAlertModal({
                     <div>
                         <p className="text-sm font-medium mb-1 line-clamp-1">{productName}</p>
                         <p className="text-[13px] text-muted-foreground">
-                            Current price: {formatPrice(currentPrice)}
+                            Current price: <span className="num">{formatPrice(currentPrice)}</span>
                         </p>
                     </div>
 
@@ -198,10 +198,7 @@ export function PriceAlertModal({
                             <p className="text-[13px] text-muted-foreground mb-4">
                                 Alerts are tied to your account.
                             </p>
-                            <Link
-                                href="/login"
-                                className="pill inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold"
-                            >
+                            <Link href="/login" className="btn btn-primary btn-sm">
                                 Sign in to get notified
                             </Link>
                         </div>
@@ -216,14 +213,14 @@ export function PriceAlertModal({
                                 <Link
                                     href="/profile/alerts"
                                     onClick={onClose}
-                                    className="pill inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold"
+                                    className="btn btn-primary btn-sm"
                                 >
                                     View your alerts
                                 </Link>
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="pill px-4 py-2 text-xs font-semibold bg-secondary text-muted-foreground hover:text-foreground"
+                                    className="btn btn-secondary btn-sm"
                                 >
                                     Done
                                 </button>
@@ -246,10 +243,9 @@ export function PriceAlertModal({
                                                     ? `${option.label} (alert already set)`
                                                     : option.label
                                             }
-                                            className={`pill py-2 text-xs font-medium transition-colors ${alertType === option.type
-                                                    ? "bg-primary text-primary-foreground"
-                                                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                                                }`}
+                                            className={`chip justify-center ${
+                                                alertType === option.type ? "chip-on" : ""
+                                            }`}
                                         >
                                             {option.label}
                                             {existing[option.type] && (
@@ -270,7 +266,7 @@ export function PriceAlertModal({
                             )}
 
                             {current && (
-                                <div className="rounded-xl bg-secondary px-4 py-3 text-[13px]">
+                                <div className="num rounded-xl bg-secondary px-4 py-3 text-[13px]">
                                     <p className="font-medium">
                                         You already have this alert
                                         {current.is_active ? "" : " (paused)"}.
@@ -298,9 +294,9 @@ export function PriceAlertModal({
                                         max={currentPrice - 1}
                                         min={1}
                                         step={1}
-                                        className="w-full px-4 py-3 bg-secondary rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 transition-shadow"
+                                        className="num w-full px-4 py-3 bg-secondary rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 transition-shadow"
                                     />
-                                    <p className="text-xs text-muted-foreground mt-1">
+                                    <p className="num text-xs text-muted-foreground mt-1">
                                         Alert when price drops to {formatPrice(targetPrice)} or below
                                     </p>
                                 </div>
@@ -309,7 +305,7 @@ export function PriceAlertModal({
                             <button
                                 type="submit"
                                 disabled={isSubmitting || isLoadingExisting}
-                                className="pill w-full py-3 bg-primary text-primary-foreground text-sm font-medium hover:opacity-85 disabled:opacity-50"
+                                className="btn btn-primary btn-lg w-full"
                             >
                                 {isSubmitting
                                     ? "Saving..."
