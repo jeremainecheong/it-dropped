@@ -32,8 +32,11 @@
   --ring: #1d1d1f;
   --radius: 0.75rem;
 
-  /* Live / alert accent — used sparingly */
-  --signal: #e11d2e;
+  /* "Signal" no longer means red. The palette is monochrome: a price that
+   * moved, a live state, a piece in your size — all of it now reads through
+   * weight, rule and context rather than hue. The token stays so every call
+   * site keeps its meaning; only the colour changed. */
+  --signal: #1d1d1f;
   --signal-foreground: #ffffff;
 
   /* Elevation. Two stops only: soft for resting surfaces, pop for things
@@ -63,8 +66,8 @@
   --input: #1c1c1e;
   --ring: #f5f5f7;
 
-  --signal: #ff453a;
-  --signal-foreground: #ffffff;
+  --signal: #f5f5f7;
+  --signal-foreground: #0b0b0c;
 
   --shadow-soft: 0 2px 12px -4px rgb(0 0 0 / 0.5);
   --shadow-pop: 0 8px 24px -12px rgb(0 0 0 / 0.85);
@@ -356,14 +359,13 @@ button:focus-visible {
   font-feature-settings: "tnum" 1;
 }
 
-/* Section-header accent: a hairline that starts signal-red and dissolves.
- * The one permitted decorative use of the signal colour — everywhere else it
- * means "live" or "price moved", and diluting that would cost more than any
- * amount of decoration buys. */
+/* Section rule. It began as a red-to-transparent gradient; with the palette
+ * monochrome it is simply a hairline that fades, which is all it was ever
+ * doing structurally. */
 .hairline-signal {
   height: 1px;
   border: 0;
-  background: linear-gradient(90deg, var(--signal) 0%, var(--border) 35%, transparent 100%);
+  background: linear-gradient(90deg, var(--border) 0%, var(--border) 55%, transparent 100%);
 }
 
 /* Slow pulse for the brand dot */
